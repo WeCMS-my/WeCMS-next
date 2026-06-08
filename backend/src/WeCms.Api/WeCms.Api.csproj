@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>WeCms.Api</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
+    <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-preview.*" />
+    <PackageReference Include="Dapper" Version="2.1.66" />
+  </ItemGroup>
+
+  <ItemGroup><PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-preview.*" /></ItemGroup></Project>

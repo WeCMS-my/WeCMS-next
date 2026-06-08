@@ -1,0 +1,16 @@
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\bin\Debug\net10.0\WeCms.Modules.Cms.deps.json
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\bin\Debug\net10.0\WeCms.Modules.Cms.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\bin\Debug\net10.0\WeCms.Modules.Cms.pdb
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\bin\Debug\net10.0\WeCms.Shared.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\bin\Debug\net10.0\WeCms.Shared.pdb
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.csproj.AssemblyReference.cache
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.GeneratedMSBuildEditorConfig.editorconfig
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.AssemblyInfoInputs.cache
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.AssemblyInfo.cs
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.csproj.CoreCompileInputs.cache
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.sourcelink.json
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Mo.B118CC2E.Up2Date
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\refint\WeCms.Modules.Cms.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\WeCms.Modules.Cms.pdb
+E:\Github\WeCMS-next\backend\src\WeCms.Modules.Cms\obj\Debug\net10.0\ref\WeCms.Modules.Cms.dll

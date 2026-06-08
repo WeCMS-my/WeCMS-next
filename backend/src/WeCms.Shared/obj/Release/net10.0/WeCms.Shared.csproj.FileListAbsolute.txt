@@ -1,0 +1,12 @@
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\bin\Release\net10.0\WeCms.Shared.deps.json
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\bin\Release\net10.0\WeCms.Shared.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\bin\Release\net10.0\WeCms.Shared.pdb
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.GeneratedMSBuildEditorConfig.editorconfig
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.AssemblyInfoInputs.cache
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.AssemblyInfo.cs
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.csproj.CoreCompileInputs.cache
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.sourcelink.json
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\refint\WeCms.Shared.dll
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\WeCms.Shared.pdb
+E:\Github\WeCMS-next\backend\src\WeCms.Shared\obj\Release\net10.0\ref\WeCms.Shared.dll

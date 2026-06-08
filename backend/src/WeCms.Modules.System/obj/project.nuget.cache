@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "VjTil4DGrFI=",
+  "success": true,
+  "projectFilePath": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Modules.System\\WeCms.Modules.System.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ALi365\\.nuget\\packages\\dapper\\2.1.66\\dapper.2.1.66.nupkg.sha512"
+  ],
+  "logs": []
+}

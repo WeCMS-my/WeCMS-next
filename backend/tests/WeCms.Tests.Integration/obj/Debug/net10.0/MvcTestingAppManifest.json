@@ -1,0 +1,7 @@
+{
+  "WeCms.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Api",
+  "WeCms.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Infrastructure",
+  "WeCms.Modules.Cms, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Modules.Cms",
+  "WeCms.Modules.System, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Modules.System",
+  "WeCms.Shared, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Shared"
+}
