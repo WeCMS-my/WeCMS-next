@@ -23,10 +23,10 @@ public static class ServiceCollectionExtensions
         var cs = configuration.GetConnectionString("Default") ?? throw new InvalidOperationException("DB connection string required");
         services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(cs));
         var secret = configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret required");
-        services.AddSingleton<ITokenService>(new TokenService(secret, 900));
+        services.AddSingleton<IClock>(new SystemClock());
+        services.AddSingleton<ITokenService>(sp => new TokenService(secret, sp.GetRequiredService<IClock>(), 900));
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITwoFactorService, TwoFactorService>();
-        services.AddSingleton<IClock>(new SystemClock());
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUserProvider>();
         services.AddScoped<IAuthService, AuthService>();

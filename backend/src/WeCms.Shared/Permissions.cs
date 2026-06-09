@@ -1,4 +1,4 @@
- namespace WeCms.Shared.Security;
+ namespace WeCms.Shared;
  
  public static class Permissions
  {

@@ -2,7 +2,7 @@
  
  namespace WeCms.Modules.System.Settings;
  
- public sealed class SettingService(IDbConnectionFactory db) : ISettingService
+ public sealed class SettingService(IDbConnectionFactory db, IClock clock) : ISettingService
  {
      private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase) { "smtp_pass", "auth_key", "jwt_secret", "sms_secret" };
  
@@ -20,7 +20,7 @@
         await using var conn = await db.OpenAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(
             "INSERT INTO sys_setting (`key`,`value`,updated_at) VALUES (@K,@V,@Now) ON DUPLICATE KEY UPDATE `value`=@V, updated_at=@Now",
-            new { K = key, V = value, Now = DateTime.UtcNow }, cancellationToken: ct));
+            new { K = key, V = value, Now = clock.UtcNow.DateTime }, cancellationToken: ct));
     }
  
      private sealed record SettingRow(string Key, string Value, string Group, string Description);

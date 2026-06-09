@@ -79,7 +79,7 @@ public sealed class AuthService : IAuthService
             if (row is null || string.IsNullOrEmpty(row.Secret)) return null;
 
             // TOTP replay protection: same time window cannot be reused
-            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var now = _clock.UtcNow.ToUnixTimeSeconds();
             var step = now / 30;
             if (row.LastUsedStep == step) return null;
 

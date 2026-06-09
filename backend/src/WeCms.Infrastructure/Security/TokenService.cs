@@ -80,7 +80,7 @@ public sealed class TokenService : ITokenService
             issuer: Issuer,
             audience: Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddSeconds(_accessTokenExpirySeconds),
+            expires: _clock.UtcNow.DateTime.AddSeconds(_accessTokenExpirySeconds),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
         );
 

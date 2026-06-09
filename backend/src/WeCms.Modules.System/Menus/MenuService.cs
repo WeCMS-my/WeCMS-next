@@ -2,7 +2,7 @@
  
  namespace WeCms.Modules.System.Menus;
  
- public sealed class MenuService(IDbConnectionFactory db) : IMenuService
+ public sealed class MenuService(IDbConnectionFactory db, IClock clock) : IMenuService
  {
      public async Task<List<MenuTreeItem>> GetTreeAsync(CancellationToken ct)
      {
@@ -30,8 +30,8 @@
             // Circular reference check: new node has no children yet, so parent cannot be its descendant
         }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition(
-             "INSERT INTO sys_menu (parent_id,type,name,path,component,title,icon,sort,hidden,permission_code,status,created_at,updated_at) VALUES (@P,@T,@N,@Pa,@C,@Ti,@I,@S,@H,@Pc,'active',@Now,@Now); SELECT LAST_INSERT_ID();",
-             new { P = req.ParentId, T = req.Type, N = req.Name, Pa = req.Path, C = req.Component, Ti = req.Title, req.Icon, S = req.Sort, H = req.Hidden, Pc = req.PermissionCode, Now = DateTime.UtcNow }, cancellationToken: ct));
+            "INSERT INTO sys_menu (parent_id,type,name,path,component,title,i18n_key,icon,sort,hidden,keep_alive,external_url,permission_code,status,created_at,updated_at) VALUES (@P,@T,@N,@Pa,@C,@Ti,@Ik,@I,@S,@H,@Ka,@Eu,@Pc,'active',@Now,@Now); SELECT LAST_INSERT_ID();",
+            new { P = req.ParentId, T = req.Type, N = req.Name, Pa = req.Path, C = req.Component, Ti = req.Title, Ik = req.I18nKey, req.Icon, S = req.Sort, H = req.Hidden, Ka = req.KeepAlive, Eu = req.ExternalUrl, Pc = req.PermissionCode, Now = clock.UtcNow.DateTime }, cancellationToken: ct));
      }
  
      public async Task UpdateAsync(long id, UpdateMenuRequest req, CancellationToken ct)
@@ -50,7 +50,7 @@
          // COALESCE allows partial updates: passing null preserves the existing column value
         await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), updated_at=@Now WHERE id=@Id",
-             new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
+             new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = clock.UtcNow.DateTime, Id = id }, cancellationToken: ct));
      }
  
      public async Task DeleteAsync(long id, CancellationToken ct)
@@ -60,7 +60,7 @@
          var ids = new List<long> { id };
          await CollectDescendants(conn, id, ids, ct);
          // Soft-delete all
-         await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id IN @Ids", new { Now = DateTime.UtcNow, Ids = ids }, cancellationToken: ct));
+         await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id IN @Ids", new { Now = clock.UtcNow.DateTime, Ids = ids }, cancellationToken: ct));
      }
  
      public async Task SortAsync(long[] orderedIds, CancellationToken ct)

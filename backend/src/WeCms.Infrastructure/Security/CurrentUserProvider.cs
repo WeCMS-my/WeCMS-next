@@ -21,9 +21,15 @@ public sealed class CurrentUserProvider : ICurrentUser
     public string Username =>
         _http.HttpContext?.User.FindFirst("username")?.Value ?? "";
 
-    public string? IpAddress =>
-        _http.HttpContext?.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-        ?? _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+    public string? IpAddress
+    {
+        get
+        {
+            var fwd = _http.HttpContext?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            return fwd?.Split(',')[0].Trim()
+                ?? _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        }
+    }
 
     public bool IsSuperAdmin =>
         _http.HttpContext?.User.FindFirst("is_super_admin")?.Value == "true";

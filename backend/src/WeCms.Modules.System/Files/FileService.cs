@@ -3,7 +3,7 @@ using WeCms.Shared.Contracts;
 
 namespace WeCms.Modules.System.Files;
 
-public sealed class FileService(IDbConnectionFactory db, IConfiguration config) : IFileService
+public sealed class FileService(IDbConnectionFactory db, IConfiguration config, IClock clock) : IFileService
 {
     private const long MaxFileSize = 50_000_000;
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg",".jpeg",".png",".gif",".webp",".svg",".pdf",".doc",".docx",".xls",".xlsx",".ppt",".pptx",".txt",".csv",".json",".xml",".zip",".rar",".mp3",".mp4",".avi" };
@@ -18,29 +18,29 @@ public sealed class FileService(IDbConnectionFactory db, IConfiguration config) 
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(ext)) throw new InvalidOperationException("File type not allowed");
 
-        // Double extension detection: reject files like "shell.php.jpg"
+        // Dangerous double extension detection: reject files like "shell.php.jpg"
+        var dangerous = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".php", ".exe", ".dll", ".sh", ".bat", ".ps1", ".js", ".jsp", ".asp", ".aspx", ".war", ".py" };
         var dotCount = fileName.Count(c => c == '.');
         if (dotCount > 1)
         {
-            var lastDot = fileName.LastIndexOf('.');
-            var withoutLastExt = fileName[..lastDot];
+            var withoutLastExt = fileName[..fileName.LastIndexOf('.')];
             var prevExt = Path.GetExtension(withoutLastExt);
-            if (!string.IsNullOrEmpty(prevExt) && !AllowedExtensions.Contains(prevExt))
-                throw new InvalidOperationException("File type not allowed: double extension detected");
+            if (!string.IsNullOrEmpty(prevExt) && dangerous.Contains(prevExt))
+                throw new InvalidOperationException("File type not allowed");
         }
 
         if (stream.Length > MaxFileSize) throw new InvalidOperationException("File too large (max 50MB)");
         if (!IsMimeMatch(ext, contentType)) throw new InvalidOperationException("MIME type mismatch");
         var storageName = $"{Guid.NewGuid():N}{ext}";
         var basePath = config["Storage:BasePath"] ?? Path.Combine(AppContext.BaseDirectory, "storage");
-        var dir = Path.GetFullPath(Path.Combine(basePath, "files", DateTime.UtcNow.ToString("yyyy/MM")));
+        var dir = Path.GetFullPath(Path.Combine(basePath, "files", clock.UtcNow.DateTime.ToString("yyyy/MM")));
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, storageName);
         await using var fs = File.Create(path); await stream.CopyToAsync(fs, ct);
         await using var c = await db.OpenAsync(ct);
         var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
             "INSERT INTO sys_file (original_name,storage_name,storage_path,size,mime_type,extension,created_at,updated_at) VALUES (@O,@S,@P,@Z,@M,@E,@Now,@Now); SELECT LAST_INSERT_ID();",
-            new { O = fileName, S = storageName, P = path, Z = stream.Length, M = contentType, E = ext, Now = DateTime.UtcNow }, cancellationToken: ct));
+            new { O = fileName, S = storageName, P = path, Z = stream.Length, M = contentType, E = ext, Now = clock.UtcNow.DateTime }, cancellationToken: ct));
         return new UploadResult(id, fileName, stream.Length);
     }
 
@@ -48,7 +48,7 @@ public sealed class FileService(IDbConnectionFactory db, IConfiguration config) 
     { await using var c = await db.OpenAsync(ct); return await c.QueryFirstOrDefaultAsync<(string, string, string)?>(new CommandDefinition("SELECT storage_path, mime_type, original_name FROM sys_file WHERE id=@Id AND deleted_at IS NULL", new { Id = id }, cancellationToken: ct)); }
 
     public async Task DeleteAsync(long id, CancellationToken ct)
-    { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_file SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct)); }
+    { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_file SET deleted_at=@Now WHERE id=@Id", new { Now = clock.UtcNow.DateTime, Id = id }, cancellationToken: ct)); }
 
     private static bool IsMimeMatch(string ext, string mime) => ext switch
     {

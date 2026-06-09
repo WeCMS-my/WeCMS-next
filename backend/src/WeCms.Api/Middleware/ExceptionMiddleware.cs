@@ -19,7 +19,7 @@ namespace WeCms.Api.Middleware;
         catch (InvalidOperationException ex)
         { await WriteError(context, 400, ApiCodes.BusinessError, ex.Message); }
          catch (Exception)
-         { await WriteError(context, 500, ApiCodes.SystemError, "Internal server error"); }
+        { context.Response.Headers["X-Trace-Id"] = context.TraceIdentifier; await WriteError(context, 500, ApiCodes.SystemError, "Internal server error"); }
      }
  
      private static async Task WriteError(HttpContext ctx, int statusCode, int apiCode, string msg)

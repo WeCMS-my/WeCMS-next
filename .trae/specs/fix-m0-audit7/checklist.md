@@ -1,0 +1,14 @@
+- [x] Logout 400 正确（Results.Json statusCode: 400）
+- [x] OpenAPI 覆盖全部端点（TODO 注释）
+- [x] 10 Service 注入 IClock（code_review 后补齐 4 处遗漏）
+- [x] 禁用用户吊销 RT
+- [x] UpdateAsync status 白名单
+- [x] 分页 >=1 校验（Math.Max + Math.Clamp）
+- [x] CreateMenu 字段完整（I18nKey/KeepAlive/ExternalUrl）
+- [x] 双扩展名危险扩展白名单
+- [x] XFF 逗号拆分（Split(',')[0].Trim()）
+- [x] Permissions 命名空间正确（WeCms.Shared）
+- [x] Menu null parent TODO
+- [x] ExceptionMiddleware traceId
+- [x] build 0/0 + test 20/20
+- [x] code_review P0 修复（AuthService/TokenService/TwoFactorEndpoints/FileService IClock 遗漏）
