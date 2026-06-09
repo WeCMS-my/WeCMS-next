@@ -1,4 +1,6 @@
 ﻿using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.I18n;
+using WeCms.Modules.System.Security;
  using WeCms.Shared.Contracts;
  using WeCms.Infrastructure.Data;
  using WeCms.Infrastructure.Security;
@@ -33,6 +35,8 @@
          services.AddScoped<FileService>();
          services.AddScoped<LogService>();
         services.AddScoped<PermissionSyncService>();
+        services.AddScoped<I18nService>();
+        services.AddScoped<SecurityService>();
          return services;
      }
  }
