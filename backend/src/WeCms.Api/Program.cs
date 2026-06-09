@@ -22,8 +22,9 @@ using System.Text;
  var builder = WebApplication.CreateSlimBuilder(args);
  builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCms.Api.Json.WeCmsJsonContext.Default));
  builder.Services.AddWeCmsInfrastructure(builder.Configuration);
- 
- var jwtSecret = builder.Configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret is not configured");
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+
+var jwtSecret = builder.Configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret is not configured");
  builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters { ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)), ValidateIssuer = true, ValidIssuer = "wecms", ValidateAudience = true, ValidAudience = "wecms-admin", ValidateLifetime = true, ClockSkew = TimeSpan.Zero });
  builder.Services.AddAuthorization();
  builder.Services.AddRateLimiter(o => o.AddPolicy("login", c => RateLimitPartition.GetFixedWindowLimiter("login", _ => new FixedWindowRateLimiterOptions{PermitLimit=5,Window=TimeSpan.FromMinutes(1),QueueLimit=0})).AddPolicy("password", c => RateLimitPartition.GetFixedWindowLimiter("password", _ => new FixedWindowRateLimiterOptions{PermitLimit=3,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
@@ -32,12 +33,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(o => { o.ForwardedHeaders = 
  
  var app = builder.Build();
  app.UseForwardedHeaders();
+app.UseCors();
 app.UseMiddleware<ExceptionMiddleware>();
  app.UseRateLimiter();
  app.UseAuthentication();
  app.UseAuthorization();
  
- app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
  app.MapGroup("/api/v1/system").MapSystemEndpoints();
  app.MapGroup("/api/v1").MapAuthEndpoints();
  app.MapGroup("/api/v1").MapTwoFactorEndpoints();

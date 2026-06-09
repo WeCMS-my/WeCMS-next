@@ -12,6 +12,7 @@ public sealed class AuthService : IAuthService
     private readonly IPasswordHasher _ph;
     private readonly IDbConnectionFactory _db;
     private readonly ISecurityEventLogger _el;
+    private readonly IClock _clock;
 
     private static readonly ConcurrentDictionary<string, TwoFactorTicketData> _tickets = new();
 
@@ -25,8 +26,8 @@ public sealed class AuthService : IAuthService
         }
     }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
 
-    public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el)
-    { _ts = ts; _ph = ph; _db = db; _el = el; }
+    public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el, IClock clock)
+    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; }
 
     public async Task<LoginResponse?> LoginAsync(string u, string p, string ip, CancellationToken ct)
     {
@@ -40,20 +41,20 @@ public sealed class AuthService : IAuthService
         if (r.TwoFactorEnabled)
         {
             var ticket = GenerateTicket();
-            _tickets[ticket] = new TwoFactorTicketData(r.Id, r.Username, r.SecurityStamp, r.PermissionVersion, r.IsSuperAdmin, DateTime.UtcNow.AddMinutes(5));
+            _tickets[ticket] = new TwoFactorTicketData(r.Id, r.Username, r.SecurityStamp, r.PermissionVersion, r.IsSuperAdmin, _clock.UtcNow.DateTime.AddMinutes(5));
             return new LoginResponse(null, null, 0, true, ticket);
         }
 
         // Update login info
         await c.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_user SET last_login_at=@N, last_login_ip=@Ip WHERE id=@Id",
-            new { N = DateTime.UtcNow, Ip = ip ?? "unknown", Id = r.Id }, cancellationToken: ct));
+            new { N = _clock.UtcNow.DateTime, Ip = ip ?? "unknown", Id = r.Id }, cancellationToken: ct));
         await c.ExecuteAsync(new CommandDefinition(
             "INSERT INTO sys_login_log (user_id,username,login_type,status,ip,user_agent,created_at) VALUES (@Id,@U,'password','success',@Ip,'',@N)",
-            new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = DateTime.UtcNow }, cancellationToken: ct));
+            new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = _clock.UtcNow.DateTime }, cancellationToken: ct));
 
         var pair = _ts.GenerateTokenPair(new TokenPrincipal(r.Id,r.Username,r.SecurityStamp,r.PermissionVersion,r.IsSuperAdmin));
-        await StoreRefreshToken(c, r.Id, pair.RefreshToken, ct);
+        await StoreRefreshToken(c, r.Id, pair.RefreshToken, ip, null, ct);
         return new LoginResponse(pair.AccessToken,pair.RefreshToken,pair.ExpiresIn,false);
     }
 
@@ -61,7 +62,7 @@ public sealed class AuthService : IAuthService
     {
         if (!string.IsNullOrWhiteSpace(ticket))
         {
-            if (!_tickets.TryRemove(ticket, out var data) || data.ExpiresAt < DateTime.UtcNow)
+            if (!_tickets.TryRemove(ticket, out var data) || data.ExpiresAt < _clock.UtcNow.DateTime)
                 return null;
 
             await using var c = await _db.OpenAsync(ct);
@@ -85,10 +86,10 @@ public sealed class AuthService : IAuthService
             // Update login info
             await c.ExecuteAsync(new CommandDefinition(
                 "UPDATE sys_user SET last_login_at=@N WHERE id=@Id",
-                new { N = DateTime.UtcNow, Id = data.UserId }, cancellationToken: ct));
+                new { N = _clock.UtcNow.DateTime, Id = data.UserId }, cancellationToken: ct));
 
             var pair = _ts.GenerateTokenPair(new TokenPrincipal(data.UserId, data.Username, data.SecurityStamp, data.PermissionVersion, data.IsSuperAdmin));
-            await StoreRefreshToken(c, data.UserId, pair.RefreshToken, ct);
+            await StoreRefreshToken(c, data.UserId, pair.RefreshToken, null, null, ct);
             return new LoginResponse(pair.AccessToken, pair.RefreshToken, pair.ExpiresIn, false);
         }
 
@@ -103,6 +104,7 @@ public sealed class AuthService : IAuthService
         await using var tx = await c.BeginTransactionAsync(ct);
 
         // Check if token exists (may be revoked)
+        // Note: intentionally no WHERE srt.revoked_at IS NULL - we check revoked status programmatically for reuse detection
         var revoked = await c.QueryFirstOrDefaultAsync<RefreshR>(new CommandDefinition(
             "SELECT srt.id,srt.user_id,srt.family_id,srt.revoked_at IS NOT NULL AS revoked,srt.expires_at,u.username,u.security_stamp,u.permission_version,u.status,u.is_super_admin FROM sys_refresh_token srt JOIN sys_user u ON u.id=srt.user_id WHERE srt.token_hash=@H",
             new { H = h }, cancellationToken: ct));
@@ -119,14 +121,14 @@ public sealed class AuthService : IAuthService
             // Revoke entire family
             await c.ExecuteAsync(new CommandDefinition(
                 "UPDATE sys_refresh_token SET revoked_at=@N WHERE family_id=@F AND revoked_at IS NULL",
-                new { N = DateTime.UtcNow, F = revoked.FamilyId }, cancellationToken: ct));
+                new { N = _clock.UtcNow.DateTime, F = revoked.FamilyId }, cancellationToken: ct));
             await _el.LogAsync("token_reuse_detected", "warning", revoked.UserId, revoked.Username, null, "Refresh token reuse detected", ct);
             await tx.CommitAsync(ct);
             return null;
         }
 
         // Check expiry
-        if (revoked.ExpiresAt < DateTime.UtcNow || revoked.Status != "active")
+        if (revoked.ExpiresAt < _clock.UtcNow.DateTime || revoked.Status != "active")
         {
             await tx.RollbackAsync(ct);
             return null;
@@ -135,13 +137,13 @@ public sealed class AuthService : IAuthService
         // Revoke current token
         await c.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_refresh_token SET revoked_at=@N WHERE id=@Id",
-            new { N = DateTime.UtcNow, Id = revoked.Id }, cancellationToken: ct));
+            new { N = _clock.UtcNow.DateTime, Id = revoked.Id }, cancellationToken: ct));
 
         // Issue new token pair
         var pair = _ts.GenerateTokenPair(new TokenPrincipal(revoked.UserId, revoked.Username, revoked.SecurityStamp, revoked.PermissionVersion, revoked.IsSuperAdmin));
         await c.ExecuteAsync(new CommandDefinition(
             "INSERT INTO sys_refresh_token (user_id,token_hash,family_id,expires_at,created_at) VALUES (@U,@H,@F,@E,@N)",
-            new { U = revoked.UserId, H = HashToken(pair.RefreshToken), F = revoked.FamilyId, E = DateTime.UtcNow.AddDays(7), N = DateTime.UtcNow }, cancellationToken: ct));
+            new { U = revoked.UserId, H = HashToken(pair.RefreshToken), F = revoked.FamilyId, E = _clock.UtcNow.DateTime.AddDays(7), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
 
         await tx.CommitAsync(ct);
         return new RefreshResponse(pair.AccessToken, pair.RefreshToken, pair.ExpiresIn);
@@ -153,14 +155,14 @@ public sealed class AuthService : IAuthService
         await using var c = await _db.OpenAsync(ct);
         await c.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_refresh_token SET revoked_at=@N WHERE token_hash=@H AND revoked_at IS NULL",
-            new { N = DateTime.UtcNow, H = h }, cancellationToken: ct));
+            new { N = _clock.UtcNow.DateTime, H = h }, cancellationToken: ct));
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(long uid, CancellationToken ct)
     { await using var c = await _db.OpenAsync(ct); var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition("SELECT id,username,display_name FROM sys_user WHERE id=@Id AND deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); if(u is null)return null; var rt=await c.QueryAsync<string>(new CommandDefinition("SELECT r.code FROM sys_role r JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=@Id AND r.status='active' AND r.deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); var pt=await c.QueryAsync<string>(new CommandDefinition("SELECT DISTINCT p.code FROM sys_permission p JOIN sys_role_permission rp ON rp.permission_id=p.id JOIN sys_user_role ur ON ur.role_id=rp.role_id WHERE ur.user_id=@Id AND p.status='active'",new{Id=uid},cancellationToken:ct)); return new CurrentUserResponse(u.Id,u.Username,u.DisplayName,rt.AsList().ToArray(),pt.AsList().ToArray(),Array.Empty<object>()); }
 
-    private static async Task StoreRefreshToken(DbConnection c, long uid, string t, CancellationToken ct)
-    { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,expires_at,created_at) VALUES (@U,@H,@F,@E,@N)", new{U=uid,H=HashToken(t),F=Guid.NewGuid().ToString("N"),E=DateTime.UtcNow.AddDays(7),N=DateTime.UtcNow},cancellationToken:ct)); }
+    private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)
+    { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
     private static string HashToken(string t) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(t)));
     private static string GenerateTicket() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 

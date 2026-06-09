@@ -5,10 +5,13 @@
  namespace WeCms.Infrastructure.Security;
  
  public sealed class TwoFactorService : ITwoFactorService
- {
-     private const string Base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-     private const int SecretLength = 20;
-     private const int BackupCodeCount = 8;
+{
+    private readonly IClock _clock;
+    private const string Base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    private const int SecretLength = 20;
+    private const int BackupCodeCount = 8;
+
+    public TwoFactorService(IClock clock) { _clock = clock; }
  
      public string GenerateSecret()
      {
@@ -67,8 +70,8 @@
          return (binary % 1_000_000).ToString("D6");
      }
  
-     private static long GetCurrentTimeSlice()
-         => DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
+     private long GetCurrentTimeSlice()
+        => _clock.UtcNow.ToUnixTimeSeconds() / 30;
  
      private static string Base32Encode(byte[] data)
      {

@@ -27,11 +27,9 @@
              var parent = await conn.QueryFirstOrDefaultAsync<MenuParent>(new CommandDefinition(
                  "SELECT id, parent_id FROM sys_menu WHERE id=@Id AND deleted_at IS NULL", new { Id = req.ParentId }, cancellationToken: ct));
              if (parent is null) throw new InvalidOperationException("Parent not found");
-             // Circular reference check: parent must not be a descendant of the new node
-             if (await IsDescendant(conn, req.ParentId.Value, 0, ct))
-                 throw new InvalidOperationException("Cannot create circular menu reference");
-         }
-         return await conn.ExecuteScalarAsync<long>(new CommandDefinition(
+            // Circular reference check: new node has no children yet, so parent cannot be its descendant
+        }
+        return await conn.ExecuteScalarAsync<long>(new CommandDefinition(
              "INSERT INTO sys_menu (parent_id,type,name,path,component,title,icon,sort,hidden,permission_code,status,created_at,updated_at) VALUES (@P,@T,@N,@Pa,@C,@Ti,@I,@S,@H,@Pc,'active',@Now,@Now); SELECT LAST_INSERT_ID();",
              new { P = req.ParentId, T = req.Type, N = req.Name, Pa = req.Path, C = req.Component, Ti = req.Title, req.Icon, S = req.Sort, H = req.Hidden, Pc = req.PermissionCode, Now = DateTime.UtcNow }, cancellationToken: ct));
      }
@@ -49,8 +47,9 @@
              if (await IsDescendant(conn, req.ParentId.Value, id, ct))
                  throw new InvalidOperationException("Cannot create circular menu reference");
          }
-         await conn.ExecuteAsync(new CommandDefinition(
-             "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), updated_at=@Now WHERE id=@Id",
+         // COALESCE allows partial updates: passing null preserves the existing column value
+        await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), row_version = row_version + 1, updated_at=@Now WHERE id=@Id",
              new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
      }
  
@@ -100,9 +99,14 @@
      }
  
      private static List<MenuTreeItem> BuildTree(List<MenuFlat> items, long? parentId)
-     {
-         return items.Where(m => m.ParentId == parentId).Select(m => new MenuTreeItem(m.Id, m.ParentId, m.Type, m.Name, m.Path, m.Component, m.Title, m.Icon, m.Sort, m.Hidden, m.Status, BuildTree(items, m.Id))).ToList();
-     }
+    {
+        var lookup = items.ToLookup(m => m.ParentId);
+        return BuildNodes(lookup, parentId);
+    }
+    private static List<MenuTreeItem> BuildNodes(ILookup<long?, MenuFlat> lookup, long? parentId)
+    {
+        return lookup[parentId].Select(m => new MenuTreeItem(m.Id, m.ParentId, m.Type, m.Name, m.Path, m.Component, m.Title, m.Icon, m.Sort, m.Hidden, m.Status, BuildNodes(lookup, m.Id))).ToList();
+    }
  
      private sealed record MenuFlat(long Id, long? ParentId, string Type, string Name, string? Path, string? Component, string Title, string? Icon, int Sort, bool Hidden, string Status);
      private sealed record MenuParent(long Id, long? ParentId);

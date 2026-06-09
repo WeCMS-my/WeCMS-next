@@ -16,7 +16,7 @@ using global::WeCms.Shared;
          return group;
      }
  
-     private static long GetOperatorId(HttpContext ctx) => long.Parse(ctx.User.FindFirst("sub")!.Value);
+     private static long GetOperatorId(HttpContext ctx) { var s = ctx.User.FindFirst("sub")?.Value; if (s is null || !long.TryParse(s, out var id)) throw new InvalidOperationException("User identity not found"); return id; }
  
      private static async Task<IResult> ListAsync([AsParameters] UserQueryParams q, IUserService svc, CancellationToken ct)
      {

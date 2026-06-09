@@ -1,4 +1,5 @@
- using WeCms.Infrastructure.Security;
+ using WeCms.Infrastructure;
+using WeCms.Infrastructure.Security;
  using WeCms.Shared.Contracts;
  using Xunit;
  
@@ -6,7 +7,7 @@
  
  public class TwoFactorServiceTests
  {
-     private readonly ITwoFactorService _svc = new TwoFactorService();
+     private readonly ITwoFactorService _svc = new TwoFactorService(new SystemClock());
  
      [Fact]
      public void GenerateSecret_ShouldProduceValidBase32String()

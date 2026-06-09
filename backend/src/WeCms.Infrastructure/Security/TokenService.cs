@@ -54,7 +54,11 @@ public sealed class TokenService : ITokenService
 
             return new TokenPrincipal(userId, username, securityStamp, permissionVersion, isSuperAdmin);
         }
-        catch
+        catch (SecurityTokenException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
         {
             return null;
         }

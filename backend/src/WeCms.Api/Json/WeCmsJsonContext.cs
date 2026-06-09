@@ -97,6 +97,9 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(VersionResponse))]
 [JsonSerializable(typeof(DbCheckResponse))]
 [JsonSerializable(typeof(HealthReadyResponse))]
+[JsonSerializable(typeof(ApiResult<HealthReadyResponse>))]
+[JsonSerializable(typeof(HealthLiveResponse))]
+[JsonSerializable(typeof(ApiResult<HealthLiveResponse>))]
 [JsonSerializable(typeof(IdResponse))]
 [JsonSerializable(typeof(SyncResultResponse))]
 internal partial class WeCmsJsonContext : JsonSerializerContext

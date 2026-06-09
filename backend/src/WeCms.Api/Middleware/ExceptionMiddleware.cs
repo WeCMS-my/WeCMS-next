@@ -1,17 +1,18 @@
  using System.Net;
  using System.Text.Json;
- using WeCms.Api.Json;
- using WeCms.Shared;
- 
- namespace WeCms.Api.Middleware;
+ using Microsoft.IdentityModel.Tokens;
+using WeCms.Shared;
+using WeCms.Api.Json;
+
+namespace WeCms.Api.Middleware;
  
  public sealed class ExceptionMiddleware(RequestDelegate next)
  {
      public async Task InvokeAsync(HttpContext context)
      {
          try { await next(context); }
-         catch (UnauthorizedAccessException ex)
-         { await WriteError(context, 403, ApiCodes.Forbidden, ex.Message); }
+         catch (SecurityTokenException)
+         { await WriteError(context, 401, ApiCodes.Unauthorized, "Authentication failed"); }
          catch (InvalidOperationException ex)
          { await WriteError(context, 400, ApiCodes.BusinessError, ex.Message); }
          catch (Exception)
