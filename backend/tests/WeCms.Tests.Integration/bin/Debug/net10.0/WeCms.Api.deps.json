@@ -9,6 +9,7 @@
       "WeCms.Api/1.0.0": {
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.0",
           "Microsoft.AspNetCore.OpenApi": "10.0.0",
           "WeCms.Infrastructure": "1.0.0",
@@ -25,6 +26,14 @@
           "lib/net8.0/Dapper.dll": {
             "assemblyVersion": "2.0.0.0",
             "fileVersion": "2.1.66.48463"
+          }
+        }
+      },
+      "Dapper.AOT/1.0.31": {
+        "runtime": {
+          "lib/net8.0/Dapper.AOT.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.31.15315"
           }
         }
       },
@@ -145,6 +154,7 @@
       "WeCms.Infrastructure/1.0.0": {
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "Microsoft.IdentityModel.Tokens": "8.9.0",
           "MySqlConnector": "2.4.0",
           "System.IdentityModel.Tokens.Jwt": "8.9.0",
@@ -171,6 +181,7 @@
       "WeCms.Modules.System/1.0.0": {
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "WeCms.Shared": "1.0.0"
         },
         "runtime": {
@@ -202,6 +213,13 @@
       "sha512": "sha512-/q77jUgDOS+bzkmk3Vy9SiWMaetTw+NOoPAV0xPBsGVAyljd5S6P+4RUW7R3ZUGGr9lDRyPKgAMj2UAOwvqZYw==",
       "path": "dapper/2.1.66",
       "hashPath": "dapper.2.1.66.nupkg.sha512"
+    },
+    "Dapper.AOT/1.0.31": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jCmfoYLGJC9hVuDhSxV/+Fh113qKp2vJHim5F2TvwVDPVe4SN8hHvd509XFHdiFbcLGF1ADT9bQpRC5ktaJniA==",
+      "path": "dapper.aot/1.0.31",
+      "hashPath": "dapper.aot.1.0.31.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Authentication.JwtBearer/10.0.0": {
       "type": "package",

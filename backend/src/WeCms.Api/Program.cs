@@ -1,4 +1,4 @@
-﻿ using System.Threading.RateLimiting;
+ using System.Threading.RateLimiting;
  using WeCms.Api.Middleware;
  using WeCms.Api.Extensions;
  using WeCms.Modules.System;
@@ -15,8 +15,9 @@ using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Security;
  using Microsoft.AspNetCore.Authentication.JwtBearer;
- using Microsoft.IdentityModel.Tokens;
- using System.Text;
+ using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
  
  var builder = WebApplication.CreateSlimBuilder(args);
  builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCms.Api.Json.WeCmsJsonContext.Default));
@@ -27,9 +28,12 @@ using WeCms.Modules.System.Security;
  builder.Services.AddAuthorization();
  builder.Services.AddRateLimiter(o => o.AddPolicy("login", c => RateLimitPartition.GetFixedWindowLimiter("login", _ => new FixedWindowRateLimiterOptions{PermitLimit=5,Window=TimeSpan.FromMinutes(1),QueueLimit=0})).AddPolicy("password", c => RateLimitPartition.GetFixedWindowLimiter("password", _ => new FixedWindowRateLimiterOptions{PermitLimit=3,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
  builder.Services.AddOpenApi();
+builder.Services.Configure<ForwardedHeadersOptions>(o => { o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto; o.KnownIPNetworks.Clear(); o.KnownProxies.Clear(); });
  
  var app = builder.Build();
- app.UseMiddleware<ExceptionMiddleware>();
+ app.UseForwardedHeaders();
+app.UseMiddleware<ExceptionMiddleware>();
+ app.UseRateLimiter();
  app.UseAuthentication();
  app.UseAuthorization();
  

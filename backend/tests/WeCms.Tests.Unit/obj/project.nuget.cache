@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "EQ0uruaIHfU=",
+  "dgSpecHash": "K4RF6RocQaw=",
   "success": true,
   "projectFilePath": "E:\\Github\\WeCMS-next\\backend\\tests\\WeCms.Tests.Unit\\WeCms.Tests.Unit.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ALi365\\.nuget\\packages\\dapper\\2.1.66\\dapper.2.1.66.nupkg.sha512",
+    "C:\\Users\\ALi365\\.nuget\\packages\\dapper.aot\\1.0.31\\dapper.aot.1.0.31.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.0\\microsoft.aspnetcore.authentication.jwtbearer.10.0.0.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.0\\microsoft.aspnetcore.openapi.10.0.0.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.codecoverage\\17.14.0\\microsoft.codecoverage.17.14.0.nupkg.sha512",

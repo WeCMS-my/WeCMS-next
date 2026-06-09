@@ -124,3 +124,4 @@ E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\obj\Debug\net10.0\WeCms.Test
 E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\obj\Debug\net10.0\ref\WeCms.Tests.Unit.dll
 E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\bin\Debug\net10.0\Microsoft.AspNetCore.OpenApi.dll
 E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\bin\Debug\net10.0\Microsoft.OpenApi.dll
+E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\bin\Debug\net10.0\Dapper.AOT.dll

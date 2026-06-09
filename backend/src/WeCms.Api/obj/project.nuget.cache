@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "hMwGbItZCQU=",
+  "dgSpecHash": "3Nt3DaXwuuo=",
   "success": true,
   "projectFilePath": "E:\\Github\\WeCMS-next\\backend\\src\\WeCms.Api\\WeCms.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ALi365\\.nuget\\packages\\dapper\\2.1.66\\dapper.2.1.66.nupkg.sha512",
+    "C:\\Users\\ALi365\\.nuget\\packages\\dapper.aot\\1.0.31\\dapper.aot.1.0.31.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.0\\microsoft.aspnetcore.authentication.jwtbearer.10.0.0.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.0\\microsoft.aspnetcore.openapi.10.0.0.nupkg.sha512",
     "C:\\Users\\ALi365\\.nuget\\packages\\microsoft.dotnet.ilcompiler\\10.0.8\\microsoft.dotnet.ilcompiler.10.0.8.nupkg.sha512",

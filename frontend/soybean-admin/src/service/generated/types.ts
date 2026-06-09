@@ -21,11 +21,12 @@
  }
  
  export interface LoginResponse {
-   accessToken: string
-   refreshToken: string
-   expiresIn: number
-   requiresTwoFactor: boolean
- }
+  accessToken: string | null
+  refreshToken: string | null
+  expiresIn: number
+  requiresTwoFactor: boolean
+  twoFactorTicket?: string | null
+}
  
  export interface RefreshRequest {
    refreshToken: string

@@ -14,10 +14,10 @@
          group.MapDelete("/system/dicts/values/{id:long}", DeleteValueAsync).RequirePermission("sys:dict:delete");
          return group;
      }
-     private static async Task<IResult> GetTypesAsync(DictService svc, CancellationToken ct) => Results.Ok(ApiResult<List<DictTypeItem>>.Ok(await svc.GetTypesAsync(ct)));
-     private static async Task<IResult> CreateTypeAsync(CreateDictTypeRequest req, DictService svc, CancellationToken ct) => Results.Ok(ApiResult<object>.Ok(new { id = await svc.CreateTypeAsync(req, ct) }));
-     private static async Task<IResult> DeleteTypeAsync(long id, DictService svc, CancellationToken ct) { await svc.DeleteTypeAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
-     private static async Task<IResult> GetValuesAsync(long typeId, DictService svc, CancellationToken ct) => Results.Ok(ApiResult<List<DictValueItem>>.Ok(await svc.GetValuesAsync(typeId, ct)));
-     private static async Task<IResult> CreateValueAsync(CreateDictValueRequest req, DictService svc, CancellationToken ct) => Results.Ok(ApiResult<object>.Ok(new { id = await svc.CreateValueAsync(req, ct) }));
-     private static async Task<IResult> DeleteValueAsync(long id, DictService svc, CancellationToken ct) { await svc.DeleteValueAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
+     private static async Task<IResult> GetTypesAsync(IDictService svc, CancellationToken ct) => Results.Ok(ApiResult<List<DictTypeItem>>.Ok(await svc.GetTypesAsync(ct)));
+    private static async Task<IResult> CreateTypeAsync(CreateDictTypeRequest req, IDictService svc, CancellationToken ct) => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateTypeAsync(req, ct))));
+    private static async Task<IResult> DeleteTypeAsync(long id, IDictService svc, CancellationToken ct) { await svc.DeleteTypeAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
+    private static async Task<IResult> GetValuesAsync(long typeId, IDictService svc, CancellationToken ct) => Results.Ok(ApiResult<List<DictValueItem>>.Ok(await svc.GetValuesAsync(typeId, ct)));
+    private static async Task<IResult> CreateValueAsync(CreateDictValueRequest req, IDictService svc, CancellationToken ct) => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateValueAsync(req, ct))));
+    private static async Task<IResult> DeleteValueAsync(long id, IDictService svc, CancellationToken ct) { await svc.DeleteValueAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
  }

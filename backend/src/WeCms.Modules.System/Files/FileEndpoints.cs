@@ -12,12 +12,12 @@
          group.MapDelete("/system/files/{id:long}", DeleteAsync).RequirePermission("sys:file:delete");
          return group;
      }
-     private static async Task<IResult> ListAsync(HttpContext ctx, FileService svc, CancellationToken ct)
-     { var p = int.TryParse(ctx.Request.Query["page"], out var pp) ? pp : 1; var s = int.TryParse(ctx.Request.Query["pageSize"], out var ps) ? ps : 20; var (items, total) = await svc.ListAsync(p, s, ct); return Results.Ok(ApiResult<object>.Ok(new { records = items, page = p, pageSize = s, total })); }
+     private static async Task<IResult> ListAsync(HttpContext ctx, IFileService svc, CancellationToken ct)
+     { var p = int.TryParse(ctx.Request.Query["page"], out var pp) ? pp : 1; var s = int.TryParse(ctx.Request.Query["pageSize"], out var ps) ? ps : 20; var (items, total) = await svc.ListAsync(p, s, ct); return Results.Ok(ApiResult<PagedResult<FileItem>>.Ok(new PagedResult<FileItem>(items, p, s, total))); }
      private static async Task<IResult> UploadAsync(HttpRequest request, FileService svc, CancellationToken ct)
      { var file = request.Form.Files.FirstOrDefault(); if (file is null) return Results.Ok(ApiResult<UploadResult>.Fail(ApiCodes.ValidationError, "No file")); using var s = file.OpenReadStream(); var r = await svc.UploadAsync(file.FileName, s, file.ContentType, ct); return Results.Ok(ApiResult<UploadResult>.Ok(r)); }
      private static async Task<IResult> DownloadAsync(long id, FileService svc, CancellationToken ct)
      { var info = await svc.GetDownloadInfoAsync(id, ct); return info.HasValue ? Results.File(info.Value.Path, info.Value.MimeType, info.Value.FileName) : Results.Ok(ApiResult<string>.Fail(ApiCodes.NotFound, "File not found")); }
-     private static async Task<IResult> DeleteAsync(long id, FileService svc, CancellationToken ct)
+     private static async Task<IResult> DeleteAsync(long id, IFileService svc, CancellationToken ct)
      { await svc.DeleteAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
  }

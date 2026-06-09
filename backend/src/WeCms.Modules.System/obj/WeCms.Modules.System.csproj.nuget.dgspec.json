@@ -60,6 +60,10 @@
             "Dapper": {
               "target": "Package",
               "version": "[2.1.66, )"
+            },
+            "Dapper.AOT": {
+              "target": "Package",
+              "version": "[1.0.31, )"
             }
           },
           "imports": [

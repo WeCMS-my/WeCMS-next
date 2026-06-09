@@ -1,4 +1,4 @@
-﻿using global::WeCms.Shared;
+using global::WeCms.Shared;
  
  
  namespace WeCms.Modules.System.Menus;
@@ -15,10 +15,10 @@
          group.MapPut("/system/menus/sort", SortAsync).RequirePermission("sys:menu:sort");
          return group;
      }
-     private static async Task<IResult> GetTreeAsync(MenuService svc, CancellationToken ct) => Results.Ok(ApiResult<List<MenuTreeItem>>.Ok(await svc.GetTreeAsync(ct)));
-     private static async Task<IResult> GetAsync(long id, MenuService svc, CancellationToken ct) => (await svc.GetByIdAsync(id, ct)) is MenuDetail m ? Results.Ok(ApiResult<MenuDetail>.Ok(m)) : Results.Ok(ApiResult<MenuDetail>.Fail(ApiCodes.NotFound, "Not found"));
-     private static async Task<IResult> CreateAsync(CreateMenuRequest req, MenuService svc, CancellationToken ct) => Results.Ok(ApiResult<object>.Ok(new { id = await svc.CreateAsync(req, ct) }));
-     private static async Task<IResult> UpdateAsync(long id, UpdateMenuRequest req, MenuService svc, CancellationToken ct) { await svc.UpdateAsync(id, req, ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
-     private static async Task<IResult> DeleteAsync(long id, MenuService svc, CancellationToken ct) { await svc.DeleteAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
-     private static async Task<IResult> SortAsync(MenuSortRequest req, MenuService svc, CancellationToken ct) { await svc.SortAsync(req.OrderedIds, ct); return Results.Ok(ApiResult<string>.Ok("sorted")); }
+     private static async Task<IResult> GetTreeAsync(IMenuService svc, CancellationToken ct) => Results.Ok(ApiResult<List<MenuTreeItem>>.Ok(await svc.GetTreeAsync(ct)));
+    private static async Task<IResult> GetAsync(long id, IMenuService svc, CancellationToken ct) => (await svc.GetByIdAsync(id, ct)) is MenuDetail m ? Results.Ok(ApiResult<MenuDetail>.Ok(m)) : Results.Ok(ApiResult<MenuDetail>.Fail(ApiCodes.NotFound, "Not found"));
+    private static async Task<IResult> CreateAsync(CreateMenuRequest req, IMenuService svc, CancellationToken ct) => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateAsync(req, ct))));
+    private static async Task<IResult> UpdateAsync(long id, UpdateMenuRequest req, IMenuService svc, CancellationToken ct) { await svc.UpdateAsync(id, req, ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
+    private static async Task<IResult> DeleteAsync(long id, IMenuService svc, CancellationToken ct) { await svc.DeleteAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
+    private static async Task<IResult> SortAsync(MenuSortRequest req, IMenuService svc, CancellationToken ct) { await svc.SortAsync(req.OrderedIds, ct); return Results.Ok(ApiResult<string>.Ok("sorted")); }
  }

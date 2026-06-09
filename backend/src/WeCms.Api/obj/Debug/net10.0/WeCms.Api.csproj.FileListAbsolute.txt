@@ -50,3 +50,4 @@ E:\Github\WeCMS-next\backend\src\WeCms.Api\obj\Debug\net10.0\ref\WeCms.Api.dll
 E:\Github\WeCMS-next\backend\src\WeCms.Api\bin\Debug\net10.0\Microsoft.AspNetCore.OpenApi.dll
 E:\Github\WeCMS-next\backend\src\WeCms.Api\bin\Debug\net10.0\Microsoft.OpenApi.dll
 E:\Github\WeCMS-next\backend\src\WeCms.Api\obj\Debug\net10.0\WeCms.Api.MvcApplicationPartsAssemblyInfo.cs
+E:\Github\WeCMS-next\backend\src\WeCms.Api\bin\Debug\net10.0\Dapper.AOT.dll

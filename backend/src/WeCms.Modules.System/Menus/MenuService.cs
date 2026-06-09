@@ -2,7 +2,7 @@
  
  namespace WeCms.Modules.System.Menus;
  
- public sealed class MenuService(IDbConnectionFactory db)
+ public sealed class MenuService(IDbConnectionFactory db) : IMenuService
  {
      public async Task<List<MenuTreeItem>> GetTreeAsync(CancellationToken ct)
      {
@@ -27,6 +27,9 @@
              var parent = await conn.QueryFirstOrDefaultAsync<MenuParent>(new CommandDefinition(
                  "SELECT id, parent_id FROM sys_menu WHERE id=@Id AND deleted_at IS NULL", new { Id = req.ParentId }, cancellationToken: ct));
              if (parent is null) throw new InvalidOperationException("Parent not found");
+             // Circular reference check: parent must not be a descendant of the new node
+             if (await IsDescendant(conn, req.ParentId.Value, 0, ct))
+                 throw new InvalidOperationException("Cannot create circular menu reference");
          }
          return await conn.ExecuteScalarAsync<long>(new CommandDefinition(
              "INSERT INTO sys_menu (parent_id,type,name,path,component,title,icon,sort,hidden,permission_code,status,created_at,updated_at) VALUES (@P,@T,@N,@Pa,@C,@Ti,@I,@S,@H,@Pc,'active',@Now,@Now); SELECT LAST_INSERT_ID();",
@@ -36,17 +39,30 @@
      public async Task UpdateAsync(long id, UpdateMenuRequest req, CancellationToken ct)
      {
          await using var conn = await db.OpenAsync(ct);
+         if (req.ParentId.HasValue)
+         {
+             // Check parent exists
+             var parent = await conn.QueryFirstOrDefaultAsync<MenuParent>(new CommandDefinition(
+                 "SELECT id, parent_id FROM sys_menu WHERE id=@Id AND deleted_at IS NULL", new { Id = req.ParentId }, cancellationToken: ct));
+             if (parent is null) throw new InvalidOperationException("Parent not found");
+             // Circular reference check
+             if (await IsDescendant(conn, req.ParentId.Value, id, ct))
+                 throw new InvalidOperationException("Cannot create circular menu reference");
+         }
          await conn.ExecuteAsync(new CommandDefinition(
-             "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), updated_at=@Now WHERE id=@Id",
-             new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
+             "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), updated_at=@Now WHERE id=@Id",
+             new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
      }
  
      public async Task DeleteAsync(long id, CancellationToken ct)
      {
          await using var conn = await db.OpenAsync(ct);
-         var children = await conn.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(1) FROM sys_menu WHERE parent_id=@Id AND deleted_at IS NULL", new { Id = id }, cancellationToken: ct));
-         if (children > 0) throw new InvalidOperationException("Cannot delete menu with children");
-         await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
+         // Collect all descendant IDs
+         var ids = new List<long> { id };
+         await CollectDescendants(conn, id, ids, ct);
+         // Soft-delete all
+         foreach (var mid in ids)
+             await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = mid }, cancellationToken: ct));
      }
  
      public async Task SortAsync(long[] orderedIds, CancellationToken ct)
@@ -54,6 +70,33 @@
          await using var conn = await db.OpenAsync(ct);
          for (var i = 0; i < orderedIds.Length; i++)
              await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET sort=@S WHERE id=@Id", new { S = i, Id = orderedIds[i] }, cancellationToken: ct));
+     }
+ 
+     private static async Task<bool> IsDescendant(DbConnection conn, long targetId, long excludeId, CancellationToken ct)
+     {
+         // Walk up from targetId to root, checking if we hit excludeId
+         long? current = targetId;
+         var visited = new HashSet<long>();
+         while (current.HasValue && current != 0)
+         {
+             if (!visited.Add(current.Value)) break; // safety: prevent infinite loop
+             if (current.Value == excludeId) return true;
+             var row = await conn.QueryFirstOrDefaultAsync<MenuParent>(new CommandDefinition(
+                 "SELECT id, parent_id FROM sys_menu WHERE id=@Id AND deleted_at IS NULL", new { Id = current }, cancellationToken: ct));
+             current = row?.ParentId;
+         }
+         return false;
+     }
+ 
+     private static async Task CollectDescendants(DbConnection conn, long parentId, List<long> result, CancellationToken ct)
+     {
+         var children = await conn.QueryAsync<long>(new CommandDefinition(
+             "SELECT id FROM sys_menu WHERE parent_id=@Id AND deleted_at IS NULL", new { Id = parentId }, cancellationToken: ct));
+         foreach (var childId in children)
+         {
+             result.Add(childId);
+             await CollectDescendants(conn, childId, result, ct);
+         }
      }
  
      private static List<MenuTreeItem> BuildTree(List<MenuFlat> items, long? parentId)

@@ -2,7 +2,7 @@
  
  namespace WeCms.Modules.System.Dicts;
  
- public sealed class DictService(IDbConnectionFactory db)
+ public sealed class DictService(IDbConnectionFactory db) : IDictService
  {
      public async Task<List<DictTypeItem>> GetTypesAsync(CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); var r = await c.QueryAsync<DictTypeItem>(new CommandDefinition("SELECT id, code, name, status FROM sys_dict_type WHERE deleted_at IS NULL ORDER BY id", cancellationToken: ct)); return r.AsList(); }
@@ -17,7 +17,7 @@
      { await using var c = await db.OpenAsync(ct); return await c.ExecuteScalarAsync<long>(new CommandDefinition("INSERT INTO sys_dict_value (type_id,code,name,value,sort,status,created_at,updated_at) VALUES (@T,@C,@N,@V,@S,'active',@Now,@Now); SELECT LAST_INSERT_ID();", new { T = req.TypeId, C = req.Code, N = req.Name, req.Value, S = req.Sort, Now = DateTime.UtcNow }, cancellationToken: ct)); }
  
      public async Task DeleteTypeAsync(long id, CancellationToken ct)
-     { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_dict_type SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct)); }
+     { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_dict_type SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct)); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_dict_value SET deleted_at=@Now WHERE type_id=@Id AND deleted_at IS NULL", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct)); }
  
      public async Task DeleteValueAsync(long id, CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_dict_value SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = id }, cancellationToken: ct)); }

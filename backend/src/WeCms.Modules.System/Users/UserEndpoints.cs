@@ -1,4 +1,4 @@
-﻿using global::WeCms.Shared;
+using global::WeCms.Shared;
  
  
  namespace WeCms.Modules.System.Users;
@@ -18,7 +18,7 @@
  
      private static long GetOperatorId(HttpContext ctx) => long.Parse(ctx.User.FindFirst("sub")!.Value);
  
-     private static async Task<IResult> ListAsync([AsParameters] UserQueryParams q, UserService svc, CancellationToken ct)
+     private static async Task<IResult> ListAsync([AsParameters] UserQueryParams q, IUserService svc, CancellationToken ct)
      {
          var (items, total) = await svc.ListAsync(q, ct);
          return Results.Ok(ApiResult<PagedResult<UserListItem>>.Ok(new(items, q.Page, q.PageSize, total)));
@@ -28,7 +28,7 @@
          => (await svc.GetByIdAsync(id, ct)) is UserDetail u ? Results.Ok(ApiResult<UserDetail>.Ok(u)) : Results.Ok(ApiResult<UserDetail>.Fail(ApiCodes.NotFound, "Not found"));
  
      private static async Task<IResult> CreateAsync(CreateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
-         => Results.Ok(ApiResult<object>.Ok(new { id = await svc.CreateAsync(req, GetOperatorId(ctx), ct) }));
+        => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateAsync(req, GetOperatorId(ctx), ct))));
  
      private static async Task<IResult> UpdateAsync(long id, UpdateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
      { await svc.UpdateAsync(id, req, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
@@ -36,6 +36,6 @@
      private static async Task<IResult> DeleteAsync(long id, HttpContext ctx, UserService svc, CancellationToken ct)
      { await svc.DeleteAsync(id, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
  
-     private static async Task<IResult> SetStatusAsync(long id, HttpContext ctx, UserService svc, CancellationToken ct)
+     private static async Task<IResult> SetStatusAsync(long id, HttpContext ctx, IUserService svc, CancellationToken ct)
      { await svc.SetStatusAsync(id, ctx.Request.Query["status"].FirstOrDefault() ?? "active", GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
  }

@@ -3,10 +3,11 @@
  public sealed record LoginRequest(string Username, string Password);
  
  public sealed record LoginResponse(
-     string AccessToken,
-     string RefreshToken,
+     string? AccessToken,
+     string? RefreshToken,
      long ExpiresIn,
-     bool RequiresTwoFactor
+     bool RequiresTwoFactor,
+     string? TwoFactorTicket = null
  );
  
  public sealed record RefreshRequest(string RefreshToken);

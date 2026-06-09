@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WeCms.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1a328be35e1c3f181f8855b38a8ad356c4c91cf3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9a47510447443fc1dddc705f725417c02ec4b801")]
 [assembly: System.Reflection.AssemblyProductAttribute("WeCms.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WeCms.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

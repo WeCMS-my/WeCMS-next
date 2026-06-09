@@ -19,13 +19,11 @@
          if (uidClaim is null || !long.TryParse(uidClaim, out var uid))
              return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Invalid token"));
  
-         await using var conn = await db.OpenAsync(context.HttpContext.RequestAborted);
+         // Check is_super_admin from JWT claims first (cached, no DB query)
+         var isSuperClaim = user.FindFirst("is_super_admin")?.Value;
+         if (isSuperClaim == "true") return await next(context);
  
-         // Check if super admin — bypass permission check
-         var isSuper = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-             "SELECT is_super_admin FROM sys_user WHERE id=@Id AND deleted_at IS NULL",
-             new { Id = uid }, cancellationToken: context.HttpContext.RequestAborted));
-         if (isSuper != 0) return await next(context);
+         await using var conn = await db.OpenAsync(context.HttpContext.RequestAborted);
  
          // Check permission
          var hasPermission = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""

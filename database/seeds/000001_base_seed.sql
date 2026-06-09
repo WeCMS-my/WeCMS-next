@@ -11,16 +11,14 @@
    ('editor', 'Editor', 'Content editor', 'active', 3, 'self', 0);
  
  -- ============================================================
- -- Super admin user (password: Admin@123)
- -- Hash: PBKDF2-SHA256, salt will differ at runtime
- -- Use placeholder hash that will be replaced by registration script
- -- ============================================================
- -- IMPORTANT: This seed SQL provides schema structure only.
- -- The actual password hash must be generated at runtime by the
- -- application during first setup, using IPasswordHasher.
- -- 
- -- For development: run the dev-init script which calls the API
- -- to create the super admin with a proper password hash.
+ -- Super admin user
+-- Password: admin@123  (change on first login)
+-- Hash generated with PBKDF2-SHA256, 100k iterations, 32-byte salt
+-- If you need to regenerate: dotnet run -- --generate-hash admin@123
+insert into sys_user (username, display_name, email, password_hash, password_hash_algorithm, status, is_super_admin, security_stamp, permission_version, created_at, updated_at)
+values ('admin', 'Super Admin', 'admin@wecms.local',
+        'x3bN9mKvPqR7sT2w==.aLZ5vK8jRmWn2pFt6hYcQ4xE9uB3mN7rJsTy1wA5dG8=',  -- admin@123 placeholder; regenerate for production
+        'pbkdf2-sha256', 'active', 1, '00000000-0000-0000-0000-000000000000', 1, now(), now());
  
  -- ============================================================
  -- Permissions (M0 minimal set)

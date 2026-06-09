@@ -15,6 +15,19 @@
           }
         }
       },
+      "Dapper.AOT/1.0.31": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Dapper.AOT.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Dapper.AOT.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Microsoft.AspNetCore.Authentication.JwtBearer/10.0.0": {
         "type": "package",
         "dependencies": {
@@ -210,6 +223,7 @@
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "Microsoft.IdentityModel.Tokens": "8.9.0",
           "MySqlConnector": "2.4.0",
           "System.IdentityModel.Tokens.Jwt": "8.9.0",
@@ -220,7 +234,10 @@
         },
         "runtime": {
           "bin/placeholder/WeCms.Infrastructure.dll": {}
-        }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       },
       "WeCms.Modules.Cms/1.0.0": {
         "type": "project",
@@ -240,6 +257,7 @@
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "WeCms.Shared": "1.0.0"
         },
         "compile": {
@@ -273,6 +291,19 @@
         },
         "runtime": {
           "lib/net8.0/Dapper.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Dapper.AOT/1.0.31": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Dapper.AOT.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Dapper.AOT.dll": {
             "related": ".xml"
           }
         }
@@ -478,6 +509,7 @@
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "Microsoft.IdentityModel.Tokens": "8.9.0",
           "MySqlConnector": "2.4.0",
           "System.IdentityModel.Tokens.Jwt": "8.9.0",
@@ -488,7 +520,10 @@
         },
         "runtime": {
           "bin/placeholder/WeCms.Infrastructure.dll": {}
-        }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       },
       "WeCms.Modules.Cms/1.0.0": {
         "type": "project",
@@ -508,6 +543,7 @@
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
           "Dapper": "2.1.66",
+          "Dapper.AOT": "1.0.31",
           "WeCms.Shared": "1.0.0"
         },
         "compile": {
@@ -549,6 +585,31 @@
         "lib/net8.0/Dapper.xml",
         "lib/netstandard2.0/Dapper.dll",
         "lib/netstandard2.0/Dapper.xml",
+        "readme.md"
+      ]
+    },
+    "Dapper.AOT/1.0.31": {
+      "sha512": "jCmfoYLGJC9hVuDhSxV/+Fh113qKp2vJHim5F2TvwVDPVe4SN8hHvd509XFHdiFbcLGF1ADT9bQpRC5ktaJniA==",
+      "type": "package",
+      "path": "dapper.aot/1.0.31",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Dapper.png",
+        "analyzers/dotnet/Dapper.AOT.Analyzers.dll",
+        "analyzers/dotnet/Microsoft.SqlServer.TransactSql.ScriptDom.dll",
+        "dapper.aot.1.0.31.nupkg.sha512",
+        "dapper.aot.nuspec",
+        "lib/net48/Dapper.AOT.dll",
+        "lib/net48/Dapper.AOT.xml",
+        "lib/net6.0/Dapper.AOT.dll",
+        "lib/net6.0/Dapper.AOT.xml",
+        "lib/net8.0/Dapper.AOT.dll",
+        "lib/net8.0/Dapper.AOT.xml",
+        "lib/netcoreapp3.1/Dapper.AOT.dll",
+        "lib/netcoreapp3.1/Dapper.AOT.xml",
+        "lib/netstandard2.0/Dapper.AOT.dll",
+        "lib/netstandard2.0/Dapper.AOT.xml",
         "readme.md"
       ]
     },
@@ -922,6 +983,7 @@
   "projectFileDependencyGroups": {
     "net10.0": [
       "Dapper >= 2.1.66",
+      "Dapper.AOT >= 1.0.31",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.0-preview.*",
       "Microsoft.AspNetCore.OpenApi >= 10.0.0-preview.*",
       "Microsoft.DotNet.ILCompiler >= 10.0.8",
@@ -1002,6 +1064,10 @@
           "Dapper": {
             "target": "Package",
             "version": "[2.1.66, )"
+          },
+          "Dapper.AOT": {
+            "target": "Package",
+            "version": "[1.0.31, )"
           },
           "Microsoft.AspNetCore.Authentication.JwtBearer": {
             "target": "Package",
