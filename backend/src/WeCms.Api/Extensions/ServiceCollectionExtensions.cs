@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<II18nService, I18nService>();
         services.AddScoped<ISecurityService, SecurityService>();
         services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddHostedService<TwoFactorTicketCleanupService>();
         return services;
     }
 }
