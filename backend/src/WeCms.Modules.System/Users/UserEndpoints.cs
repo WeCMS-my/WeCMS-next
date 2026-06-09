@@ -1,0 +1,40 @@
+ using WeCms.Shared;
+ 
+ namespace WeCms.Modules.System.Users;
+ 
+ public static class UserEndpoints
+ {
+     public static RouteGroupBuilder MapUserEndpoints(this RouteGroupBuilder group)
+     {
+         group.MapGet("/system/users", ListAsync).RequirePermission(Permissions.SystemUserList);
+         group.MapGet("/system/users/{id:long}", GetAsync).RequirePermission(Permissions.SystemUserList);
+         group.MapPost("/system/users", CreateAsync).RequirePermission(Permissions.SystemUserCreate);
+         group.MapPut("/system/users/{id:long}", UpdateAsync).RequirePermission(Permissions.SystemUserUpdate);
+         group.MapDelete("/system/users/{id:long}", DeleteAsync).RequirePermission(Permissions.SystemUserDelete);
+         group.MapPatch("/system/users/{id:long}/status", SetStatusAsync).RequirePermission(Permissions.SystemUserUpdate);
+         return group;
+     }
+ 
+     private static long GetOperatorId(HttpContext ctx) => long.Parse(ctx.User.FindFirst("sub")!.Value);
+ 
+     private static async Task<IResult> ListAsync([AsParameters] UserQueryParams q, UserService svc, CancellationToken ct)
+     {
+         var (items, total) = await svc.ListAsync(q, ct);
+         return Results.Ok(ApiResult<PagedResult<UserListItem>>.Ok(new(items, q.Page, q.PageSize, total)));
+     }
+ 
+     private static async Task<IResult> GetAsync(long id, UserService svc, CancellationToken ct)
+         => (await svc.GetByIdAsync(id, ct)) is UserDetail u ? Results.Ok(ApiResult<UserDetail>.Ok(u)) : Results.Ok(ApiResult<UserDetail>.Fail(ApiCodes.NotFound, "Not found"));
+ 
+     private static async Task<IResult> CreateAsync(CreateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
+         => Results.Ok(ApiResult<object>.Ok(new { id = await svc.CreateAsync(req, GetOperatorId(ctx), ct) }));
+ 
+     private static async Task<IResult> UpdateAsync(long id, UpdateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
+     { await svc.UpdateAsync(id, req, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
+ 
+     private static async Task<IResult> DeleteAsync(long id, HttpContext ctx, UserService svc, CancellationToken ct)
+     { await svc.DeleteAsync(id, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
+ 
+     private static async Task<IResult> SetStatusAsync(long id, HttpContext ctx, UserService svc, CancellationToken ct)
+     { await svc.SetStatusAsync(id, ctx.Request.Query["status"].FirstOrDefault() ?? "active", GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
+ }

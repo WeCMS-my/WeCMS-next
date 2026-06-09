@@ -58,6 +58,28 @@
           "buildTransitive/net10.0/Microsoft.AspNetCore.Mvc.Testing.targets": {}
         }
       },
+      "Microsoft.AspNetCore.OpenApi/10.0.0": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        },
+        "compile": {
+          "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ],
+        "build": {
+          "build/_._": {}
+        }
+      },
       "Microsoft.AspNetCore.TestHost/10.0.0": {
         "type": "package",
         "compile": {
@@ -795,6 +817,19 @@
           "buildMultiTargeting/Microsoft.NET.Test.Sdk.props": {}
         }
       },
+      "Microsoft.OpenApi/2.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Microsoft.OpenApi.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.OpenApi.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
       "Microsoft.TestPlatform.ObjectModel/17.14.0": {
         "type": "package",
         "compile": {
@@ -1217,6 +1252,7 @@
         "dependencies": {
           "Dapper": "2.1.66",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.0-preview",
+          "Microsoft.AspNetCore.OpenApi": "10.0.0-preview",
           "WeCms.Infrastructure": "1.0.0",
           "WeCms.Modules.Cms": "1.0.0",
           "WeCms.Modules.System": "1.0.0",
@@ -1344,6 +1380,24 @@
         "microsoft.aspnetcore.mvc.testing.10.0.0.nupkg.sha512",
         "microsoft.aspnetcore.mvc.testing.nuspec",
         "tasks/netstandard2.0/Microsoft.AspNetCore.Mvc.Testing.Tasks.dll"
+      ]
+    },
+    "Microsoft.AspNetCore.OpenApi/10.0.0": {
+      "sha512": "0aqIF1t+sA2T62LIeMtXGSiaV7keGQaJnvwwmu+htQdjCaKYARfXAeqp4nHH9y2etpilyZ/tnQzZg4Ilmo/c4Q==",
+      "type": "package",
+      "path": "microsoft.aspnetcore.openapi/10.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll",
+        "build/Microsoft.AspNetCore.OpenApi.targets",
+        "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll",
+        "lib/net10.0/Microsoft.AspNetCore.OpenApi.xml",
+        "microsoft.aspnetcore.openapi.10.0.0.nupkg.sha512",
+        "microsoft.aspnetcore.openapi.nuspec"
       ]
     },
     "Microsoft.AspNetCore.TestHost/10.0.0": {
@@ -2486,6 +2540,24 @@
         "microsoft.net.test.sdk.nuspec"
       ]
     },
+    "Microsoft.OpenApi/2.0.0": {
+      "sha512": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw==",
+      "type": "package",
+      "path": "microsoft.openapi/2.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net8.0/Microsoft.OpenApi.dll",
+        "lib/net8.0/Microsoft.OpenApi.pdb",
+        "lib/net8.0/Microsoft.OpenApi.xml",
+        "lib/netstandard2.0/Microsoft.OpenApi.dll",
+        "lib/netstandard2.0/Microsoft.OpenApi.pdb",
+        "lib/netstandard2.0/Microsoft.OpenApi.xml",
+        "microsoft.openapi.2.0.0.nupkg.sha512",
+        "microsoft.openapi.nuspec"
+      ]
+    },
     "Microsoft.TestPlatform.ObjectModel/17.14.0": {
       "sha512": "3h7y7f/HuY8jdZa163p/55VmGw/fYJwrI8FOtsp4aEQAJaPgBr5LBS25uOfBwRYI95QDiByfaqSPBcWEvuHEwA==",
       "type": "package",
@@ -2952,7 +3024,8 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\ALi365\\.nuget\\packages\\": {}
+    "C:\\Users\\ALi365\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
@@ -2963,13 +3036,20 @@
       "packagesPath": "C:\\Users\\ALi365\\.nuget\\packages\\",
       "outputPath": "E:\\Github\\WeCMS-next\\backend\\tests\\WeCms.Tests.Integration\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\ALi365\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\ALi365\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {

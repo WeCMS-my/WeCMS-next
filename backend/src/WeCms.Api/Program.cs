@@ -1,7 +1,9 @@
-﻿using WeCms.Api.Middleware;
+﻿using System.Threading.RateLimiting;
+using WeCms.Api.Middleware;
 using WeCms.Api.Extensions;
 using WeCms.Modules.System;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Auth.TwoFactor;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -29,6 +31,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(o => o.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter("login", _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })));
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -40,5 +43,7 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "healthy", timestamp 
 app.MapGet("/health/ready", () => Results.Ok(new { status = "ready", timestamp = DateTimeOffset.UtcNow })).AllowAnonymous();
 app.MapGroup("/api/v1/system").MapSystemEndpoints();
 app.MapGroup("/api/v1").MapAuthEndpoints();
+app.MapGroup("/api/v1").MapAuthManagementEndpoints();
+app.MapGroup("/api/v1").MapTwoFactorEndpoints();
 app.MapOpenApi();
 app.Run();

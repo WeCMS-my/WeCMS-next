@@ -10,6 +10,7 @@
         "dependencies": {
           "Dapper": "2.1.66",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.0",
+          "Microsoft.AspNetCore.OpenApi": "10.0.0",
           "WeCms.Infrastructure": "1.0.0",
           "WeCms.Modules.Cms": "1.0.0",
           "WeCms.Modules.System": "1.0.0",
@@ -33,6 +34,17 @@
         },
         "runtime": {
           "lib/net10.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.25.52411"
+          }
+        }
+      },
+      "Microsoft.AspNetCore.OpenApi/10.0.0": {
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        },
+        "runtime": {
+          "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
             "assemblyVersion": "10.0.0.0",
             "fileVersion": "10.0.25.52411"
           }
@@ -99,6 +111,14 @@
           "lib/net9.0/Microsoft.IdentityModel.Tokens.dll": {
             "assemblyVersion": "8.9.0.0",
             "fileVersion": "8.9.0.60424"
+          }
+        }
+      },
+      "Microsoft.OpenApi/2.0.0": {
+        "runtime": {
+          "lib/net8.0/Microsoft.OpenApi.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.0.0"
           }
         }
       },
@@ -190,6 +210,13 @@
       "path": "microsoft.aspnetcore.authentication.jwtbearer/10.0.0",
       "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.10.0.0.nupkg.sha512"
     },
+    "Microsoft.AspNetCore.OpenApi/10.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0aqIF1t+sA2T62LIeMtXGSiaV7keGQaJnvwwmu+htQdjCaKYARfXAeqp4nHH9y2etpilyZ/tnQzZg4Ilmo/c4Q==",
+      "path": "microsoft.aspnetcore.openapi/10.0.0",
+      "hashPath": "microsoft.aspnetcore.openapi.10.0.0.nupkg.sha512"
+    },
     "Microsoft.IdentityModel.Abstractions/8.9.0": {
       "type": "package",
       "serviceable": true,
@@ -231,6 +258,13 @@
       "sha512": "sha512-qK6kW5qZvDj7E5RLWQ9gzJxQe5GUz7+7bXrLQQydSDF9hTf5Ip2qHuAQW3Fg9GND6jkjTr7IXAZFmBHadNQi4Q==",
       "path": "microsoft.identitymodel.tokens/8.9.0",
       "hashPath": "microsoft.identitymodel.tokens.8.9.0.nupkg.sha512"
+    },
+    "Microsoft.OpenApi/2.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw==",
+      "path": "microsoft.openapi/2.0.0",
+      "hashPath": "microsoft.openapi.2.0.0.nupkg.sha512"
     },
     "MySqlConnector/2.4.0": {
       "type": "package",
