@@ -52,9 +52,7 @@ public sealed class TokenService : ITokenService
             var username = result.Claims.First(c => c.Type == "username").Value;
             var securityStamp = result.Claims.First(c => c.Type == "security_stamp").Value;
             var permissionVersion = long.Parse(result.Claims.First(c => c.Type == "permission_version").Value);
-            var isSuperAdmin = result.Claims.FirstOrDefault(c => c.Type == "is_super_admin")?.Value == "true";
-
-            return new TokenPrincipal(userId, username, securityStamp, permissionVersion, isSuperAdmin);
+            return new TokenPrincipal(userId, username, securityStamp, permissionVersion);
         }
         catch (SecurityTokenException)
         {
@@ -74,8 +72,7 @@ public sealed class TokenService : ITokenService
             new Claim("sub", principal.UserId.ToString()),
             new Claim("username", principal.Username),
             new Claim("security_stamp", principal.SecurityStamp),
-            new Claim("permission_version", principal.PermissionVersion.ToString()),
-            new Claim("is_super_admin", principal.IsSuperAdmin ? "true" : "false")
+            new Claim("permission_version", principal.PermissionVersion.ToString())
         };
 
         var token = new JwtSecurityToken(

@@ -14,10 +14,10 @@ values
 -- Super admin user
 -- Password: admin@123  (change on first login)
 -- ============================================================
-insert into sys_user (username, display_name, email, password_hash, password_hash_algorithm, status, is_super_admin, security_stamp, permission_version, created_at, updated_at)
+insert into sys_user (username, display_name, email, password_hash, password_hash_algorithm, status, security_stamp, permission_version, created_at, updated_at)
 values ('admin', 'Super Admin', 'admin@wecms.local',
         'wecms.pbkdf2-sha256.v1.600000.DUIIbvhusUotxAODgv7d4g==.Ig5o6o7tesl+fv6uq1LdWaHGNh/XaTKVRp2SmS5Rato=',
-        'pbkdf2-sha256', 'active', 1, REPLACE(UUID(), '-', ''), 1, now(), now());
+        'pbkdf2-sha256', 'active', REPLACE(UUID(), '-', ''), 1, now(), now());
 
 -- ============================================================
 -- Permissions (M0 minimal set)
@@ -52,3 +52,18 @@ values
   (1, 'menu', 'system_role', '/system/role', 'views/system/role/index', 'Role Management', 'mdi:shield-account-outline', 2, 'active'),
   (1, 'menu', 'system_menu', '/system/menu', 'views/system/menu/index', 'Menu Management', 'mdi:menu-open', 3, 'active'),
   (1, 'menu', 'system_permission', '/system/permission', 'views/system/permission/index', 'Permission Management', 'mdi:shield-key-outline', 4, 'active');
+
+-- ============================================================
+-- Grant all permissions to super_admin role
+-- ============================================================
+INSERT INTO sys_role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM sys_role r, sys_permission p
+WHERE r.code = 'super_admin' AND p.status = 'active';
+
+-- ============================================================
+-- Assign super_admin role to admin user
+-- ============================================================
+INSERT INTO sys_user_role (user_id, role_id, created_at)
+SELECT u.id, r.id, NOW()
+FROM sys_user u, sys_role r
+WHERE u.username = 'admin' AND r.code = 'super_admin';

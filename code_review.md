@@ -501,15 +501,14 @@ PR 打开评审前必须确认：
 [ ] 是否校验枚举值
 [ ] 是否校验 id 是否存在
 [ ] 是否校验 roleIds/menuIds/permissionIds 有效且启用
-[ ] 是否禁止前端提交系统字段，如 id、created_at、is_super_admin、permission_version
-[ ] 是否禁止非超级管理员授予自己未拥有权限
+[ ] 是否禁止前端提交系统字段，如 id、created_at、permission_version
+[ ] 是否禁止非拥有 super_admin 角色的用户修改超级管理员
 ```
 
 阻断条件：
 
 ```text
 - Mass Assignment 可修改敏感字段。
-- 前端可提交 is_super_admin。
 - 前端可提交 permission_version/security_stamp 等系统字段。
 ```
 

@@ -25,10 +25,6 @@ public sealed class PermissionEndpointFilter(IDbConnectionFactory db, IMemoryCac
         if (uidClaim is null || !long.TryParse(uidClaim, out var uid))
             return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Invalid token"));
 
-        // Check is_super_admin from JWT claims first (cached, no DB query)
-        var isSuperClaim = user.FindFirst("is_super_admin")?.Value;
-        if (isSuperClaim == "true") return await next(context);
-
         // In-memory permission cache key: perm:{uid}:{code}:{permissionVersion}
         var permissionVersion = user.FindFirst("permission_version")?.Value ?? "0";
         var cacheKey = $"perm:{uid}:{meta.Code}:{permissionVersion}";

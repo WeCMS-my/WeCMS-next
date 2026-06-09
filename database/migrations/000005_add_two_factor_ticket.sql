@@ -7,7 +7,6 @@ create table sys_two_factor_ticket (
   username varchar(64) not null,
   security_stamp varchar(64) not null,
   permission_version bigint not null,
-  is_super_admin tinyint(1) not null default 0,
   expires_at datetime not null,
   created_at datetime not null default current_timestamp,
   key ix_stt_expires (expires_at),

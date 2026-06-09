@@ -1,5 +1,6 @@
 using WeCms.Shared.Contracts;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Dapper;
 
 namespace WeCms.Infrastructure.Data;
@@ -9,13 +10,15 @@ public sealed class TwoFactorTicketCleanupService : IHostedService, IDisposable
     private readonly IDbConnectionFactory _db;
     private readonly IClock _clock;
     private readonly PeriodicTimer _timer;
+    private readonly ILogger<TwoFactorTicketCleanupService> _logger;
     private CancellationTokenSource? _cts;
     private Task? _loop;
 
-    public TwoFactorTicketCleanupService(IDbConnectionFactory db, IClock clock)
+    public TwoFactorTicketCleanupService(IDbConnectionFactory db, IClock clock, ILogger<TwoFactorTicketCleanupService> logger)
     {
         _db = db;
         _clock = clock;
+        _logger = logger;
         _timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
     }
 
@@ -44,14 +47,20 @@ public sealed class TwoFactorTicketCleanupService : IHostedService, IDisposable
             try
             {
                 await using var c = await _db.OpenAsync(ct);
-                await c.ExecuteAsync(new CommandDefinition(
+                var deleted = await c.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM sys_two_factor_ticket WHERE expires_at < @N",
                     new { N = _clock.UtcNow.DateTime },
                     cancellationToken: ct));
+                if (deleted > 0)
+                    _logger.LogInformation("Cleaned {Count} expired two-factor tickets", deleted);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clean expired two-factor tickets");
             }
         }
     }

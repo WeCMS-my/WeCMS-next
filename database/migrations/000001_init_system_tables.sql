@@ -12,7 +12,6 @@
    password_hash_algorithm varchar(64) not null default 'pbkdf2-sha256',
    password_migrated_at datetime null,
    status varchar(32) not null default 'active',
-   is_super_admin tinyint(1) not null default 0,
    security_stamp varchar(64) not null,
    permission_version bigint not null default 1,
    two_factor_enabled tinyint(1) not null default 0,

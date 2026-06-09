@@ -31,6 +31,5 @@ public sealed class CurrentUserProvider : ICurrentUser
         }
     }
 
-    public bool IsSuperAdmin =>
-        _http.HttpContext?.User.FindFirst("is_super_admin")?.Value == "true";
+
 }

@@ -20,7 +20,7 @@ public sealed class AuthService : IAuthService
     {
         await using var c = await _db.OpenAsync(ct);
         var r = await c.QueryFirstOrDefaultAsync<UserR>(new CommandDefinition(
-            "SELECT id,username,display_name,password_hash,security_stamp,permission_version,status,two_factor_enabled,is_super_admin FROM sys_user WHERE username=@U AND deleted_at IS NULL",
+            "SELECT id,username,display_name,password_hash,security_stamp,permission_version,status,two_factor_enabled FROM sys_user WHERE username=@U AND deleted_at IS NULL",
             new { U = u }, cancellationToken: ct));
         if (r is null || r.Status != "active" || !_ph.Verify(p, r.PasswordHash))
         { await _el.LogAsync("login_failed","warning",r?.Id,u,ip,"Invalid credentials",ct); return null; }
@@ -32,8 +32,8 @@ public sealed class AuthService : IAuthService
                 new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = _clock.UtcNow.DateTime }, cancellationToken: ct));
             var ticket = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             await c.ExecuteAsync(new CommandDefinition(
-                "INSERT INTO sys_two_factor_ticket (ticket,user_id,username,security_stamp,permission_version,is_super_admin,expires_at,created_at) VALUES (@T,@Id,@U,@SS,@PV,@SA,@E,@N)",
-                new { T = ticket, r.Id, U = r.Username, SS = r.SecurityStamp, PV = r.PermissionVersion, SA = r.IsSuperAdmin, E = _clock.UtcNow.DateTime.AddMinutes(5), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
+                "INSERT INTO sys_two_factor_ticket (ticket,user_id,username,security_stamp,permission_version,expires_at,created_at) VALUES (@T,@Id,@U,@SS,@PV,@E,@N)",
+                new { T = ticket, r.Id, U = r.Username, SS = r.SecurityStamp, PV = r.PermissionVersion, E = _clock.UtcNow.DateTime.AddMinutes(5), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
             return new LoginResponse(null, null, 0, true, ticket);
         }
 
@@ -45,7 +45,7 @@ public sealed class AuthService : IAuthService
             "INSERT INTO sys_login_log (user_id,username,login_type,status,ip,user_agent,created_at) VALUES (@Id,@U,'password','success',@Ip,'',@N)",
             new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = _clock.UtcNow.DateTime }, cancellationToken: ct));
 
-        var pair = _ts.GenerateTokenPair(new TokenPrincipal(r.Id,r.Username,r.SecurityStamp,r.PermissionVersion,r.IsSuperAdmin));
+        var pair = _ts.GenerateTokenPair(new TokenPrincipal(r.Id,r.Username,r.SecurityStamp,r.PermissionVersion));
         await StoreRefreshToken(c, r.Id, pair.RefreshToken, ip, null, ct);
         return new LoginResponse(pair.AccessToken,pair.RefreshToken,pair.ExpiresIn,false);
     }
@@ -56,7 +56,7 @@ public sealed class AuthService : IAuthService
         {
             await using var c = await _db.OpenAsync(ct);
             var data = await c.QueryFirstOrDefaultAsync<TwoFactorTicketData>(new CommandDefinition(
-                "SELECT ticket, user_id AS UserId, username AS Username, security_stamp AS SecurityStamp, permission_version AS PermissionVersion, is_super_admin AS IsSuperAdmin FROM sys_two_factor_ticket WHERE ticket=@T AND expires_at>@N",
+                "SELECT ticket, user_id AS UserId, username AS Username, security_stamp AS SecurityStamp, permission_version AS PermissionVersion FROM sys_two_factor_ticket WHERE ticket=@T AND expires_at>@N",
                 new { T = ticket, N = _clock.UtcNow.DateTime }, cancellationToken: ct));
             if (data is null) return null;
             await c.ExecuteAsync(new CommandDefinition(
@@ -84,7 +84,7 @@ public sealed class AuthService : IAuthService
                 "UPDATE sys_user SET last_login_at=@N WHERE id=@Id",
                 new { N = _clock.UtcNow.DateTime, Id = data.UserId }, cancellationToken: ct));
 
-            var pair = _ts.GenerateTokenPair(new TokenPrincipal(data.UserId, data.Username, data.SecurityStamp, data.PermissionVersion, data.IsSuperAdmin));
+            var pair = _ts.GenerateTokenPair(new TokenPrincipal(data.UserId, data.Username, data.SecurityStamp, data.PermissionVersion));
             // M0: IP/UA not available in ticket flow; add to ticket data in M1
             await StoreRefreshToken(c, data.UserId, pair.RefreshToken, "", "", ct);
             return new LoginResponse(pair.AccessToken, pair.RefreshToken, pair.ExpiresIn, false);
@@ -103,7 +103,7 @@ public sealed class AuthService : IAuthService
         // Check if token exists (may be revoked)
         // Note: intentionally no WHERE srt.revoked_at IS NULL - we check revoked status programmatically for reuse detection
         var revoked = await c.QueryFirstOrDefaultAsync<RefreshR>(new CommandDefinition(
-            "SELECT srt.id,srt.user_id,srt.family_id,srt.revoked_at IS NOT NULL AS revoked,srt.expires_at,u.username,u.security_stamp,u.permission_version,u.status,u.is_super_admin FROM sys_refresh_token srt JOIN sys_user u ON u.id=srt.user_id WHERE srt.token_hash=@H",
+            "SELECT srt.id,srt.user_id,srt.family_id,srt.revoked_at IS NOT NULL AS revoked,srt.expires_at,u.username,u.security_stamp,u.permission_version,u.status FROM sys_refresh_token srt JOIN sys_user u ON u.id=srt.user_id WHERE srt.token_hash=@H",
             new { H = h }, cancellationToken: ct));
 
         if (revoked is null)
@@ -137,7 +137,7 @@ public sealed class AuthService : IAuthService
             new { N = _clock.UtcNow.DateTime, Id = revoked.Id }, cancellationToken: ct));
 
         // Issue new token pair
-        var pair = _ts.GenerateTokenPair(new TokenPrincipal(revoked.UserId, revoked.Username, revoked.SecurityStamp, revoked.PermissionVersion, revoked.IsSuperAdmin));
+        var pair = _ts.GenerateTokenPair(new TokenPrincipal(revoked.UserId, revoked.Username, revoked.SecurityStamp, revoked.PermissionVersion));
         await c.ExecuteAsync(new CommandDefinition(
             "INSERT INTO sys_refresh_token (user_id,token_hash,family_id,expires_at,created_at) VALUES (@U,@H,@F,@E,@N)",
             new { U = revoked.UserId, H = TokenHelper.HashToken(pair.RefreshToken), F = revoked.FamilyId, E = _clock.UtcNow.DateTime.AddDays(7), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
@@ -161,9 +161,9 @@ public sealed class AuthService : IAuthService
     private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)
     { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=TokenHelper.HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
 
-    private sealed record UserR(long Id,string Username,string DisplayName,string PasswordHash,string SecurityStamp,long PermissionVersion,string Status,bool TwoFactorEnabled,bool IsSuperAdmin);
-    private sealed record RefreshR(long Id,long UserId,string FamilyId,string Username,string SecurityStamp,long PermissionVersion,string Status,bool IsSuperAdmin,bool Revoked,DateTime ExpiresAt);
+    private sealed record UserR(long Id,string Username,string DisplayName,string PasswordHash,string SecurityStamp,long PermissionVersion,string Status,bool TwoFactorEnabled);
+    private sealed record RefreshR(long Id,long UserId,string FamilyId,string Username,string SecurityStamp,long PermissionVersion,string Status,bool Revoked,DateTime ExpiresAt);
     private sealed record CurU(long Id,string Username,string DisplayName);
-    private sealed record TwoFactorTicketData(long UserId, string Username, string SecurityStamp, long PermissionVersion, bool IsSuperAdmin, DateTime ExpiresAt);
+    private sealed record TwoFactorTicketData(long UserId, string Username, string SecurityStamp, long PermissionVersion, DateTime ExpiresAt);
     private sealed record TwoFactorRow(string? Secret, long? LastUsedStep);
 }

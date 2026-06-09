@@ -851,7 +851,6 @@ DB-COMMON-008：所有外键关系即使不建立物理 FK，也必须在文档�
 | `password_algo` | varchar(32) | 是 | `legacy_php` | 密码算法 |
 | `must_change_password` | tinyint | 是 | 0 | 是否强制改密 |
 | `status` | tinyint | 是 | 1 | 1 正常，0 禁用，2 锁定 |
-| `is_super_admin` | tinyint | 是 | 0 | 是否超级管理员 |
 | `security_stamp` | varchar(64) | 是 | - | 安全戳 |
 | `permission_version` | int | 是 | 1 | 权限版本 |
 | `last_login_at` | datetime(3) null | 否 | null | 最后登录时间 |

@@ -722,12 +722,12 @@ public sealed class PermissionEndpointFilter(
 
 ### 10.5 超级管理员策略
 
-`sys_user.is_super_admin = true` 的用户：
+超级管理员通过 `sys_role.code = 'super_admin'` 角色判定，拥有该角色的用户：
 
 ```text
-1. 可跳过常规权限码检查。
+1. 通过 RBAC 权限校验（角色拥有所有权限码）。
 2. 不能被非超级管理员修改关键状态。
-3. 不能被删除。
+3. 不能被删除/禁用。
 4. 系统必须保证至少一个可登录超级管理员。
 ```
 
@@ -823,7 +823,6 @@ create table sys_user (
   password_hash_algorithm varchar(64) not null,
   password_migrated_at datetime null,
   status varchar(32) not null,
-  is_super_admin tinyint(1) not null default 0,
   security_stamp varchar(64) not null,
   permission_version bigint not null default 1,
   two_factor_enabled tinyint(1) not null default 0,
@@ -2735,7 +2734,7 @@ IMPORT-004：导入预检必须返回错误行号和字段。
 IMPORT-005：导入执行必须有任务 ID。
 IMPORT-006：导入执行必须记录操作人、文件 ID、影响行数。
 IMPORT-007：导入失败必须支持错误报告下载。
-IMPORT-008：导入不得允许前端传入系统字段，例如 id、created_at、is_super_admin。
+IMPORT-008：导入不得允许前端传入系统字段，例如 id、created_at、permission_version。
 IMPORT-009：导入必须做字段白名单。
 IMPORT-010：导入必须限制批量写入事务大小。
 IMPORT-011：导入前必须进行权限和数据范围校验。
@@ -4645,7 +4644,6 @@ DB-DESIGN-008：敏感字段必须标注加密、哈希或脱敏规则。
 | `password_algo` | `varchar(32)` | 是 | `legacy_php` | 密码算法标识 |
 | `must_change_password` | `tinyint` | 是 | `0` | 是否强制修改密码 |
 | `status` | `tinyint` | 是 | `1` | 1 正常，0 禁用，2 锁定 |
-| `is_super_admin` | `tinyint` | 是 | `0` | 是否超级管理员 |
 | `security_stamp` | `varchar(64)` | 是 | - | 安全戳 |
 | `permission_version` | `int` | 是 | `1` | 权限版本 |
 | `last_login_at` | `datetime(3) null` | 否 | null | 最后登录时间 |
