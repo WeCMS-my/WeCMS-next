@@ -31,7 +31,7 @@ public sealed class AuthService : IAuthService
     }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
 
     public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el, IClock clock)
-    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; _s_clock = clock; }
+    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; _s_clock ??= clock; }
 
     public async Task<LoginResponse?> LoginAsync(string u, string p, string ip, CancellationToken ct)
     {
