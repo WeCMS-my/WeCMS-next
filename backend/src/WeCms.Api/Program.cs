@@ -11,6 +11,7 @@
  using WeCms.Modules.System.Dicts;
  using WeCms.Modules.System.Files;
  using WeCms.Modules.System.Logs;
+using WeCms.Modules.System.Permissions;
  using Microsoft.AspNetCore.Authentication.JwtBearer;
  using Microsoft.IdentityModel.Tokens;
  using System.Text;
@@ -42,5 +43,6 @@
  app.MapGroup("/api/v1").MapDictEndpoints();
  app.MapGroup("/api/v1").MapFileEndpoints();
  app.MapGroup("/api/v1").MapLogEndpoints();
+app.MapGroup("/api/v1").MapPermissionEndpoints();
  app.MapOpenApi();
  app.Run();

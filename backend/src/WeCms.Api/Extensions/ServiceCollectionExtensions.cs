@@ -1,3 +1,4 @@
+﻿using WeCms.Modules.System.Permissions;
  using WeCms.Shared.Contracts;
  using WeCms.Infrastructure.Data;
  using WeCms.Infrastructure.Security;
@@ -31,6 +32,7 @@
          services.AddScoped<DictService>();
          services.AddScoped<FileService>();
          services.AddScoped<LogService>();
+        services.AddScoped<PermissionSyncService>();
          return services;
      }
  }
