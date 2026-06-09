@@ -22,8 +22,10 @@ using System.Text;
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCms.Api.Json.WeCmsJsonContext.Default));
 builder.Services.AddWeCmsInfrastructure(builder.Configuration);
-// M0 development: AllowAnyOrigin; restrict in production
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (allowedOrigins is null || allowedOrigins.Length == 0)
+    throw new InvalidOperationException("Cors:AllowedOrigins is not configured");
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader()));
 
 // JwtSecret also used by TokenService in ServiceCollectionExtensions, must match
 var jwtSecret = builder.Configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret is not configured");

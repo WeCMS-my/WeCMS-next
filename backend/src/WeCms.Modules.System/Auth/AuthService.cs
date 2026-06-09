@@ -158,8 +158,19 @@ public sealed class AuthService : IAuthService
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(long uid, CancellationToken ct)
     { await using var c = await _db.OpenAsync(ct); var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition("SELECT id,username,display_name FROM sys_user WHERE id=@Id AND deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); if(u is null)return null; var rt=await c.QueryAsync<string>(new CommandDefinition("SELECT r.code FROM sys_role r JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=@Id AND r.status='active' AND r.deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); var pt=await c.QueryAsync<string>(new CommandDefinition("SELECT DISTINCT p.code FROM sys_permission p JOIN sys_role_permission rp ON rp.permission_id=p.id JOIN sys_user_role ur ON ur.role_id=rp.role_id JOIN sys_role r ON r.id=ur.role_id AND r.status='active' AND r.deleted_at IS NULL WHERE ur.user_id=@Id AND p.status='active'",new{Id=uid},cancellationToken:ct)); return new CurrentUserResponse(u.Id,u.Username,u.DisplayName,rt.AsList().ToArray(),pt.AsList().ToArray(),Array.Empty<object>()); }
 
+    // H2: Limit active refresh tokens to 10 per user; remove oldest if exceeded
     private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)
-    { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=TokenHelper.HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
+    {
+        var count = await c.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(1) FROM sys_refresh_token WHERE user_id=@U AND revoked_at IS NULL", new { U = uid }, cancellationToken: ct));
+        if (count >= 10)
+        {
+            await c.ExecuteAsync(new CommandDefinition(
+                "UPDATE sys_refresh_token SET revoked_at=@N WHERE id IN (SELECT id FROM (SELECT id FROM sys_refresh_token WHERE user_id=@U AND revoked_at IS NULL ORDER BY created_at ASC LIMIT @L) AS sub)",
+                new { N = _clock.UtcNow.DateTime, U = uid, L = count - 9 }, cancellationToken: ct));
+        }
+        await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=TokenHelper.HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct));
+    }
 
     private sealed record UserR(long Id,string Username,string DisplayName,string PasswordHash,string SecurityStamp,long PermissionVersion,string Status,bool TwoFactorEnabled);
     private sealed record RefreshR(long Id,long UserId,string FamilyId,string Username,string SecurityStamp,long PermissionVersion,string Status,bool Revoked,DateTime ExpiresAt);
