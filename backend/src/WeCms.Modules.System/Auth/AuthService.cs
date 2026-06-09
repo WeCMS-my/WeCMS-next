@@ -14,11 +14,13 @@ public sealed class AuthService : IAuthService
     private readonly ISecurityEventLogger _el;
     private readonly IClock _clock;
 
+    private static IClock _s_clock = null!;
+
     private static readonly ConcurrentDictionary<string, TwoFactorTicketData> _tickets = new();
 
     private static readonly Timer _ticketCleanupTimer = new(_ =>
     {
-        var now = DateTime.UtcNow;
+        var now = _s_clock.UtcNow.DateTime;
         foreach (var kv in _tickets)
         {
             if (kv.Value.ExpiresAt < now)
@@ -27,7 +29,7 @@ public sealed class AuthService : IAuthService
     }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
 
     public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el, IClock clock)
-    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; }
+    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; _s_clock = clock; }
 
     public async Task<LoginResponse?> LoginAsync(string u, string p, string ip, CancellationToken ct)
     {
