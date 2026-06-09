@@ -20,6 +20,7 @@ public sealed class AuthService : IAuthService
 
     private static readonly Timer _ticketCleanupTimer = new(_ =>
     {
+        if (_s_clock is null) return;
         var now = _s_clock.UtcNow.DateTime;
         foreach (var kv in _tickets)
         {
