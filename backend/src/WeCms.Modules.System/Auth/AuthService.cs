@@ -2,7 +2,6 @@ using System.Threading;
 using WeCms.Shared;
 using WeCms.Shared.Contracts;
 using System.Security.Cryptography;
-using System.Collections.Concurrent;
 
 namespace WeCms.Modules.System.Auth;
 
@@ -14,24 +13,8 @@ public sealed class AuthService : IAuthService
     private readonly ISecurityEventLogger _el;
     private readonly IClock _clock;
 
-    // M0: static fields for 2FA ticket storage; extract to ITwoFactorTicketStore singleton in M1
-    private static IClock _s_clock = null!;
-
-    private static readonly ConcurrentDictionary<string, TwoFactorTicketData> _tickets = new();
-
-    private static readonly Timer _ticketCleanupTimer = new(_ =>
-    {
-        if (_s_clock is null) return;
-        var now = _s_clock.UtcNow.DateTime;
-        foreach (var kv in _tickets)
-        {
-            if (kv.Value.ExpiresAt < now)
-                _tickets.TryRemove(kv);
-        }
-    }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
-
     public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el, IClock clock)
-    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; _s_clock ??= clock; }
+    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; }
 
     public async Task<LoginResponse?> LoginAsync(string u, string p, string ip, CancellationToken ct)
     {
@@ -47,8 +30,10 @@ public sealed class AuthService : IAuthService
             await c.ExecuteAsync(new CommandDefinition(
                 "INSERT INTO sys_login_log (user_id,username,login_type,status,ip,created_at) VALUES (@Id,@U,'password','2fa_required',@Ip,@N)",
                 new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = _clock.UtcNow.DateTime }, cancellationToken: ct));
-            var ticket = GenerateTicket();
-            _tickets[ticket] = new TwoFactorTicketData(r.Id, r.Username, r.SecurityStamp, r.PermissionVersion, r.IsSuperAdmin, _clock.UtcNow.DateTime.AddMinutes(5));
+            var ticket = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            await c.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO sys_two_factor_ticket (ticket,user_id,username,security_stamp,permission_version,is_super_admin,expires_at,created_at) VALUES (@T,@Id,@U,@SS,@PV,@SA,@E,@N)",
+                new { T = ticket, r.Id, U = r.Username, SS = r.SecurityStamp, PV = r.PermissionVersion, SA = r.IsSuperAdmin, E = _clock.UtcNow.DateTime.AddMinutes(5), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
             return new LoginResponse(null, null, 0, true, ticket);
         }
 
@@ -69,10 +54,14 @@ public sealed class AuthService : IAuthService
     {
         if (!string.IsNullOrWhiteSpace(ticket))
         {
-            if (!_tickets.TryRemove(ticket, out var data) || data.ExpiresAt < _clock.UtcNow.DateTime)
-                return null;
-
             await using var c = await _db.OpenAsync(ct);
+            var data = await c.QueryFirstOrDefaultAsync<TwoFactorTicketData>(new CommandDefinition(
+                "SELECT ticket, user_id AS UserId, username AS Username, security_stamp AS SecurityStamp, permission_version AS PermissionVersion, is_super_admin AS IsSuperAdmin FROM sys_two_factor_ticket WHERE ticket=@T AND expires_at>@N",
+                new { T = ticket, N = _clock.UtcNow.DateTime }, cancellationToken: ct));
+            if (data is null) return null;
+            await c.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM sys_two_factor_ticket WHERE ticket=@T",
+                new { T = ticket }, cancellationToken: ct));
             var row = await c.QueryFirstOrDefaultAsync<TwoFactorRow>(new CommandDefinition(
                 "SELECT two_factor_secret, two_factor_last_used_ts FROM sys_user WHERE id=@Id AND deleted_at IS NULL AND two_factor_enabled=1",
                 new { Id = data.UserId }, cancellationToken: ct));
@@ -171,7 +160,6 @@ public sealed class AuthService : IAuthService
 
     private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)
     { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=TokenHelper.HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
-    private static string GenerateTicket() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     private sealed record UserR(long Id,string Username,string DisplayName,string PasswordHash,string SecurityStamp,long PermissionVersion,string Status,bool TwoFactorEnabled,bool IsSuperAdmin);
     private sealed record RefreshR(long Id,long UserId,string FamilyId,string Username,string SecurityStamp,long PermissionVersion,string Status,bool IsSuperAdmin,bool Revoked,DateTime ExpiresAt);

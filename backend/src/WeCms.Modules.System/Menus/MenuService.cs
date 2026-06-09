@@ -2,9 +2,9 @@
  
  namespace WeCms.Modules.System.Menus;
  
- public sealed class MenuService(IDbConnectionFactory db, IClock clock) : IMenuService
- {
-     public async Task<List<MenuTreeItem>> GetTreeAsync(CancellationToken ct)
+ public sealed class MenuService(IDbConnectionFactory db, IClock clock, IAuditWriter audit) : IMenuService
+{
+    public async Task<List<MenuTreeItem>> GetTreeAsync(CancellationToken ct)
      {
          await using var conn = await db.OpenAsync(ct);
          var all = await conn.QueryAsync<MenuFlat>(new CommandDefinition(
@@ -29,9 +29,11 @@
              if (parent is null) throw new InvalidOperationException("Parent not found");
             // Circular reference check: new node has no children yet, so parent cannot be its descendant
         }
-        return await conn.ExecuteScalarAsync<long>(new CommandDefinition(
+        var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition(
             "INSERT INTO sys_menu (parent_id,type,name,path,component,title,i18n_key,icon,sort,hidden,keep_alive,external_url,permission_code,status,created_at,updated_at) VALUES (@P,@T,@N,@Pa,@C,@Ti,@Ik,@I,@S,@H,@Ka,@Eu,@Pc,'active',@Now,@Now); SELECT LAST_INSERT_ID();",
             new { P = req.ParentId, T = req.Type, N = req.Name, Pa = req.Path, C = req.Component, Ti = req.Title, Ik = req.I18nKey, req.Icon, S = req.Sort, H = req.Hidden, Ka = req.KeepAlive, Eu = req.ExternalUrl, Pc = req.PermissionCode, Now = clock.UtcNow.DateTime }, cancellationToken: ct));
+        await audit.LogAsync("system", "menu:create", null, null, null, null, 200, "success", ct);
+        return id;
      }
  
      public async Task UpdateAsync(long id, UpdateMenuRequest req, CancellationToken ct)
@@ -64,11 +66,12 @@
      }
  
      public async Task SortAsync(long[] orderedIds, CancellationToken ct)
-     {
-         await using var conn = await db.OpenAsync(ct);
-         for (var i = 0; i < orderedIds.Length; i++)
-             await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET sort=@S WHERE id=@Id", new { S = i, Id = orderedIds[i] }, cancellationToken: ct));
-     }
+    {
+        await using var conn = await db.OpenAsync(ct);
+        for (var i = 0; i < orderedIds.Length; i++)
+            await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET sort=@S WHERE id=@Id", new { S = i, Id = orderedIds[i] }, cancellationToken: ct));
+        await audit.LogAsync("system", "menu:sort", null, null, null, null, 200, "success", ct);
+    }
  
      private static async Task<bool> IsDescendant(DbConnection conn, long targetId, long excludeId, CancellationToken ct)
      {

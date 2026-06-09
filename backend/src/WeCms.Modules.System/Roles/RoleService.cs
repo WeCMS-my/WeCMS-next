@@ -2,9 +2,9 @@
  
  namespace WeCms.Modules.System.Roles;
  
- public sealed class RoleService(IDbConnectionFactory db, IClock clock) : IRoleService
- {
-     public async Task<(IReadOnlyList<RoleListItem> Items, long Total)> ListAsync(int page, int size, CancellationToken ct)
+ public sealed class RoleService(IDbConnectionFactory db, IClock clock, IAuditWriter audit) : IRoleService
+{
+    public async Task<(IReadOnlyList<RoleListItem> Items, long Total)> ListAsync(int page, int size, CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); var items = await c.QueryAsync<RoleListItem>(new CommandDefinition("SELECT id, code, name, status, sort, created_at FROM sys_role WHERE deleted_at IS NULL ORDER BY sort, id LIMIT @L OFFSET @O", new { L = Math.Min(size, 100), O = (page - 1) * size }, cancellationToken: ct)); var total = await c.ExecuteScalarAsync<long>(new CommandDefinition("SELECT COUNT(1) FROM sys_role WHERE deleted_at IS NULL", cancellationToken: ct)); return (items.AsList(), total); }
      public async Task<RoleDetail?> GetByIdAsync(long id, CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); return await c.QueryFirstOrDefaultAsync<RoleDetail>(new CommandDefinition("SELECT id, code, name, description, status, sort, data_scope, created_at, updated_at FROM sys_role WHERE id=@Id AND deleted_at IS NULL", new { Id = id }, cancellationToken: ct)); }
@@ -17,7 +17,7 @@
      public async Task AssignMenusAsync(long roleId, long[] menuIds, CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); await using var tx = await c.BeginTransactionAsync(ct); await c.ExecuteAsync(new CommandDefinition("DELETE FROM sys_role_menu WHERE role_id=@Id", new { Id = roleId }, cancellationToken: ct)); if (menuIds.Length > 0) await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_role_menu (role_id,menu_id) VALUES (@R,@M)", menuIds.Select(m => new { R = roleId, M = m }), cancellationToken: ct)); await BumpPermissionVersion(c, roleId, ct); await tx.CommitAsync(ct); }
      public async Task AssignPermissionsAsync(long roleId, long[] permIds, CancellationToken ct)
-     { await using var c = await db.OpenAsync(ct); await using var tx = await c.BeginTransactionAsync(ct); await c.ExecuteAsync(new CommandDefinition("DELETE FROM sys_role_permission WHERE role_id=@Id", new { Id = roleId }, cancellationToken: ct)); if (permIds.Length > 0) await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_role_permission (role_id,permission_id) VALUES (@R,@P)", permIds.Select(p => new { R = roleId, P = p }), cancellationToken: ct)); await BumpPermissionVersion(c, roleId, ct); await tx.CommitAsync(ct); }
+    { await using var c = await db.OpenAsync(ct); await using var tx = await c.BeginTransactionAsync(ct); await c.ExecuteAsync(new CommandDefinition("DELETE FROM sys_role_permission WHERE role_id=@Id", new { Id = roleId }, cancellationToken: ct)); if (permIds.Length > 0) await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_role_permission (role_id,permission_id) VALUES (@R,@P)", permIds.Select(p => new { R = roleId, P = p }), cancellationToken: ct)); await BumpPermissionVersion(c, roleId, ct); await audit.LogAsync("system", "role:assign-permissions", null, null, null, null, 200, "success", ct); await tx.CommitAsync(ct); }
  
      private static async Task BumpPermissionVersion(DbConnection conn, long roleId, CancellationToken ct)
      { await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_user SET permission_version=permission_version+1 WHERE id IN (SELECT user_id FROM sys_user_role WHERE role_id=@Id) AND deleted_at IS NULL", new { Id = roleId }, cancellationToken: ct)); }

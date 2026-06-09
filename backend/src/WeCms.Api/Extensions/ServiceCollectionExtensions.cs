@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PermissionSyncService>();
         services.AddScoped<II18nService, I18nService>();
         services.AddScoped<ISecurityService, SecurityService>();
+        services.AddScoped<IAuditWriter, AuditWriter>();
         return services;
     }
 }

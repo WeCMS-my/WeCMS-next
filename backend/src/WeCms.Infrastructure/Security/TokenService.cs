@@ -13,10 +13,12 @@ public sealed class TokenService : ITokenService
     private readonly int _accessTokenExpirySeconds;
     private const string Issuer = "wecms";
     private const string Audience = "wecms-admin";
+    private readonly IClock _clock;
 
-    public TokenService(string jwtSecret, int accessTokenExpirySeconds = 900)
+    public TokenService(string jwtSecret, IClock clock, int accessTokenExpirySeconds = 900)
     {
         _jwtSecret = jwtSecret;
+        _clock = clock;
         _accessTokenExpirySeconds = accessTokenExpirySeconds;
     }
 
