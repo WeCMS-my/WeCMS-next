@@ -18,7 +18,7 @@ using global::WeCms.Shared;
      }
  
      private static async Task<IResult> ListAsync(HttpContext ctx, IRoleService svc, CancellationToken ct)
-     { var p = int.TryParse(ctx.Request.Query["page"], out var pp) ? pp : 1; var s = int.TryParse(ctx.Request.Query["pageSize"], out var ps) ? ps : 20; var (items, total) = await svc.ListAsync(p, s, ct); return Results.Ok(ApiResult<PagedResult<RoleListItem>>.Ok(new PagedResult<RoleListItem>(items, p, s, total))); }
+     { var p = int.TryParse(ctx.Request.Query["page"], out var pp) ? Math.Max(pp, 1) : 1; var s = int.TryParse(ctx.Request.Query["pageSize"], out var ps) ? ps : 20; var (items, total) = await svc.ListAsync(p, s, ct); return Results.Ok(ApiResult<PagedResult<RoleListItem>>.Ok(new PagedResult<RoleListItem>(items, p, s, total))); }
      private static async Task<IResult> GetAsync(long id, IRoleService svc, CancellationToken ct) => (await svc.GetByIdAsync(id, ct)) is RoleDetail r ? Results.Ok(ApiResult<RoleDetail>.Ok(r)) : Results.Ok(ApiResult<RoleDetail>.Fail(ApiCodes.NotFound, "Not found"));
     private static async Task<IResult> CreateAsync(CreateRoleRequest req, IRoleService svc, CancellationToken ct) => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateAsync(req, ct))));
     private static async Task<IResult> UpdateAsync(long id, UpdateRoleRequest req, IRoleService svc, CancellationToken ct) { await svc.UpdateAsync(id, req, ct); return Results.Ok(ApiResult<string>.Ok("updated")); }

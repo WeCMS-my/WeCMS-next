@@ -1,0 +1,8 @@
+- [x] 种子密码 hash 正确（REPLACE_ME 占位 + 生成说明）
+- [x] 角色权限加入 sys_role 过滤（AuthService + PermissionEndpointFilter）
+- [x] 分页 page>=1 校验（4 个 Endpoint 组）
+- [x] HashToken 去重（提取到 WeCms.Shared.TokenHelper）
+- [x] TreatWarningsAsErrors（WeCms.Modules.System.csproj）
+- [x] 移除未用权限码
+- [x] HealthLiveResponse DateTimeOffset
+- [x] build + test 通过

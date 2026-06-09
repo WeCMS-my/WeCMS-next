@@ -31,6 +31,7 @@
              SELECT COUNT(1) FROM sys_permission p
              JOIN sys_role_permission rp ON rp.permission_id=p.id
              JOIN sys_user_role ur ON ur.role_id=rp.role_id
+             JOIN sys_role r ON r.id=ur.role_id AND r.status='active' AND r.deleted_at IS NULL
              WHERE ur.user_id=@Uid AND p.code=@Code AND p.status='active'
              """,
              new { Uid = uid, Code = meta.Code }, cancellationToken: context.HttpContext.RequestAborted));

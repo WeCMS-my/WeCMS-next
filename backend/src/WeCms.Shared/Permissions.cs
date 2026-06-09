@@ -6,9 +6,7 @@
      public const string SystemUserCreate = "sys:user:create";
      public const string SystemUserUpdate = "sys:user:update";
      public const string SystemUserDelete = "sys:user:delete";
-     public const string SystemUserResetPassword = "sys:user:reset-password";
-     public const string SystemUserAssignRole = "sys:user:assign-role";
-     public const string SystemRoleList = "sys:role:list";
+    public const string SystemRoleList = "sys:role:list";
      public const string SystemRoleCreate = "sys:role:create";
      public const string SystemRoleUpdate = "sys:role:update";
      public const string SystemRoleDelete = "sys:role:delete";

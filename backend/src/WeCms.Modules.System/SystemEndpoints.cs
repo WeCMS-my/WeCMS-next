@@ -14,7 +14,7 @@ public static class SystemEndpoints
             try { await using var c = await db.OpenAsync(ct); await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.ExecuteScalarAsync(ct); return Results.Ok(ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", "mysql"))); }
             catch { return Results.Ok(ApiResult<DbCheckResponse>.Fail(ApiCodes.SystemError, "DB connection failed")); }
         }).AllowAnonymous();
-        group.MapGet("/health/live", () => Results.Ok(ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", DateTime.UtcNow)))).AllowAnonymous();
+        group.MapGet("/health/live", () => Results.Ok(ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", DateTimeOffset.UtcNow)))).AllowAnonymous();
         group.MapGet("/health/ready", async (IDbConnectionFactory db, CancellationToken ct) =>
         {
             try { await using var c = await db.OpenAsync(ct); await using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT 1"; await cmd.ExecuteScalarAsync(ct); return Results.Ok(ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("ready", "connected"))); }

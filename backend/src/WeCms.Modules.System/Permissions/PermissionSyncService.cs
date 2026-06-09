@@ -10,7 +10,6 @@
          var codes = new (string Code, string Name)[]
         {
             ("sys:user:list", "View users"), ("sys:user:create", "Create user"), ("sys:user:update", "Update user"), ("sys:user:delete", "Delete user"),
-            ("sys:user:reset-password", "Reset user password"), ("sys:user:assign-role", "Assign user roles"),
             ("sys:role:list", "View roles"), ("sys:role:create", "Create role"), ("sys:role:update", "Update role"), ("sys:role:delete", "Delete role"),
             ("sys:role:assign-menu", "Assign role menus"), ("sys:role:assign-permission", "Assign role permissions"),
             ("sys:menu:list", "View menus"), ("sys:menu:create", "Create menu"), ("sys:menu:update", "Update menu"), ("sys:menu:delete", "Delete menu"), ("sys:menu:sort", "Sort menus"),

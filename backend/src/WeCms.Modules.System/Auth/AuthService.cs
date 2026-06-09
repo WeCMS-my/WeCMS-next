@@ -1,5 +1,5 @@
-using System.Text;
 using System.Threading;
+using WeCms.Shared;
 using WeCms.Shared.Contracts;
 using System.Security.Cryptography;
 using System.Collections.Concurrent;
@@ -107,7 +107,7 @@ public sealed class AuthService : IAuthService
 
     public async Task<RefreshResponse?> RefreshTokenAsync(string rt, CancellationToken ct)
     {
-        var h = HashToken(rt);
+        var h = TokenHelper.HashToken(rt);
         await using var c = await _db.OpenAsync(ct);
         await using var tx = await c.BeginTransactionAsync(ct);
 
@@ -151,7 +151,7 @@ public sealed class AuthService : IAuthService
         var pair = _ts.GenerateTokenPair(new TokenPrincipal(revoked.UserId, revoked.Username, revoked.SecurityStamp, revoked.PermissionVersion, revoked.IsSuperAdmin));
         await c.ExecuteAsync(new CommandDefinition(
             "INSERT INTO sys_refresh_token (user_id,token_hash,family_id,expires_at,created_at) VALUES (@U,@H,@F,@E,@N)",
-            new { U = revoked.UserId, H = HashToken(pair.RefreshToken), F = revoked.FamilyId, E = _clock.UtcNow.DateTime.AddDays(7), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
+            new { U = revoked.UserId, H = TokenHelper.HashToken(pair.RefreshToken), F = revoked.FamilyId, E = _clock.UtcNow.DateTime.AddDays(7), N = _clock.UtcNow.DateTime }, cancellationToken: ct));
 
         await tx.CommitAsync(ct);
         return new RefreshResponse(pair.AccessToken, pair.RefreshToken, pair.ExpiresIn);
@@ -159,7 +159,7 @@ public sealed class AuthService : IAuthService
 
     public async Task LogoutAsync(string refreshToken, CancellationToken ct)
     {
-        var h = HashToken(refreshToken);
+        var h = TokenHelper.HashToken(refreshToken);
         await using var c = await _db.OpenAsync(ct);
         await c.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_refresh_token SET revoked_at=@N WHERE token_hash=@H AND revoked_at IS NULL",
@@ -167,11 +167,10 @@ public sealed class AuthService : IAuthService
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(long uid, CancellationToken ct)
-    { await using var c = await _db.OpenAsync(ct); var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition("SELECT id,username,display_name FROM sys_user WHERE id=@Id AND deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); if(u is null)return null; var rt=await c.QueryAsync<string>(new CommandDefinition("SELECT r.code FROM sys_role r JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=@Id AND r.status='active' AND r.deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); var pt=await c.QueryAsync<string>(new CommandDefinition("SELECT DISTINCT p.code FROM sys_permission p JOIN sys_role_permission rp ON rp.permission_id=p.id JOIN sys_user_role ur ON ur.role_id=rp.role_id WHERE ur.user_id=@Id AND p.status='active'",new{Id=uid},cancellationToken:ct)); return new CurrentUserResponse(u.Id,u.Username,u.DisplayName,rt.AsList().ToArray(),pt.AsList().ToArray(),Array.Empty<object>()); }
+    { await using var c = await _db.OpenAsync(ct); var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition("SELECT id,username,display_name FROM sys_user WHERE id=@Id AND deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); if(u is null)return null; var rt=await c.QueryAsync<string>(new CommandDefinition("SELECT r.code FROM sys_role r JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=@Id AND r.status='active' AND r.deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); var pt=await c.QueryAsync<string>(new CommandDefinition("SELECT DISTINCT p.code FROM sys_permission p JOIN sys_role_permission rp ON rp.permission_id=p.id JOIN sys_user_role ur ON ur.role_id=rp.role_id JOIN sys_role r ON r.id=ur.role_id AND r.status='active' AND r.deleted_at IS NULL WHERE ur.user_id=@Id AND p.status='active'",new{Id=uid},cancellationToken:ct)); return new CurrentUserResponse(u.Id,u.Username,u.DisplayName,rt.AsList().ToArray(),pt.AsList().ToArray(),Array.Empty<object>()); }
 
     private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)
-    { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
-    private static string HashToken(string t) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(t)));
+    { await c.ExecuteAsync(new CommandDefinition("INSERT INTO sys_refresh_token (user_id,token_hash,family_id,created_ip,user_agent,expires_at,created_at) VALUES (@U,@H,@F,@Ip,@Ua,@E,@N)", new{U=uid,H=TokenHelper.HashToken(t),F=Guid.NewGuid().ToString("N"),Ip=ip??"",Ua=ua??"",E=_clock.UtcNow.DateTime.AddDays(7),N=_clock.UtcNow.DateTime},cancellationToken:ct)); }
     private static string GenerateTicket() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
     private sealed record UserR(long Id,string Username,string DisplayName,string PasswordHash,string SecurityStamp,long PermissionVersion,string Status,bool TwoFactorEnabled,bool IsSuperAdmin);

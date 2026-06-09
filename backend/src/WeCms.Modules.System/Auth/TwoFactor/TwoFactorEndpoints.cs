@@ -17,7 +17,7 @@ public static class TwoFactorEndpoints
     }
 
     private static async Task<IResult> SetupAsync(HttpContext ctx, ITwoFactorService twoFactor, IDbConnectionFactory db, CancellationToken ct)
-    { var uid = GetUserId(ctx); if (!uid.HasValue) return Results.Ok(ApiResult<TwoFactorSetupResponse>.Fail(ApiCodes.Unauthorized, "Not authenticated")); await using var c = await db.OpenAsync(ct); var secret = twoFactor.GenerateSecret(); var uri = twoFactor.GenerateQrCodeUri(ctx.User.FindFirst("username")?.Value ?? "", "WeCMS", secret); var (plain, hashed) = twoFactor.GenerateBackupCodes(); var codesJson = global::System.Text.Json.JsonSerializer.Serialize(hashed); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_user SET two_factor_temp_secret=@S, two_factor_temp_codes=@C WHERE id=@Id", new { S = secret, C = codesJson, Id = uid.Value }, cancellationToken: ct)); return Results.Ok(ApiResult<TwoFactorSetupResponse>.Ok(new(secret, uri, plain))); }
+    { var uid = GetUserId(ctx); if (!uid.HasValue) return Results.Ok(ApiResult<TwoFactorSetupResponse>.Fail(ApiCodes.Unauthorized, "Not authenticated")); await using var c = await db.OpenAsync(ct); var secret = twoFactor.GenerateSecret(); var uri = twoFactor.GenerateQrCodeUri(ctx.User.FindFirst("username")?.Value ?? "", "WeCMS", secret); var (plain, hashed) = twoFactor.GenerateBackupCodes(); var codesJson = SerializeStringArray(hashed); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_user SET two_factor_temp_secret=@S, two_factor_temp_codes=@C WHERE id=@Id", new { S = secret, C = codesJson, Id = uid.Value }, cancellationToken: ct)); return Results.Ok(ApiResult<TwoFactorSetupResponse>.Ok(new(secret, uri, plain))); }
 
     private static async Task<IResult> EnableAsync(HttpContext ctx, TwoFactorEnableRequest req, ITwoFactorService twoFactor, IDbConnectionFactory db, CancellationToken ct)
     { var uid = GetUserId(ctx); if (!uid.HasValue) return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Not authenticated")); await using var c = await db.OpenAsync(ct); var row = await c.QueryFirstOrDefaultAsync<Temp2Fa>(new CommandDefinition("SELECT two_factor_temp_secret AS Secret, two_factor_temp_codes AS Codes FROM sys_user WHERE id=@Id", new { Id = uid.Value }, cancellationToken: ct)); if (row is null || string.IsNullOrEmpty(row.Secret)) return Results.Ok(ApiResult<string>.Fail(ApiCodes.BusinessError, "2FA setup not initiated")); if (!twoFactor.Verify(row.Secret, req.Code)) return Results.Ok(ApiResult<string>.Fail(ApiCodes.BusinessError, "Invalid verification code")); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_user SET two_factor_enabled=1,two_factor_secret=@S,two_factor_backup_codes=@C,two_factor_confirmed_at=@Now,two_factor_temp_secret=NULL,two_factor_temp_codes=NULL WHERE id=@Id", new { S = row.Secret, C = row.Codes, Now = DateTime.UtcNow, Id = uid.Value }, cancellationToken: ct)); return Results.Ok(ApiResult<string>.Ok("2FA enabled")); }
@@ -38,6 +38,9 @@ public static class TwoFactorEndpoints
     }
 
     private static long? GetUserId(HttpContext ctx) { var s = ctx.User.FindFirst("sub")?.Value; return s is not null && long.TryParse(s, out var id) ? id : null; }
+
+    private static string SerializeStringArray(string[] codes) =>
+        "[\"" + string.Join("\",\"", codes) + "\"]";
 
     private sealed record Temp2Fa(string? Secret, string? Codes);
 }
