@@ -1,5 +1,3 @@
- using WeCms.Api.Filters;
- 
  namespace WeCms.Modules.System;
  
  public static class PermissionEndpointExtensions

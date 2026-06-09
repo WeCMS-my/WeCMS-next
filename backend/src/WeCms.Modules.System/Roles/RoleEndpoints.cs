@@ -1,4 +1,5 @@
- using WeCms.Shared;
+﻿using global::WeCms.Shared;
+ 
  
  namespace WeCms.Modules.System.Roles;
  
@@ -6,13 +7,13 @@
  {
      public static RouteGroupBuilder MapRoleEndpoints(this RouteGroupBuilder group)
      {
-         group.MapGet("/system/roles", ListAsync).RequirePermission(Permissions.SystemRoleList);
-         group.MapGet("/system/roles/{id:long}", GetAsync).RequirePermission(Permissions.SystemRoleList);
-         group.MapPost("/system/roles", CreateAsync).RequirePermission(Permissions.SystemRoleCreate);
-         group.MapPut("/system/roles/{id:long}", UpdateAsync).RequirePermission(Permissions.SystemRoleUpdate);
-         group.MapDelete("/system/roles/{id:long}", DeleteAsync).RequirePermission(Permissions.SystemRoleDelete);
-         group.MapPut("/system/roles/{id:long}/menus", AssignMenusAsync).RequirePermission(Permissions.SystemRoleAssignMenu);
-         group.MapPut("/system/roles/{id:long}/permissions", AssignPermissionsAsync).RequirePermission(Permissions.SystemRoleAssignPermission);
+         group.MapGet("/system/roles", ListAsync).RequirePermission("sys:role:list");
+         group.MapGet("/system/roles/{id:long}", GetAsync).RequirePermission("sys:role:list");
+         group.MapPost("/system/roles", CreateAsync).RequirePermission("sys:role:create");
+         group.MapPut("/system/roles/{id:long}", UpdateAsync).RequirePermission("sys:role:update");
+         group.MapDelete("/system/roles/{id:long}", DeleteAsync).RequirePermission("sys:role:delete");
+         group.MapPut("/system/roles/{id:long}/menus", AssignMenusAsync).RequirePermission("sys:role:assign-menu");
+         group.MapPut("/system/roles/{id:long}/permissions", AssignPermissionsAsync).RequirePermission("sys:role:assign-permission");
          return group;
      }
  

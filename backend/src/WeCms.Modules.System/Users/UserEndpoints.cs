@@ -1,4 +1,5 @@
- using WeCms.Shared;
+﻿using global::WeCms.Shared;
+ 
  
  namespace WeCms.Modules.System.Users;
  
@@ -6,12 +7,12 @@
  {
      public static RouteGroupBuilder MapUserEndpoints(this RouteGroupBuilder group)
      {
-         group.MapGet("/system/users", ListAsync).RequirePermission(Permissions.SystemUserList);
-         group.MapGet("/system/users/{id:long}", GetAsync).RequirePermission(Permissions.SystemUserList);
-         group.MapPost("/system/users", CreateAsync).RequirePermission(Permissions.SystemUserCreate);
-         group.MapPut("/system/users/{id:long}", UpdateAsync).RequirePermission(Permissions.SystemUserUpdate);
-         group.MapDelete("/system/users/{id:long}", DeleteAsync).RequirePermission(Permissions.SystemUserDelete);
-         group.MapPatch("/system/users/{id:long}/status", SetStatusAsync).RequirePermission(Permissions.SystemUserUpdate);
+         group.MapGet("/system/users", ListAsync).RequirePermission("sys:user:list");
+         group.MapGet("/system/users/{id:long}", GetAsync).RequirePermission("sys:user:list");
+         group.MapPost("/system/users", CreateAsync).RequirePermission("sys:user:create");
+         group.MapPut("/system/users/{id:long}", UpdateAsync).RequirePermission("sys:user:update");
+         group.MapDelete("/system/users/{id:long}", DeleteAsync).RequirePermission("sys:user:delete");
+         group.MapPatch("/system/users/{id:long}/status", SetStatusAsync).RequirePermission("sys:user:update");
          return group;
      }
  

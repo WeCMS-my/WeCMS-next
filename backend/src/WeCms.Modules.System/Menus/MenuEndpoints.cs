@@ -1,4 +1,5 @@
- using WeCms.Shared;
+﻿using global::WeCms.Shared;
+ 
  
  namespace WeCms.Modules.System.Menus;
  
@@ -6,12 +7,12 @@
  {
      public static RouteGroupBuilder MapMenuEndpoints(this RouteGroupBuilder group)
      {
-         group.MapGet("/system/menus/tree", GetTreeAsync).RequirePermission(Permissions.SystemMenuList);
-         group.MapGet("/system/menus/{id:long}", GetAsync).RequirePermission(Permissions.SystemMenuList);
-         group.MapPost("/system/menus", CreateAsync).RequirePermission(Permissions.SystemMenuCreate);
-         group.MapPut("/system/menus/{id:long}", UpdateAsync).RequirePermission(Permissions.SystemMenuUpdate);
-         group.MapDelete("/system/menus/{id:long}", DeleteAsync).RequirePermission(Permissions.SystemMenuDelete);
-         group.MapPut("/system/menus/sort", SortAsync).RequirePermission(Permissions.SystemMenuSort);
+         group.MapGet("/system/menus/tree", GetTreeAsync).RequirePermission("sys:menu:list");
+         group.MapGet("/system/menus/{id:long}", GetAsync).RequirePermission("sys:menu:list");
+         group.MapPost("/system/menus", CreateAsync).RequirePermission("sys:menu:create");
+         group.MapPut("/system/menus/{id:long}", UpdateAsync).RequirePermission("sys:menu:update");
+         group.MapDelete("/system/menus/{id:long}", DeleteAsync).RequirePermission("sys:menu:delete");
+         group.MapPut("/system/menus/sort", SortAsync).RequirePermission("sys:menu:sort");
          return group;
      }
      private static async Task<IResult> GetTreeAsync(MenuService svc, CancellationToken ct) => Results.Ok(ApiResult<List<MenuTreeItem>>.Ok(await svc.GetTreeAsync(ct)));
