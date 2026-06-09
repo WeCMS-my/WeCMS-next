@@ -46,8 +46,8 @@ public sealed class FileService(IDbConnectionFactory db, IConfiguration config, 
         return new UploadResult(id, fileName, stream.Length);
     }
 
-    public async Task<(string Path, string MimeType, string FileName)?> GetDownloadInfoAsync(long id, CancellationToken ct)
-    { await using var c = await db.OpenAsync(ct); return await c.QueryFirstOrDefaultAsync<(string, string, string)?>(new CommandDefinition("SELECT storage_path, mime_type, original_name FROM sys_file WHERE id=@Id AND deleted_at IS NULL", new { Id = id }, cancellationToken: ct)); }
+    public async Task<FileDownloadInfo?> GetDownloadInfoAsync(long id, CancellationToken ct)
+    { await using var c = await db.OpenAsync(ct); return await c.QueryFirstOrDefaultAsync<FileDownloadInfo?>(new CommandDefinition("SELECT storage_path AS Path, mime_type AS MimeType, original_name AS FileName FROM sys_file WHERE id=@Id AND deleted_at IS NULL", new { Id = id }, cancellationToken: ct)); }
 
     public async Task DeleteAsync(long id, CancellationToken ct)
     { await using var c = await db.OpenAsync(ct); await c.ExecuteAsync(new CommandDefinition("UPDATE sys_file SET deleted_at=@Now WHERE id=@Id", new { Now = clock.UtcNow.DateTime, Id = id }, cancellationToken: ct)); await audit.LogAsync("system", "file:delete", null, null, null, null, 200, "success", ct); }

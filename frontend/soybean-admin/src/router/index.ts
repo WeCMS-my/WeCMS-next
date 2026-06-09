@@ -24,7 +24,7 @@ const router = createRouter({
     {
       path: '/403',
       name: 'forbidden',
-      component: () => import('@/views/dashboard/index.vue')
+      component: () => import('@/views/forbidden/index.vue')
     }
   ]
 })

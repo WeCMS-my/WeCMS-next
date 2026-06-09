@@ -20,13 +20,13 @@ public static class FileEndpoints
     private static async Task<IResult> DownloadAsync(long id, IFileService svc, IConfiguration config, CancellationToken ct)
     {
         var info = await svc.GetDownloadInfoAsync(id, ct);
-        if (!info.HasValue)
+        if (info is null)
             return Results.Ok(ApiResult<string>.Fail(ApiCodes.NotFound, "File not found"));
         var basePath = config["Storage:BasePath"] ?? Path.Combine(AppContext.BaseDirectory, "storage");
-        var fullPath = Path.GetFullPath(Path.Combine(basePath, info.Value.Path));
+        var fullPath = Path.GetFullPath(Path.Combine(basePath, info.Path));
         if (!fullPath.StartsWith(Path.GetFullPath(basePath), StringComparison.Ordinal))
             return Results.Ok(ApiResult<string>.Fail(ApiCodes.NotFound, "File not found"));
-        return Results.File(fullPath, info.Value.MimeType, info.Value.FileName);
+        return Results.File(fullPath, info.MimeType, info.FileName);
     }
     private static async Task<IResult> DeleteAsync(long id, IFileService svc, CancellationToken ct)
     { await svc.DeleteAsync(id, ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
