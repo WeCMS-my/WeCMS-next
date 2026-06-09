@@ -26,7 +26,6 @@ public static class TwoFactorEndpoints
 
     private static async Task<IResult> VerifyAsync(TwoFactorVerifyRequest req, IAuthService authService, ITwoFactorService twoFactor, IDbConnectionFactory db, CancellationToken ct)
     {
-        // Ticket flow: login with 2FA
         if (!string.IsNullOrWhiteSpace(req.TwoFactorTicket))
         {
             var loginResult = await authService.VerifyTwoFactorAndLoginAsync(req.TwoFactorTicket, req.Username ?? "", req.Code, twoFactor, ct);
@@ -34,15 +33,7 @@ public static class TwoFactorEndpoints
                 return Results.Ok(ApiResult<LoginResponse>.Fail(ApiCodes.BusinessError, "Invalid or expired 2FA ticket"));
             return Results.Ok(ApiResult<LoginResponse>.Ok(loginResult));
         }
-
-        // Legacy flow: just verify code validity
-        if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Code))
-            return Results.Ok(ApiResult<string>.Fail(ApiCodes.ValidationError, "Username and code required"));
-        await using var c = await db.OpenAsync(ct);
-        var secret = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition("SELECT two_factor_secret FROM sys_user WHERE username=@U AND deleted_at IS NULL AND two_factor_enabled=1", new { U = req.Username }, cancellationToken: ct));
-        if (string.IsNullOrEmpty(secret)) return Results.Ok(ApiResult<string>.Fail(ApiCodes.BusinessError, "2FA not configured"));
-        var ok = twoFactor.Verify(secret, req.Code);
-        return ok ? Results.Ok(ApiResult<string>.Ok("ok")) : Results.Ok(ApiResult<string>.Fail(ApiCodes.BusinessError, "Invalid code"));
+        return Results.Ok(ApiResult<LoginResponse>.Fail(ApiCodes.BusinessError, "2FA ticket required"));
     }
 
     private static long? GetUserId(HttpContext ctx) { var s = ctx.User.FindFirst("sub")?.Value; return s is not null && long.TryParse(s, out var id) ? id : null; }

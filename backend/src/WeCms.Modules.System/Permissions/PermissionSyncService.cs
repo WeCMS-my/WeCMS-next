@@ -25,9 +25,12 @@
          var count = 0;
          foreach (var (code, name) in codes)
          {
-             var affected = await conn.ExecuteAsync(new CommandDefinition(
-                 "INSERT INTO sys_permission (code, name, module, resource, action, status, created_at, updated_at) VALUES (@C,@N,'system',@R,@A,'active',@Now,@Now) ON DUPLICATE KEY UPDATE name=@N, updated_at=@Now",
-                 new { C = code, N = name, R = code.Split(':')[1], A = code.Split(':')[2], Now = DateTime.UtcNow }, cancellationToken: ct));
+             var lastColon = code.LastIndexOf(':');
+            var resource = code[(code.IndexOf(':') + 1)..lastColon];
+            var action = code[(lastColon + 1)..];
+            var affected = await conn.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO sys_permission (code, name, module, resource, action, status, created_at, updated_at) VALUES (@C,@N,'system',@R,@A,'active',@Now,@Now) ON DUPLICATE KEY UPDATE name=@N, updated_at=@Now",
+                new { C = code, N = name, R = resource, A = action, Now = DateTime.UtcNow }, cancellationToken: ct));
              count += affected;
          }
          return count;

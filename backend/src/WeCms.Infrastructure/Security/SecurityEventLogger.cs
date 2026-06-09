@@ -1,11 +1,13 @@
-﻿using WeCms.Shared.Contracts;
+using WeCms.Shared.Contracts;
 using Dapper;
 using System.Data.Common;
 
 namespace WeCms.Infrastructure.Security;
 
-public sealed class SecurityEventLogger(IDbConnectionFactory db) : ISecurityEventLogger
+public sealed class SecurityEventLogger(IDbConnectionFactory db, IClock clock) : ISecurityEventLogger
 {
+    private readonly IClock _clock = clock;
+
     public async Task LogAsync(string eventType, string severity, long? userId, string? username, string? ip, string? detail, CancellationToken ct)
     {
         await using var conn = await db.OpenAsync(ct);
@@ -14,6 +16,6 @@ public sealed class SecurityEventLogger(IDbConnectionFactory db) : ISecurityEven
             VALUES (@Type, @Severity, @UserId, @Username, @Ip, @Detail, @Now)
             """,
             new { Type = eventType, Severity = severity, UserId = userId, Username = username,
-                  Ip = ip, Detail = detail, Now = DateTime.UtcNow }, cancellationToken: ct));
+                  Ip = ip, Detail = detail, Now = _clock.UtcNow.DateTime }, cancellationToken: ct));
     }
 }

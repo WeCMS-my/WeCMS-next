@@ -33,7 +33,7 @@ using global::WeCms.Shared;
      private static async Task<IResult> UpdateAsync(long id, UpdateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
      { await svc.UpdateAsync(id, req, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
  
-     private static async Task<IResult> DeleteAsync(long id, HttpContext ctx, UserService svc, CancellationToken ct)
+     private static async Task<IResult> DeleteAsync(long id, HttpContext ctx, IUserService svc, CancellationToken ct)
      { await svc.DeleteAsync(id, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("deleted")); }
  
      private static async Task<IResult> SetStatusAsync(long id, HttpContext ctx, IUserService svc, CancellationToken ct)

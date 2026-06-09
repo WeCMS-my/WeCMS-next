@@ -49,7 +49,7 @@
          }
          // COALESCE allows partial updates: passing null preserves the existing column value
         await conn.ExecuteAsync(new CommandDefinition(
-            "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), row_version = row_version + 1, updated_at=@Now WHERE id=@Id",
+            "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), updated_at=@Now WHERE id=@Id",
              new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = DateTime.UtcNow, Id = id }, cancellationToken: ct));
      }
  
@@ -60,8 +60,7 @@
          var ids = new List<long> { id };
          await CollectDescendants(conn, id, ids, ct);
          // Soft-delete all
-         foreach (var mid in ids)
-             await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id=@Id", new { Now = DateTime.UtcNow, Id = mid }, cancellationToken: ct));
+         await conn.ExecuteAsync(new CommandDefinition("UPDATE sys_menu SET deleted_at=@Now WHERE id IN @Ids", new { Now = DateTime.UtcNow, Ids = ids }, cancellationToken: ct));
      }
  
      public async Task SortAsync(long[] orderedIds, CancellationToken ct)

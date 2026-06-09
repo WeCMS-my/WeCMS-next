@@ -15,7 +15,7 @@
      }
  
      private static async Task<IResult> LoginAsync(LoginRequest req, HttpContext ctx, IAuthService svc, CancellationToken ct)
-     { var ip = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown"; var r = await svc.LoginAsync(req.Username, req.Password, ip, ct); return r is not null ? Results.Json(ApiResult<LoginResponse>.Ok(r), statusCode: 200) : Results.Json(ApiResult<LoginResponse>.Fail(ApiCodes.Unauthorized, "Invalid credentials"), statusCode: 401); }
+     { var ip = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown"; var r = await svc.LoginAsync(req.Username, req.Password, ip, ct); return r is not null ? Results.Json(ApiResult<LoginResponse>.Ok(r), statusCode: 200) : Results.Ok(ApiResult<LoginResponse>.Fail(ApiCodes.BusinessError, "Invalid credentials")); }
  
      private static async Task<IResult> RefreshAsync(RefreshRequest req, IAuthService svc, CancellationToken ct)
      { var r = await svc.RefreshTokenAsync(req.RefreshToken, ct); return r is null ? Results.Ok(ApiResult<RefreshResponse>.Fail(ApiCodes.Unauthorized, "Invalid or expired refresh token")) : Results.Ok(ApiResult<RefreshResponse>.Ok(r)); }

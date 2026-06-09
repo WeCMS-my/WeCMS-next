@@ -43,6 +43,9 @@ public sealed class AuthService : IAuthService
 
         if (r.TwoFactorEnabled)
         {
+            await c.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO sys_login_log (user_id,username,login_type,status,ip,created_at) VALUES (@Id,@U,'password','2fa_required',@Ip,@N)",
+                new { r.Id, U = r.Username, Ip = ip ?? "unknown", N = _clock.UtcNow.DateTime }, cancellationToken: ct));
             var ticket = GenerateTicket();
             _tickets[ticket] = new TwoFactorTicketData(r.Id, r.Username, r.SecurityStamp, r.PermissionVersion, r.IsSuperAdmin, _clock.UtcNow.DateTime.AddMinutes(5));
             return new LoginResponse(null, null, 0, true, ticket);

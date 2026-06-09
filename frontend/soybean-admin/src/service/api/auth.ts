@@ -13,8 +13,11 @@
  }
  
  export async function logout(): Promise<void> {
-   await http.post('/auth/logout')
- }
+  const refreshToken = localStorage.getItem('refresh_token') || ''
+  await http.post('/auth/logout', null, {
+    headers: { 'X-Refresh-Token': refreshToken }
+  })
+}
  
  export async function getCurrentUser(): Promise<CurrentUserResponse> {
    const res = await http.get<ApiResult<CurrentUserResponse>>('/auth/me')
