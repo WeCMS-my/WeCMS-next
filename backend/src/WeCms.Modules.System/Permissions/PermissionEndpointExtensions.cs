@@ -8,7 +8,7 @@
          => builder.RequireAuthorization().WithMetadata(new PermissionMetadata(code)).AddEndpointFilter<PermissionEndpointFilter>();
  }
  
- internal class PermissionMetadata(string code)
+ public sealed class PermissionMetadata(string code)
  {
      public string Code => code;
  }
