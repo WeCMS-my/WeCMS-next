@@ -1,4 +1,4 @@
- using System.Threading.RateLimiting;
+﻿ using System.Threading.RateLimiting;
  using WeCms.Api.Middleware;
  using WeCms.Api.Extensions;
  using WeCms.Modules.System;
@@ -22,7 +22,7 @@
  var jwtSecret = builder.Configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret is not configured");
  builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters { ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)), ValidateIssuer = true, ValidIssuer = "wecms", ValidateAudience = true, ValidAudience = "wecms-admin", ValidateLifetime = true, ClockSkew = TimeSpan.Zero });
  builder.Services.AddAuthorization();
- builder.Services.AddRateLimiter(o => o.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter("login", _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })));
+ builder.Services.AddRateLimiter(o => o.AddPolicy("login", c => RateLimitPartition.GetFixedWindowLimiter("login", _ => new FixedWindowRateLimiterOptions{PermitLimit=5,Window=TimeSpan.FromMinutes(1),QueueLimit=0})).AddPolicy("password", c => RateLimitPartition.GetFixedWindowLimiter("password", _ => new FixedWindowRateLimiterOptions{PermitLimit=3,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
  builder.Services.AddOpenApi();
  
  var app = builder.Build();
