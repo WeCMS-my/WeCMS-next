@@ -24,13 +24,13 @@ using global::WeCms.Shared;
          return Results.Ok(ApiResult<PagedResult<UserListItem>>.Ok(new(items, q.Page, q.PageSize, total)));
      }
  
-     private static async Task<IResult> GetAsync(long id, UserService svc, CancellationToken ct)
+     private static async Task<IResult> GetAsync(long id, IUserService svc, CancellationToken ct)
          => (await svc.GetByIdAsync(id, ct)) is UserDetail u ? Results.Ok(ApiResult<UserDetail>.Ok(u)) : Results.Ok(ApiResult<UserDetail>.Fail(ApiCodes.NotFound, "Not found"));
- 
-     private static async Task<IResult> CreateAsync(CreateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
+
+     private static async Task<IResult> CreateAsync(CreateUserRequest req, HttpContext ctx, IUserService svc, CancellationToken ct)
         => Results.Ok(ApiResult<IdResponse>.Ok(new IdResponse(await svc.CreateAsync(req, GetOperatorId(ctx), ct))));
- 
-     private static async Task<IResult> UpdateAsync(long id, UpdateUserRequest req, HttpContext ctx, UserService svc, CancellationToken ct)
+
+     private static async Task<IResult> UpdateAsync(long id, UpdateUserRequest req, HttpContext ctx, IUserService svc, CancellationToken ct)
      { await svc.UpdateAsync(id, req, GetOperatorId(ctx), ct); return Results.Ok(ApiResult<string>.Ok("updated")); }
  
      private static async Task<IResult> DeleteAsync(long id, HttpContext ctx, IUserService svc, CancellationToken ct)

@@ -5,7 +5,6 @@
    code: number
    msg: string
    data: T
-   traceId?: string
  }
  
  export interface PagedResult<T> {

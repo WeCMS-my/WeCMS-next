@@ -4,6 +4,7 @@ using WeCms.Modules.System.Auth;
 
 namespace WeCms.Modules.System.Auth.TwoFactor;
 
+// M0: using DateTime.UtcNow directly; migrate to IClock via service layer in M1
 public static class TwoFactorEndpoints
 {
     public static RouteGroupBuilder MapTwoFactorEndpoints(this RouteGroupBuilder group)

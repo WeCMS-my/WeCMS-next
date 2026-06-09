@@ -13,8 +13,11 @@ namespace WeCms.Api.Middleware;
          try { await next(context); }
          catch (SecurityTokenException)
          { await WriteError(context, 401, ApiCodes.Unauthorized, "Authentication failed"); }
-         catch (InvalidOperationException ex)
-         { await WriteError(context, 400, ApiCodes.BusinessError, ex.Message); }
+         catch (UnauthorizedAccessException)
+         { await WriteError(context, 403, ApiCodes.Forbidden, "Access denied"); }
+         // Business validation messages intentionally returned to client for M0; add sanitization in M1
+        catch (InvalidOperationException ex)
+        { await WriteError(context, 400, ApiCodes.BusinessError, ex.Message); }
          catch (Exception)
          { await WriteError(context, 500, ApiCodes.SystemError, "Internal server error"); }
      }

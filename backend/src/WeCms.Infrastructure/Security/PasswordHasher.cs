@@ -1,4 +1,4 @@
-﻿using WeCms.Shared.Contracts;
+using WeCms.Shared.Contracts;
 using System.Security.Cryptography;
 
 namespace WeCms.Infrastructure.Security;
@@ -26,6 +26,7 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
         if (parts[1] != Algorithm) return false;
 
         var iterations = int.Parse(parts[3]);
+        iterations = Math.Max(iterations, 100_000);
         var salt = Convert.FromBase64String(parts[4]);
         var expectedHash = Convert.FromBase64String(parts[5]);
         var actualHash = Rfc2898DeriveBytes.Pbkdf2(

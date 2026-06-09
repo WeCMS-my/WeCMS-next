@@ -28,6 +28,7 @@ async function handleLogin() {
       return
     }
     authStore.setAuth(res.accessToken || '', res.refreshToken || '')
+    await authStore.fetchCurrentUser()
     router.push('/')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Login failed'

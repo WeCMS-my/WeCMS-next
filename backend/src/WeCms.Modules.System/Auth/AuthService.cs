@@ -14,23 +14,12 @@ public sealed class AuthService : IAuthService
     private readonly ISecurityEventLogger _el;
     private readonly IClock _clock;
 
-    private static IClock _s_clock = null!;
-
+    // M0: static fields for 2FA ticket storage; extract to ITwoFactorTicketStore singleton in M1
+    // Ticket cleanup handled by TryRemove expiry check in VerifyTwoFactorAndLoginAsync; periodic cleanup deferred to M1
     private static readonly ConcurrentDictionary<string, TwoFactorTicketData> _tickets = new();
 
-    private static readonly Timer _ticketCleanupTimer = new(_ =>
-    {
-        if (_s_clock is null) return;
-        var now = _s_clock.UtcNow.DateTime;
-        foreach (var kv in _tickets)
-        {
-            if (kv.Value.ExpiresAt < now)
-                _tickets.TryRemove(kv);
-        }
-    }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
-
     public AuthService(ITokenService ts, IPasswordHasher ph, IDbConnectionFactory db, ISecurityEventLogger el, IClock clock)
-    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; _s_clock = clock; }
+    { _ts = ts; _ph = ph; _db = db; _el = el; _clock = clock; }
 
     public async Task<LoginResponse?> LoginAsync(string u, string p, string ip, CancellationToken ct)
     {
@@ -95,7 +84,8 @@ public sealed class AuthService : IAuthService
                 new { N = _clock.UtcNow.DateTime, Id = data.UserId }, cancellationToken: ct));
 
             var pair = _ts.GenerateTokenPair(new TokenPrincipal(data.UserId, data.Username, data.SecurityStamp, data.PermissionVersion, data.IsSuperAdmin));
-            await StoreRefreshToken(c, data.UserId, pair.RefreshToken, null, null, ct);
+            // M0: IP/UA not available in ticket flow; add to ticket data in M1
+            await StoreRefreshToken(c, data.UserId, pair.RefreshToken, "", "", ct);
             return new LoginResponse(pair.AccessToken, pair.RefreshToken, pair.ExpiresIn, false);
         }
 

@@ -23,9 +23,10 @@
          var isSuperClaim = user.FindFirst("is_super_admin")?.Value;
          if (isSuperClaim == "true") return await next(context);
  
-         await using var conn = await db.OpenAsync(context.HttpContext.RequestAborted);
- 
-         // Check permission
+         // M0: direct DB check per request; add in-memory permission cache in M1
+        await using var conn = await db.OpenAsync(context.HttpContext.RequestAborted);
+
+        // Check permission
          var hasPermission = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""
              SELECT COUNT(1) FROM sys_permission p
              JOIN sys_role_permission rp ON rp.permission_id=p.id

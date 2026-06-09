@@ -22,8 +22,10 @@ using System.Text;
  var builder = WebApplication.CreateSlimBuilder(args);
  builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCms.Api.Json.WeCmsJsonContext.Default));
  builder.Services.AddWeCmsInfrastructure(builder.Configuration);
+// M0 development: AllowAnyOrigin; restrict in production
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+// JwtSecret also used by TokenService in ServiceCollectionExtensions, must match
 var jwtSecret = builder.Configuration["Auth:JwtSecret"] ?? throw new InvalidOperationException("Auth:JwtSecret is not configured");
  builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters { ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)), ValidateIssuer = true, ValidIssuer = "wecms", ValidateAudience = true, ValidAudience = "wecms-admin", ValidateLifetime = true, ClockSkew = TimeSpan.Zero });
  builder.Services.AddAuthorization();
