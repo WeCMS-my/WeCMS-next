@@ -4,7 +4,7 @@
  
  public sealed class SettingService(IDbConnectionFactory db, IClock clock, IAuditWriter audit) : ISettingService
 {
-    private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase) { "smtp_pass", "auth_key", "jwt_secret", "sms_secret" };
+    private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase) { "smtp_pass", "auth_key", "jwt_secret", "sms_secret", "jwt_signing_key", "db_password", "smtp_user", "sms_secret_key" };
  
      public async Task<List<SettingItem>> GetAllAsync(CancellationToken ct)
      {

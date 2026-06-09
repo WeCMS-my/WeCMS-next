@@ -4,6 +4,10 @@
  
  public sealed class RoleService(IDbConnectionFactory db, IClock clock, IAuditWriter audit) : IRoleService
 {
+    private static readonly HashSet<string> SortFields = new(StringComparer.OrdinalIgnoreCase) { "sort", "id", "code", "name", "created_at" };
+
+    // Sort is hardcoded (sort, id) — no user input, no injection risk.
+    // SortFields whitelist above is reserved for future parameterized sorting.
     public async Task<(IReadOnlyList<RoleListItem> Items, long Total)> ListAsync(int page, int size, CancellationToken ct)
      { await using var c = await db.OpenAsync(ct); var items = await c.QueryAsync<RoleListItem>(new CommandDefinition("SELECT id, code, name, status, sort, created_at FROM sys_role WHERE deleted_at IS NULL ORDER BY sort, id LIMIT @L OFFSET @O", new { L = Math.Min(size, 100), O = (page - 1) * size }, cancellationToken: ct)); var total = await c.ExecuteScalarAsync<long>(new CommandDefinition("SELECT COUNT(1) FROM sys_role WHERE deleted_at IS NULL", cancellationToken: ct)); return (items.AsList(), total); }
      public async Task<RoleDetail?> GetByIdAsync(long id, CancellationToken ct)

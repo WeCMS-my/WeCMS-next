@@ -156,7 +156,31 @@ public sealed class AuthService : IAuthService
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(long uid, CancellationToken ct)
-    { await using var c = await _db.OpenAsync(ct); var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition("SELECT id,username,display_name FROM sys_user WHERE id=@Id AND deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); if(u is null)return null; var rt=await c.QueryAsync<string>(new CommandDefinition("SELECT r.code FROM sys_role r JOIN sys_user_role ur ON ur.role_id=r.id WHERE ur.user_id=@Id AND r.status='active' AND r.deleted_at IS NULL",new{Id=uid},cancellationToken:ct)); var pt=await c.QueryAsync<string>(new CommandDefinition("SELECT DISTINCT p.code FROM sys_permission p JOIN sys_role_permission rp ON rp.permission_id=p.id JOIN sys_user_role ur ON ur.role_id=rp.role_id JOIN sys_role r ON r.id=ur.role_id AND r.status='active' AND r.deleted_at IS NULL WHERE ur.user_id=@Id AND p.status='active'",new{Id=uid},cancellationToken:ct)); return new CurrentUserResponse(u.Id,u.Username,u.DisplayName,rt.AsList().ToArray(),pt.AsList().ToArray(),Array.Empty<object>()); }
+    {
+        await using var c = await _db.OpenAsync(ct);
+        var u = await c.QueryFirstOrDefaultAsync<CurU>(new CommandDefinition(
+            "SELECT id, username, display_name FROM sys_user WHERE id = @Id AND deleted_at IS NULL",
+            new { Id = uid }, cancellationToken: ct));
+        if (u is null) return null;
+
+        // Two sequential queries on the same MySqlConnection (no MARS); both are lightweight indexed lookups
+        var roles = await c.QueryAsync<string>(new CommandDefinition(
+            @"SELECT r.code FROM sys_role r
+              JOIN sys_user_role ur ON ur.role_id = r.id
+              WHERE ur.user_id = @Id AND r.status = 'active' AND r.deleted_at IS NULL",
+            new { Id = uid }, cancellationToken: ct));
+
+        var permissions = await c.QueryAsync<string>(new CommandDefinition(
+            @"SELECT DISTINCT p.code FROM sys_permission p
+              JOIN sys_role_permission rp ON rp.permission_id = p.id
+              JOIN sys_user_role ur ON ur.role_id = rp.role_id
+              JOIN sys_role r ON r.id = ur.role_id AND r.status = 'active' AND r.deleted_at IS NULL
+              WHERE ur.user_id = @Id AND p.status = 'active'",
+            new { Id = uid }, cancellationToken: ct));
+
+        return new CurrentUserResponse(u.Id, u.Username, u.DisplayName,
+            roles.AsList().ToArray(), permissions.AsList().ToArray(), Array.Empty<object>());
+    }
 
     // H2: Limit active refresh tokens to 10 per user; remove oldest if exceeded
     private async Task StoreRefreshToken(DbConnection c, long uid, string t, string? ip, string? ua, CancellationToken ct)

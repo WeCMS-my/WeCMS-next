@@ -25,14 +25,8 @@ public sealed class PermissionEndpointFilter(IDbConnectionFactory db, IMemoryCac
         if (uidClaim is null || !long.TryParse(uidClaim, out var uid))
             return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Invalid token"));
 
-        // Check is_super_admin from JWT claims first (cached, no DB query)
-        var isSuperClaim = user.FindFirst("is_super_admin")?.Value;
-        if (isSuperClaim == "true") return await next(context);
-
-        // In-memory permission cache key: perm:{uid}:{code}:{permissionVersion}
-        var permissionVersion = user.FindFirst("permission_version")?.Value ?? "0";
-
         // H1: Verify JWT permission_version matches current DB value (token revocation on password change / disable)
+        var permissionVersion = user.FindFirst("permission_version")?.Value ?? "0";
         if (long.TryParse(permissionVersion, out var tokenPv))
         {
             await using var conn2 = await db.OpenAsync(context.HttpContext.RequestAborted);
@@ -42,6 +36,7 @@ public sealed class PermissionEndpointFilter(IDbConnectionFactory db, IMemoryCac
                 return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Token revoked due to security change"));
         }
 
+        // In-memory permission cache key: perm:{uid}:{code}:{permissionVersion}
         var cacheKey = $"perm:{uid}:{meta.Code}:{permissionVersion}";
 
         if (cache.TryGetValue<bool>(cacheKey, out var cached))
