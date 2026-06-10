@@ -9,7 +9,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private DbTransaction? _transaction;
     private bool _disposed;
 
-    public DbTransactionFacade Transaction => new(_connection!, _transaction);
+    public IDbTransactionFacade Transaction => new DbTransactionFacade(_connection!, _transaction);
 
     public UnitOfWork(IDbConnectionFactory connectionFactory)
     {

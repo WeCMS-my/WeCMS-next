@@ -2,7 +2,7 @@ namespace WeCms.Infrastructure.Data;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
-    DbTransactionFacade Transaction { get; }
+    IDbTransactionFacade Transaction { get; }
 
     Task BeginAsync(CancellationToken cancellationToken);
     Task CommitAsync(CancellationToken cancellationToken);

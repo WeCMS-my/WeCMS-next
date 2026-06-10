@@ -1,17 +1,66 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using WeCms.Api.Json;
 using WeCms.Api.Middleware;
 using WeCms.Infrastructure.Migration;
+using WeCms.Infrastructure.Security;
+using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.System;
+using WeCms.Shared.Security;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-// Register infrastructure services (DB, password hasher, clock, migration runner)
+// Register infrastructure services (DB, password hasher, clock, migration runner, token services)
 builder.Services.AddWeCmsInfrastructure();
+builder.Services.AddWeCmsAuth();
+
+// Register Auth services (scoped)
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Register JWT Token Service (singleton — uses configuration)
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "WeCMS";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WeCMS";
+var jwtExpirySeconds = int.Parse(builder.Configuration["Jwt:AccessTokenExpirySeconds"] ?? "1800", CultureInfo.InvariantCulture);
+builder.Services.AddSingleton<ITokenService>(new JwtTokenService(jwtSigningKey, jwtIssuer, jwtAudience, jwtExpirySeconds));
+
+// Configure JSON serializer context for Native AOT
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCmsJsonContext.Default);
+});
+
+// Configure JWT Bearer authentication
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
 // M0-BE-004: Middleware pipeline — RequestId first (trace propagation), then Exception (error handling)
 app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
+
+// Authentication & Authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
 
 // M0-BE-006: Run database migrations and seed on startup
 using (var scope = app.Services.CreateScope())
@@ -20,19 +69,10 @@ using (var scope = app.Services.CreateScope())
     await migrator.RunAsync();
 }
 
-app.MapGet("/", () => "Hello World!");
+// M0-BE-007: Register System endpoints (health, ping, version, db-check, secure-ping)
+SystemEndpoints.Map(app);
 
-// Test endpoints for middleware verification
-app.MapGet("/api/v1/system/ping", () => Results.Ok(new { status = "pong" }));
-
-app.MapGet("/test/throw-domain-exception", () =>
-{
-    throw new WeCms.Shared.DomainException(2001, "测试业务异常");
-});
-
-app.MapGet("/test/throw-exception", () =>
-{
-    throw new InvalidOperationException("测试未处理异常");
-});
+// M0-BE-008: Auth endpoints
+app.MapAuthEndpoints();
 
 app.Run();
