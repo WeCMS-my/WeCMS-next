@@ -1,0 +1,103 @@
+-- ============================================================================
+-- WeCMS Next M0 Spike: ThinkPHP → WeCMS Schema 对照脚本
+-- 文件名: m0_spike_users_roles_permissions.sql
+-- 用途: 旧系统 Schema 参考对照，不执行实际数据迁移
+-- 结论: 旧系统为开发阶段，无生产数据，无需迁移。新系统从种子数据启动。
+-- ============================================================================
+
+-- ------------------------------------------------------------------------
+-- Schema 对照：think_admin → sys_user
+-- ------------------------------------------------------------------------
+-- 旧表关键字段:
+--   id, username, nickname, email, password, status, token, token_expire_at,
+--   twofa_secret, twofa_backup_codes, auth_key, create_time, update_time
+--
+-- 新表 (sys_user) 字段:
+--   id (BIGINT UNSIGNED AUTO_INCREMENT)
+--   legacy_id (预留，当前为 NULL)
+--   username, display_name, email, phone, avatar_file_id
+--   password_hash, password_hash_algorithm, password_migrated_at
+--   status, security_stamp, permission_version
+--   two_factor_enabled, two_factor_rebind_required
+--   last_login_at, last_login_ip
+--   created_at, created_by, updated_at, updated_by
+--   deleted_at, deleted_by, row_version
+--
+-- 差异:
+--   1. 新表使用 BIGINT UNSIGNED 主键（旧表 INT UNSIGNED）
+--   2. 新表 password 拆分为 password_hash + algorithm + migrated_at
+--   3. 新表新增 permission_version 用于权限缓存失效
+--   4. 新表新增 security_stamp 用于强制重新登录
+--   5. 新表使用软删除 (deleted_at) 代替物理删除
+--   6. 旧表 token/token_expire_at/auth_key 在新表中废弃
+
+-- ------------------------------------------------------------------------
+-- Schema 对照：think_auth_group → sys_role
+-- ------------------------------------------------------------------------
+-- 旧表关键字段:
+--   id, name, title, status, rules (CSV), create_time, update_time
+--
+-- 新表 (sys_role) 字段:
+--   id (BIGINT UNSIGNED AUTO_INCREMENT)
+--   legacy_id, code, name, description
+--   status, is_system, is_builtin, sort_order
+--   created_at, created_by, updated_at, updated_by
+--   deleted_at, deleted_by, row_version
+--
+-- 差异:
+--   1. 新表新增 code 字段作为唯一标识（替代旧 name）
+--   2. 新表废弃 rules CSV 字段，改用 sys_role_permission 关系表
+--   3. 新表新增 is_system / is_builtin 标识
+--   4. 新表新增 sort_order
+
+-- ------------------------------------------------------------------------
+-- Schema 对照：think_auth_group_access → sys_user_role
+-- ------------------------------------------------------------------------
+-- 旧表关键字段:
+--   uid, group_id
+--
+-- 新表 (sys_user_role) 字段:
+--   id (BIGINT UNSIGNED AUTO_INCREMENT)
+--   user_id, role_id, created_at, created_by
+--   UNIQUE KEY uk_user_role (user_id, role_id)
+--
+-- 差异:
+--   1. 新表新增唯一约束防止重复关联
+--   2. 新表字段命名规范化为 user_id / role_id
+
+-- ------------------------------------------------------------------------
+-- Schema 对照：think_auth_rule → sys_menu + sys_permission
+-- ------------------------------------------------------------------------
+-- 旧表关键字段:
+--   id, pid, name (路径), title, type (1=菜单,2=按钮), status, css(icon),
+--   condition, ismenu
+--
+-- 新表 (sys_menu) 字段:
+--   id, legacy_id, parent_id, code, name, icon, component, route_path,
+--   sort_order, status, is_visible, is_system
+--
+-- 新表 (sys_permission) 字段:
+--   id, legacy_id, code, name, module, resource, action,
+--   http_method, route_pattern, status, is_system
+--
+-- 差异:
+--   1. 旧单表混存拆分为两表，解耦菜单展示和权限控制
+--   2. 新菜单表新增 component（前端组件路径）、route_path（路由路径）
+--   3. 新权限表引入 code 作为权限标识（替代旧 URL 路径 name）
+--   4. 新权限表拆分 module/resource/action 三字段描述权限语义
+--   5. 旧 CSV rules 被 sys_role_permission 关系表替代
+
+-- ------------------------------------------------------------------------
+-- Schema 对照：think_config → sys_setting（二期）
+-- ------------------------------------------------------------------------
+-- 旧表关键字段:
+--   id, name, value, title, status, create_time, update_time
+--
+-- 新表 (sys_setting) 将在 M3 阶段创建。
+-- M0 不涉及系统配置模块。
+
+-- ============================================================================
+-- 结论: 本 Spike 仅用于 schema 设计审计。
+--       旧系统无生产数据，无需数据迁移。
+--       新系统从 database/seeds/ 种子数据初始化。
+-- ============================================================================
