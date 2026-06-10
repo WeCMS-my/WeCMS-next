@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
 using WeCms.Shared.Data;
@@ -45,7 +46,10 @@ public static class SystemEndpoints
         => VersionAsync(context);
 
     private static Task DbCheckRequestHandler(HttpContext context)
-        => DbCheckAsync(context, context.RequestServices.GetRequiredService<IDbConnectionFactory>());
+        => DbCheckAsync(
+            context,
+            context.RequestServices.GetRequiredService<IDbConnectionFactory>(),
+            context.RequestServices.GetRequiredService<ILoggerFactory>());
 
     private static Task SecurePingRequestHandler(HttpContext context)
         => SecurePingAsync(context, context.RequestServices.GetRequiredService<IClock>());
@@ -105,7 +109,10 @@ public static class SystemEndpoints
             cancellationToken);
     }
 
-    private static async Task DbCheckAsync(HttpContext context, IDbConnectionFactory db)
+    private static async Task DbCheckAsync(
+        HttpContext context,
+        IDbConnectionFactory db,
+        ILoggerFactory loggerFactory)
     {
         var cancellationToken = context.RequestAborted;
         try
@@ -119,9 +126,12 @@ public static class SystemEndpoints
         }
         catch (Exception ex)
         {
+            var logger = loggerFactory.CreateLogger(nameof(SystemEndpoints));
+            logger.LogError(ex, "数据库连接检查失败, traceId={TraceId}", context.TraceIdentifier);
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await WriteJsonResponse(
                 context,
-                ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("failed", "unknown", ex.Message)),
+                ApiResult<DbCheckResponse>.Fail(ApiCodes.SystemError, "数据库连接检查失败", context.TraceIdentifier),
                 typeof(ApiResult<DbCheckResponse>),
                 cancellationToken);
         }
@@ -132,8 +142,8 @@ public static class SystemEndpoints
         var cancellationToken = context.RequestAborted;
         await WriteJsonResponse(
             context,
-            ApiResult<object?>.Ok(new { status = "secure-pong", timestamp = clock.UtcNow }),
-            typeof(ApiResult<object?>),
+            ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("secure-pong", clock.UtcNow)),
+            typeof(ApiResult<SecurePingResponse>),
             cancellationToken);
     }
 

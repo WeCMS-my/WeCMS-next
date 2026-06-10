@@ -88,12 +88,22 @@ if (OpenApiExtensions.IsExportMode(args))
 }
 
 // M0-BE-006: Run database migrations and seed on startup
-using (var scope = app.Services.CreateScope())
+// default off by configuration; enable explicitly for local development when needed
+var autoMigrate = builder.Configuration.GetValue("Database:AutoMigrate", false);
+if (autoMigrate)
 {
+    using var scope = app.Services.CreateScope();
     var migrator = scope.ServiceProvider.GetRequiredService<DbMigrationRunner>();
     await migrator.RunAsync();
 }
+else
+{
+    app.Logger.LogInformation("Database auto-migration disabled (Database:AutoMigrate=false)");
+}
 
-app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.Run();

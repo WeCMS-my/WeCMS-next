@@ -9,3 +9,5 @@ public sealed record SystemPingResponse(string Status, string Timezone, DateTime
 public sealed record SystemVersionResponse(string Version, string Environment, string Framework);
 
 public sealed record DbCheckResponse(string Status, string Database, string? Error);
+
+public sealed record SecurePingResponse(string Status, DateTimeOffset Timestamp);
