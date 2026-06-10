@@ -1,0 +1,25 @@
+# Tasks
+
+- [x] Task 1: 添加 NuGet 依赖
+  - [x] 1.1: 在 `WeCms.Infrastructure.csproj` 添加 `MySqlConnector`（2.4+，AOT 兼容）
+  - [x] 1.2: 在 `WeCms.Infrastructure.csproj` 添加 `Dapper`（无 dynamic 依赖）
+  - [x] 1.3: 在 `WeCms.Infrastructure.csproj` 添加 `Dapper.AOT`（源生成器）
+- [x] Task 2: 创建 IDbConnectionFactory 和 DbConnectionFactory
+  - [x] 2.1: 创建 `Data/IDbConnectionFactory.cs` 接口
+  - [x] 2.2: 创建 `Data/DbConnectionFactory.cs` 实现（MySqlConnector）
+  - [x] 2.3: 从 `IConfiguration` 读取 `ConnectionStrings:Default`
+- [x] Task 3: 创建 IUnitOfWork 和 UnitOfWork
+  - [x] 3.1: 创建 `Data/IUnitOfWork.cs` 接口
+  - [x] 3.2: 创建 `Data/UnitOfWork.cs` 实现（事务 + 连接管理）
+- [x] Task 4: 创建 SystemClock
+  - [x] 4.1: 创建 `Time/SystemClock.cs` 实现 `IClock`
+- [x] Task 5: 创建扩展方法
+  - [x] 5.1: 创建 `Data/DapperDataExtensions.cs`（`AddWeCmsData` 注册方法）
+- [x] Task 6: 编写单元测试
+  - [x] 6.1: 验证 DbConnectionFactory 从配置读取连接字符串
+  - [x] 6.2: 验证 SystemClock.UtcNow 返回 UTC 时间
+  - [x] 6.3: 验证无 `Query<dynamic>` 调用 — code scan
+- [x] Task 7: 验证质量门禁
+  - [x] 7.1: `dotnet build backend/WeCms.slnx -warnaserror`
+  - [x] 7.2: `dotnet test backend/WeCms.slnx`
+  - [x] 7.3: `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r win-x64 /p:PublishAot=true`

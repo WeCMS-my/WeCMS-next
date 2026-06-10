@@ -1,11 +1,24 @@
+using Microsoft.Extensions.DependencyInjection;
 using WeCms.Api.Middleware;
+using WeCms.Infrastructure.Migration;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+
+// Register infrastructure services (DB, password hasher, clock, migration runner)
+builder.Services.AddWeCmsInfrastructure();
+
 var app = builder.Build();
 
 // M0-BE-004: Middleware pipeline — RequestId first (trace propagation), then Exception (error handling)
 app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
+
+// M0-BE-006: Run database migrations and seed on startup
+using (var scope = app.Services.CreateScope())
+{
+    var migrator = scope.ServiceProvider.GetRequiredService<DbMigrationRunner>();
+    await migrator.RunAsync();
+}
 
 app.MapGet("/", () => "Hello World!");
 

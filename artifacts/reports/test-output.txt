@@ -1,0 +1,12 @@
+﻿E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Architecture\bin\Debug\net10.0\WeCms.Tests.Architecture.dll (.NETCoreApp,Version=v10.0)鐨勬祴璇曡繍琛?
+鎬诲叡 1 涓祴璇曟枃浠朵笌鎸囧畾妯″紡鐩稿尮閰嶃€?
+E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Unit\bin\Debug\net10.0\WeCms.Tests.Unit.dll (.NETCoreApp,Version=v10.0)鐨勬祴璇曡繍琛?
+E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Architecture\bin\Debug\net10.0\WeCms.Tests.Architecture.dll 涓病鏈夊彲鐢ㄦ祴璇曘€傝纭繚宸叉敞鍐屾祴璇曞彂鐜板櫒鍜屾墽琛屽櫒涓斿钩鍙板拰妗嗘灦鐗堟湰璁剧疆鍚堢悊锛岀劧鍚庨噸璇曘€?
+E:\Github\WeCMS-next\backend\tests\WeCms.Tests.Integration\bin\Debug\net10.0\WeCms.Tests.Integration.dll (.NETCoreApp,Version=v10.0)鐨勬祴璇曡繍琛?
+
+鎬诲叡 1 涓祴璇曟枃浠朵笌鎸囧畾妯″紡鐩稿尮閰嶃€?
+鎬诲叡 1 涓祴璇曟枃浠朵笌鎸囧畾妯″紡鐩稿尮閰嶃€?
+
+宸查€氳繃! - 澶辫触:     0锛岄€氳繃:    28锛屽凡璺宠繃:     0锛屾€昏:    28锛屾寔缁椂闂? 117 ms - WeCms.Tests.Unit.dll (net10.0)
+
+宸查€氳繃! - 澶辫触:     0锛岄€氳繃:     5锛屽凡璺宠繃:     0锛屾€昏:     5锛屾寔缁椂闂? 1 s - WeCms.Tests.Integration.dll (net10.0)
