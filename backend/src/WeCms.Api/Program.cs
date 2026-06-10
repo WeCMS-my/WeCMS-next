@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
 using WeCms.Infrastructure.Migration;
@@ -12,6 +13,9 @@ using WeCms.Modules.System.System;
 using WeCms.Shared.Security;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+
+// M0-BE-010: OpenAPI document generation (source-generated for Native AOT)
+builder.Services.AddOpenApi();
 
 // Register infrastructure services (DB, password hasher, clock, migration runner, token services)
 builder.Services.AddWeCmsInfrastructure();
@@ -67,6 +71,19 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// M0-BE-007: Register System endpoints (health, ping, version, db-check, secure-ping)
+SystemEndpoints.Map(app);
+
+// M0-BE-008: Auth endpoints
+app.MapAuthEndpoints();
+
+// M0-BE-010: Handle --export-openapi (before DB migrations — no DB needed for schema export)
+if (OpenApiExtensions.IsExportMode(args))
+{
+    await app.ExportOpenApiAsync(OpenApiExtensions.GetExportPath(args));
+    return;
+}
+
 // M0-BE-006: Run database migrations and seed on startup
 using (var scope = app.Services.CreateScope())
 {
@@ -74,10 +91,6 @@ using (var scope = app.Services.CreateScope())
     await migrator.RunAsync();
 }
 
-// M0-BE-007: Register System endpoints (health, ping, version, db-check, secure-ping)
-SystemEndpoints.Map(app);
-
-// M0-BE-008: Auth endpoints
-app.MapAuthEndpoints();
+app.MapOpenApi();
 
 app.Run();
