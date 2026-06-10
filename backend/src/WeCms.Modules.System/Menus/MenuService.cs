@@ -60,9 +60,10 @@ public sealed class MenuService(IDbConnectionFactory db, IClock clock, IAuditWri
             }
         }
         // COALESCE allows partial updates: passing null preserves the existing column value
-        await conn.ExecuteAsync(new CommandDefinition(
+        var affected = await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_menu SET title=COALESCE(@T,title), path=COALESCE(@P,path), component=COALESCE(@C,component), icon=COALESCE(@I,icon), sort=COALESCE(@S,sort), hidden=COALESCE(@H,hidden), parent_id=COALESCE(@Pid,parent_id), updated_at=@Now WHERE id=@Id",
             new { req.Title, req.Path, req.Component, req.Icon, S = req.Sort, H = req.Hidden, Pid = req.ParentId, Now = clock.UtcNow.DateTime, Id = id }, cancellationToken: ct));
+        if (affected == 0) throw new InvalidOperationException("Menu not found or already modified");
     }
 
     public async Task DeleteAsync(long id, CancellationToken ct)
@@ -86,9 +87,10 @@ public sealed class MenuService(IDbConnectionFactory db, IClock clock, IAuditWri
             }
         }
         // Soft-delete all collected IDs in one batch
-        await conn.ExecuteAsync(new CommandDefinition(
+        var affected = await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE sys_menu SET deleted_at=@Now WHERE id IN @Ids",
             new { Now = clock.UtcNow.DateTime, Ids = ids }, cancellationToken: ct));
+        if (affected == 0) throw new InvalidOperationException("Menu not found or already deleted");
         await audit.LogAsync("system", "menu:delete", null, null, null, null, 200, "success", ct);
     }
 
