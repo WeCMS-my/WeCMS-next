@@ -1,0 +1,109 @@
+name: Backend Quality Gate
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - 'scripts/**'
+      - '.github/workflows/backend-quality-gate.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'database/**'
+      - 'scripts/**'
+      - '.github/workflows/backend-quality-gate.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Backend Quality Gate
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: wecms_dev_pass
+          MYSQL_DATABASE: wecms_dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore backend/WeCms.slnx
+
+      # ── 1. Build ──
+      - name: Build (warnaserror)
+        run: dotnet build backend/WeCms.slnx -warnaserror --nologo
+
+      # ── 2. Tests ──
+      - name: Run tests
+        run: dotnet test backend/WeCms.slnx --nologo --verbosity normal
+        env:
+          WeCMS__ConnectionStrings__Default: >-
+            Server=127.0.0.1;Port=3306;Database=wecms_dev;User=root;Password=wecms_dev_pass;Charset=utf8mb4;
+
+      # ── 3. Native AOT Publish ──
+      - name: Native AOT Publish
+        run: >-
+          dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj
+          -c Release
+          -r linux-x64
+          /p:PublishAot=true
+          --nologo
+
+      # ── 4. OpenAPI Export ──
+      - name: OpenAPI Export
+        run: >-
+          dotnet run --project backend/src/WeCms.Api
+          --
+          --export-openapi artifacts/openapi/wecms-api-v1.json
+          --nologo
+
+      # ── 5. SQL: no SELECT * ──
+      - name: Check no SELECT *
+        run: bash scripts/checks/check-no-select-star.sh
+
+      # ── 6. SQL: no Query<dynamic> ──
+      - name: Check no dynamic query
+        run: bash scripts/checks/check-no-dynamic-query.sh
+
+      # ── 7. Integrity Checks ──
+      - name: Check endpoint permissions
+        run: bash scripts/checks/check-endpoint-permissions.sh
+
+      - name: Check JSON context coverage
+        run: bash scripts/checks/check-json-context-coverage.sh
+
+      - name: Check no frontend change
+        run: bash scripts/checks/check-no-frontend-change.sh
+
+      # ── Summary ──
+      - name: Quality Gate Summary
+        if: always()
+        run: |
+          echo "=== WeCMS M0-BE Backend Quality Gate ==="
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Result: PASSED"
+          else
+            echo "Result: FAILED"
+          fi

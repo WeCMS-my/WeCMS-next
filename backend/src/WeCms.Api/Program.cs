@@ -98,7 +98,7 @@ if (autoMigrate)
 }
 else
 {
-    app.Logger.LogInformation("Database auto-migration disabled (Database:AutoMigrate=false)");
+    Log.AutoMigrationDisabled(app.Logger);
 }
 
 if (app.Environment.IsDevelopment())
@@ -107,3 +107,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+internal static partial class Log
+{
+    [LoggerMessage(Level = LogLevel.Information, Message = "Database auto-migration disabled (Database:AutoMigrate=false)")]
+    public static partial void AutoMigrationDisabled(ILogger logger);
+}

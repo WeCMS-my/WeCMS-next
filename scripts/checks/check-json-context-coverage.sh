@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
 
 # WeCMS M0-BE check-json-context-coverage
-# Ensures DTO types used by endpoints are registered in WeCmsJsonContext.cs.
-# This script scans endpoint return types and request DTO parameters and
-# verifies corresponding [JsonSerializable] registrations exist.
+# Ensures DTO types used by endpoints are registered in at least one JsonContext.
+# Scans all *JsonContext.cs files and all *Endpoints.cs files.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-CONTEXT_FILE="$REPO_ROOT/backend/src/WeCms.Api/Json/WeCmsJsonContext.cs"
-
-if [[ ! -f "$CONTEXT_FILE" ]]; then
-  echo "WeCmsJsonContext.cs not found: $CONTEXT_FILE" >&2
-  exit 1
-fi
-
-echo "  Checking JsonSerializerContext coverage (bash fallback)..."
+echo "  Checking JsonSerializerContext coverage..."
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -27,18 +19,34 @@ DIRECT_REG="$TMPDIR/direct.txt"
 MISSING="$TMPDIR/missing.txt"
 : > "$MISSING"
 
-rg --pcre2 -o 'typeof\(ApiResult<([^>]+)>\)' "$CONTEXT_FILE" \
-  | sed -E 's/.*typeof\(ApiResult<([^>]+)>\).*/\1/' \
-  | tr -d ' \t\r' \
-  | sort -u > "$API_RESULT_REG" || true
+# ── Extract all registered types from ALL JsonContext files ──
+ctx_files=$(find "$REPO_ROOT/backend/src" -type f -name '*JsonContext.cs' -print0)
+if [ -z "$ctx_files" ]; then
+  echo "No JsonContext files found in backend/src/" >&2
+  exit 1
+fi
 
-rg --pcre2 -o 'typeof\(([^)]+)\)' "$CONTEXT_FILE" \
-  | sed -E 's/.*typeof\((.*)\).*/\1/' \
-  | tr -d ' \t\r' \
-  | grep -v '^ApiResult<' \
-  | sort -u > "$DIRECT_REG" || true
+while IFS= read -r -d '' ctx_file; do
+  # ApiResult<T> registrations
+  rg --pcre2 -o 'typeof\(ApiResult<([^>]+)>\)' "$ctx_file" \
+    | sed -E 's/.*typeof\(ApiResult<([^>]+)>\).*/\1/' \
+    | tr -d ' \t\r' \
+    | sort -u >> "$API_RESULT_REG" || true
 
+  # Direct type registrations (non-ApiResult): typeof(TypeName)
+  rg --pcre2 -o 'typeof\(([^)]+)\)' "$ctx_file" \
+    | sed -E 's/.*typeof\((.*)\).*/\1/' \
+    | tr -d ' \t\r' \
+    | grep -v '^ApiResult<' \
+    | sort -u >> "$DIRECT_REG" || true
+done < <(find "$REPO_ROOT/backend/src" -type f -name '*JsonContext.cs' -print0)
+
+sort -u -o "$API_RESULT_REG" "$API_RESULT_REG"
+sort -u -o "$DIRECT_REG" "$DIRECT_REG"
+
+# ── Scan all Endpoints.cs files for used DTO types ──
 while IFS= read -r -d '' endpoint_file; do
+  # 1) Response types: ApiResult<T> in code (e.g., ApiResult<LoginResponse>.Ok(...))
   used_apiresult=$(
     rg -o 'ApiResult<[^>]+>' "$endpoint_file" \
       | sed -E 's/ApiResult<([^>]+)>/\1/' \
@@ -47,9 +55,10 @@ while IFS= read -r -d '' endpoint_file; do
       | sort -u || true
   )
 
+  # 2) Request types: ParseRequestAsync<ConcreteType>(...) calls (require ≥2 chars to exclude generic T)
   used_requests=$(
-    rg --pcre2 -o '[A-Za-z_][A-Za-z0-9_]*Request[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*(,|\))' "$endpoint_file" \
-      | sed -E 's/[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*(,|\)).*//' \
+    rg --pcre2 -o 'ParseRequestAsync<([A-Z][A-Za-z0-9_]+)>' "$endpoint_file" \
+      | sed -E 's/ParseRequestAsync<([^>]+)>/\1/' \
       | tr -d ' \t\r' \
       | sort -u || true
   )
@@ -66,12 +75,12 @@ while IFS= read -r -d '' endpoint_file; do
     fi
   done
 
-done < <(find "$REPO_ROOT/backend/src" -type f \( -name '*Endpoints.cs' -o -name '*Dtos.cs' \) -print0)
+done < <(find "$REPO_ROOT/backend/src" -type f -name '*Endpoints.cs' -print0)
 
 if [ -s "$MISSING" ]; then
-  echo "Endpoint types used but not registered in WeCmsJsonContext:" >&2
+  echo "Endpoint types used but not registered in any JsonContext:" >&2
   sort -u "$MISSING" >&2
   exit 1
 fi
 
-echo "  All endpoint request/response DTOs are covered in WeCmsJsonContext."
+echo "  All endpoint request/response DTOs are covered in JsonContext."

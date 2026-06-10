@@ -1,4 +1,4 @@
-# ADR-0005：旧系统不做数据迁移，新系统从种子数据初始化，前端后移
+# ADR-0005：旧系统不做数据迁移，不做兼容模式
 
 ## 状态
 
@@ -17,10 +17,9 @@ Accepted
 3. 新系统从 0 初始化基础种子数据。
 4. 新系统不实现 legacy runtime compatibility。
 5. 不保留旧密码 hash 登录兼容。
-6. 不实现 password\_migrated\_at 登录升级流程。
-7. 不迁移旧 token、session、2FA secret、backup code、SMTP 密码、auth\_key。
-8. database/legacy-migration 仅保留 Schema 对照和设计说明，不执行真实数据迁移。
-9. 前端 SoybeanAdmin 开发整体后移，等后端全部 API 完成并稳定后再进入前端开发。
+6. 不实现 `password_migrated_at` 登录升级流程。
+7. 不迁移旧 token、session、2FA secret、backup code、SMTP 密码、auth_key。
+8. `database/legacy-migration` 仅保留 Schema 对照和设计说明，不执行真实数据迁移。
 
 ## 影响
 
@@ -30,12 +29,10 @@ Accepted
 - 避免 legacy 分支污染新系统运行时代码。
 - 简化 Auth 模块。
 - 减少旧密码、旧 2FA、旧 secret 的安全风险。
-- 后端 API 可先稳定，再进入前端开发。
 
 ### 代价
 
 - 新系统上线时需要重新创建管理员、角色、权限和基础配置。
-- 前端开发启动时间后移。
 - 后续如需要导入旧数据，必须单独建立新的 migration spec。
 
 ## M0-BE 调整
@@ -56,16 +53,3 @@ M0-BE 移除：
 - 旧密码兼容
 - 旧 token 兼容
 - 旧 2FA secret 迁移
-- 前端 generated
-- SoybeanAdmin 联通
-
-## 后续阶段
-
-前端进入条件：
-
-1. 后端 Auth API 完成。
-2. 用户、角色、菜单、权限 API 完成。
-3. 系统基础 API 完成。
-4. OpenAPI 契约稳定。
-5. 后端 quality gate 通过。
-

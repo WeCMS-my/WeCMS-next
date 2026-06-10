@@ -53,7 +53,8 @@ echo "  PASSED"
 
 # ── 7. Integrity ──
 echo "[7/7] check integrity"
-run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"
+# Endpoint permission metadata is verified at runtime by WeCms.Tests.Architecture
+# (PermissionMetadataScanTests scans all registered endpoints via EndpointDataSource).
 run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"
 run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"
 echo "  PASSED"
