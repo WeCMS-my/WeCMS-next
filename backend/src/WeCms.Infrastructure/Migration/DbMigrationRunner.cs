@@ -1,6 +1,7 @@
 using Dapper;
-using WeCms.Infrastructure.Data;
 using WeCms.Infrastructure.Security;
+using WeCms.Shared.Data;
+using WeCms.Shared.Security;
 
 namespace WeCms.Infrastructure.Migration;
 

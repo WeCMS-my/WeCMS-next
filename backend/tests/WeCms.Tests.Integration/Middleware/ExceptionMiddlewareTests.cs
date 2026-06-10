@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using WeCms.Modules.System.Auth;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Integration.Middleware;
@@ -25,11 +26,11 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
-    public async Task DomainException_ShouldReturnApiResult_WithBusinessCode()
+    public async Task DomainException_ShouldReturnBusinessError_WithBadRequest()
     {
         var response = await _client.GetAsync("/test/throw-domain-exception");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(2001, body.GetProperty("code").GetInt32());
@@ -75,5 +76,35 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
 
         Assert.DoesNotContain("   at ", rawJson);
         Assert.DoesNotContain("stack", rawJson.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task Login_ShouldReturn400_WhenCredentialsMissing()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(string.Empty, string.Empty));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(ApiCodes.ValidationError, body.GetProperty("code").GetInt32());
+    }
+
+    [Fact]
+    public async Task Refresh_ShouldReturn400_WhenTokenMissing()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshRequest(string.Empty));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(ApiCodes.ValidationError, body.GetProperty("code").GetInt32());
+    }
+
+    [Fact]
+    public async Task Me_ShouldReturn401_WhenUnauthorized()
+    {
+        var response = await _client.GetAsync("/api/v1/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

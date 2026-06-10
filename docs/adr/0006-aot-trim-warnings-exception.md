@@ -1,0 +1,89 @@
+# ADR-0006：Native AOT / Trim 警告例外管理
+
+## 状态
+
+Accepted
+
+## 背景
+
+P1-001 修复中删除了 `WeCms.Modules.System.csproj` 的 `<NoWarn>IL2026;IL3050</NoWarn>` 以及 Endpoint 文件中的 `#pragma warning disable IL2026, IL3050`，让真实 AOT 警告暴露出来。
+
+经过修复后，WeCMS 自有代码的真实 AOT 警告可被直接追踪；平台级 `MapGet/MapPost` 警告已通过路由绑定方式调整进行清零，不再作为待清零平台例外保留。
+
+## 分析
+
+### 自有代码：已解决
+
+`PermissionEndpointFilter.cs` 原先使用 `Results.Json(value, statusCode:)` 重载（需要 `JsonSerializerOptions`），在 AOT 下不安全。已改为使用 `TypedResults.Json(value, JsonTypeInfo, statusCode:)` 重载，通过注入 `JsonSerializerContext` 获取 `JsonTypeInfo<ApiResult<object?>>`。
+
+### 平台级路由警告：ASP.NET Minimal API `MapGet` 风险警报
+
+`MapGet` 的 `Delegate` 重载在标注了 `RequiresUnreferencedCode` / `RequiresDynamicCode` 的场景下会触发 IL2026/IL3050。我们已将端点注册改为 `RequestDelegate` 重载（将依赖从 `HttpContext.RequestServices` 注入），避免该警告再次出现。
+
+**验证**（当前环境）：
+- `dotnet build backend/src/WeCms.Api/WeCms.Api.csproj -warnaserror`：2026-06-10 在当前仓库状态下通过，`SystemEndpoints` 无 IL2026/IL3050 新增。
+- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true`：2026-06-10 在本机通过，产物为 `backend/src/WeCms.Api/bin/Release/net10.0/osx-arm64/publish/`。
+- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true`：当前仍失败于 `llvm-objcopy/objcopy` 缺失（环境限制），非代码问题。
+
+### 第三方库：Dapper 2.1.66
+
+Dapper 2.1.66 未标记 `IsTrimmable`，导致 Native AOT 编译器报告 assembly-level 警告：
+
+- `IL2104`: Assembly 'Dapper' produced trim warnings
+- `IL3053`: Assembly 'Dapper' produced AOT analysis warnings
+
+Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.31 已提供 source-generated 的 AOT-safe 路径，但 Dapper 核心库本身尚未标记 `IsTrimmable`。
+
+## 决策
+
+1. **自有代码零容忍**：WeCMS 所有项目（`WeCms.Shared`、`WeCms.Infrastructure`、`WeCms.Modules.System`、`WeCms.Modules.Cms`）保持 `IsAotCompatible=true`，不屏蔽 IL2026/IL3050。
+2. **平台误报处置闭环**：`MapGet` 调用不再使用 `Delegate` 重载，并保留 `warnaserror` 直接可见性；不依赖局部或项目级抑制。
+3. **第三方库例外**：仅在 publish 项目 `WeCms.Api.csproj` 中，对 Dapper assembly 的 IL2104/IL3053 进行针对性抑制。
+
+## 例外详情
+
+### 平台级异常（已清零）
+
+| 项目 | 警告码 | 来源 | 处理结果 | 风险 |
+|---|---|---|---|---|
+| WeCms.Modules.System | IL2026 / IL3050 | `SystemEndpoints` `MapGet(Delegate)`（已重构前） | 2026-06-10 已清零：改为 `MapGet(RequestDelegate)` + `-warnaserror` 验证通过 | 低（仅历史遗留背景） |
+
+移除条件已满足：平台级 `MapGet` 告警路径已重构为 `RequestDelegate`，未保留抑制。
+
+### 第三方库
+
+| 项目 | 警告码 | 来源 | 原因 | 风险评估 |
+|---|---|---|---|---|
+| WeCms.Api | IL2104 | Dapper.dll | Dapper 未标记 IsTrimmable | 低 — Dapper.AOT 已提供 source-gen 路径 |
+| WeCms.Api | IL3053 | Dapper.dll | Dapper 未标记 IsTrimmable | 低 — Dapper.AOT 已提供 source-gen 路径 |
+
+## 移除条件
+
+### 平台误报
+
+当以下条件满足时可评估关闭该警告：
+
+1. 已完成 `MapGet(RequestDelegate)` 重构。
+2. 2026-06-10 执行 `dotnet build backend/src/WeCms.Api/WeCms.Api.csproj -warnaserror` 后，在源代码层面无 IL2026/IL3050 回归。
+
+### 第三方库
+
+当以下任一条件满足时移除此例外：
+
+1. Dapper 发布标记 `IsTrimmable=true` 的新版本。
+2. 迁移到完全 AOT-safe 的替代数据访问方案。
+3. .NET 10 GA 后重新评估。
+
+## 验证依据
+
+- `dotnet publish -c Release -r linux-x64 /p:PublishAot=true` 当前因 `llvm-objcopy/objcopy` 缺失而失败（环境限制），该路径暂时无法形成 AOT 成功结论。
+- WeCMS 自有代码当前不再依赖 `#pragma/NoWarn` 来隐藏端点级 AOT 警告；`MapGet` 已通过 `RequestDelegate` 重载规避 IL2026/IL3050 触发。
+- 所有 Endpoint 使用 source-generated JSON serializer context。
+- Dapper 调用通过 Dapper.AOT source generator 处理，不依赖运行时反射。
+
+## 影响
+
+- `WeCms.Api.csproj` 新增 Dapper assembly 的 IL2104/IL3053 抑制。
+- Endpoint 文件不再使用 `[UnconditionalSuppressMessage]`，保持警告可见性。
+- 其他项目（Shared、Infrastructure、Modules）不受影响，保持零抑制。
+- AOT publish 结果受工具链约束影响；待本地/CI 完整环境安装符号剥离工具后复核。

@@ -1,6 +1,6 @@
 using System.Data.Common;
 using Dapper;
-using WeCms.Infrastructure.Data;
+using WeCms.Shared.Data;
 
 namespace WeCms.Modules.System.Auth;
 

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using WeCms.Shared.Security;
 
 namespace WeCms.Infrastructure.Security;
 

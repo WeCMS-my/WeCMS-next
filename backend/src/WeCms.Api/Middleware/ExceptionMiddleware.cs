@@ -21,7 +21,8 @@ public sealed class ExceptionMiddleware
         }
         catch (DomainException ex)
         {
-            await WriteErrorResponse(context, StatusCodes.Status200OK, ex.Code, ex.Message);
+            var statusCode = MapDomainExceptionStatusCode(ex.Code);
+            await WriteErrorResponse(context, statusCode, ex.Code, ex.Message);
         }
         catch (Exception)
         {
@@ -29,6 +30,20 @@ public sealed class ExceptionMiddleware
                 ApiCodes.SystemError, "系统内部错误");
         }
     }
+
+    private static int MapDomainExceptionStatusCode(int code) =>
+        code switch
+        {
+            ApiCodes.ValidationError => StatusCodes.Status400BadRequest,
+            ApiCodes.Unauthorized => StatusCodes.Status401Unauthorized,
+            ApiCodes.Forbidden => StatusCodes.Status403Forbidden,
+            ApiCodes.NotFound => StatusCodes.Status404NotFound,
+            ApiCodes.Conflict => StatusCodes.Status409Conflict,
+            ApiCodes.TooManyRequests => StatusCodes.Status429TooManyRequests,
+            ApiCodes.BusinessError => StatusCodes.Status400BadRequest,
+            ApiCodes.SystemError => StatusCodes.Status500InternalServerError,
+            _ => StatusCodes.Status500InternalServerError
+        };
 
     private static async Task WriteErrorResponse(HttpContext context, int statusCode, int code, string msg)
     {

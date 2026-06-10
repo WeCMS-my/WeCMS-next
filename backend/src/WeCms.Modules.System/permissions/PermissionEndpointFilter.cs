@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using WeCms.Shared;
@@ -8,6 +10,13 @@ namespace WeCms.Modules.System.Permissions;
 
 public sealed class PermissionEndpointFilter : IEndpointFilter
 {
+    private readonly JsonTypeInfo<ApiResult<object?>> _apiResultTypeInfo;
+
+    public PermissionEndpointFilter(JsonSerializerContext jsonContext)
+    {
+        _apiResultTypeInfo = (JsonTypeInfo<ApiResult<object?>>)jsonContext.GetTypeInfo(typeof(ApiResult<object?>))!;
+    }
+
     public async ValueTask<object?> InvokeAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
@@ -22,8 +31,9 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
         var subClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(subClaim) || !long.TryParse(subClaim, out var userId))
         {
-            return Results.Json(
+            return TypedResults.Json(
                 ApiResult<object?>.Fail(ApiCodes.Unauthorized, "未登录"),
+                _apiResultTypeInfo,
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
@@ -32,15 +42,17 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
 
         if (!result.IsActive)
         {
-            return Results.Json(
+            return TypedResults.Json(
                 ApiResult<object?>.Fail(ApiCodes.Unauthorized, "用户已被禁用"),
+                _apiResultTypeInfo,
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
         if (!result.HasPermission)
         {
-            return Results.Json(
+            return TypedResults.Json(
                 ApiResult<object?>.Fail(ApiCodes.Forbidden, "无权限"),
+                _apiResultTypeInfo,
                 statusCode: StatusCodes.Status403Forbidden);
         }
 

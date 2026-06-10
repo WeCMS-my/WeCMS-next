@@ -1,9 +1,10 @@
 using System.Data.Common;
 
-namespace WeCms.Infrastructure.Data;
+namespace WeCms.Shared.Data;
 
 public interface IDbTransactionFacade
 {
     DbConnection Connection { get; }
     DbTransaction? Inner { get; }
 }
+

@@ -1,14 +1,12 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using WeCms.Infrastructure.Data;
+using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
+using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 using WeCms.Shared.Time;
-
-#pragma warning disable IL2026, IL3050
-// Minimal API MapGet/MapPost use delegate reflection — handled by ASP.NET Core source generators at publish time.
 
 namespace WeCms.Modules.System.System;
 
@@ -17,69 +15,135 @@ public static class SystemEndpoints
     public static void Map(WebApplication app)
     {
         var healthGroup = app.MapGroup("/health");
-        healthGroup.MapGet("/live", HealthLive);
-        healthGroup.MapGet("/ready", HealthReady);
+        healthGroup.MapGet("/live", (RequestDelegate)HealthLiveRequestHandler);
+        healthGroup.MapGet("/ready", (RequestDelegate)HealthReadyRequestHandler);
 
         var systemGroup = app.MapGroup("/api/v1/system");
-        systemGroup.MapGet("/ping", Ping);
-        systemGroup.MapGet("/version", Version);
-        systemGroup.MapGet("/db-check", DbCheck);
+        systemGroup.MapGet("/ping", (RequestDelegate)PingRequestHandler);
+        systemGroup.MapGet("/version", (RequestDelegate)VersionRequestHandler);
+        systemGroup.MapGet("/db-check", (RequestDelegate)DbCheckRequestHandler);
 
         // M0-BE-009: secure-ping with RequirePermission
-        systemGroup.MapGet("/secure-ping", SecurePing)
+        ((RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", (RequestDelegate)SecurePingRequestHandler))
             .RequirePermission(SystemPermissions.SystemSecurePing);
     }
 
-    private static IResult HealthLive(IClock clock)
-        => Results.Ok(ApiResult<HealthLiveResponse>.Ok(
-            new HealthLiveResponse("healthy", clock.UtcNow)));
+    private static Task HealthLiveRequestHandler(HttpContext context)
+        => HealthLiveAsync(context, context.RequestServices.GetRequiredService<IClock>());
 
-    private static async Task<IResult> HealthReady(
-        IDbConnectionFactory db,
-        IClock clock,
-        CancellationToken cancellationToken)
+    private static Task HealthReadyRequestHandler(HttpContext context)
     {
+        var clock = context.RequestServices.GetRequiredService<IClock>();
+        var db = context.RequestServices.GetRequiredService<IDbConnectionFactory>();
+        return HealthReadyAsync(context, db, clock);
+    }
+
+    private static Task PingRequestHandler(HttpContext context)
+        => PingAsync(context, context.RequestServices.GetRequiredService<IClock>());
+
+    private static Task VersionRequestHandler(HttpContext context)
+        => VersionAsync(context);
+
+    private static Task DbCheckRequestHandler(HttpContext context)
+        => DbCheckAsync(context, context.RequestServices.GetRequiredService<IDbConnectionFactory>());
+
+    private static Task SecurePingRequestHandler(HttpContext context)
+        => SecurePingAsync(context, context.RequestServices.GetRequiredService<IClock>());
+
+    private static async Task HealthLiveAsync(HttpContext context, IClock clock)
+    {
+        var cancellationToken = context.RequestAborted;
+        await WriteJsonResponse(
+            context,
+            ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", clock.UtcNow)),
+            typeof(ApiResult<HealthLiveResponse>),
+            cancellationToken);
+    }
+
+    private static async Task HealthReadyAsync(HttpContext context, IDbConnectionFactory db, IClock clock)
+    {
+        var cancellationToken = context.RequestAborted;
         var sw = Stopwatch.StartNew();
         try
         {
             await using var connection = await db.OpenAsync(cancellationToken);
             sw.Stop();
-            return Results.Ok(ApiResult<HealthReadyResponse>.Ok(
-                new HealthReadyResponse("ready", true, sw.ElapsedMilliseconds)));
+            await WriteJsonResponse(
+                context,
+                ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("ready", true, sw.ElapsedMilliseconds)),
+                typeof(ApiResult<HealthReadyResponse>),
+                cancellationToken);
         }
         catch (Exception)
         {
             sw.Stop();
-            return Results.Ok(ApiResult<HealthReadyResponse>.Ok(
-                new HealthReadyResponse("not ready", false, null)));
+            await WriteJsonResponse(
+                context,
+                ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("not ready", false, null)),
+                typeof(ApiResult<HealthReadyResponse>),
+                cancellationToken);
         }
     }
 
-    private static IResult Ping(IClock clock)
-        => Results.Ok(ApiResult<SystemPingResponse>.Ok(
-            new SystemPingResponse("pong", TimeZoneInfo.Local.Id, clock.UtcNow)));
-
-    private static IResult Version()
-        => Results.Ok(ApiResult<SystemVersionResponse>.Ok(
-            new SystemVersionResponse("0.1.0", "M0-BE", "net10.0")));
-
-    private static async Task<IResult> DbCheck(
-        IDbConnectionFactory db,
-        CancellationToken cancellationToken)
+    private static async Task PingAsync(HttpContext context, IClock clock)
     {
+        var cancellationToken = context.RequestAborted;
+        await WriteJsonResponse(
+            context,
+            ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("pong", TimeZoneInfo.Local.Id, clock.UtcNow)),
+            typeof(ApiResult<SystemPingResponse>),
+            cancellationToken);
+    }
+
+    private static async Task VersionAsync(HttpContext context)
+    {
+        var cancellationToken = context.RequestAborted;
+        await WriteJsonResponse(
+            context,
+            ApiResult<SystemVersionResponse>.Ok(new SystemVersionResponse("0.1.0", "M0-BE", "net10.0")),
+            typeof(ApiResult<SystemVersionResponse>),
+            cancellationToken);
+    }
+
+    private static async Task DbCheckAsync(HttpContext context, IDbConnectionFactory db)
+    {
+        var cancellationToken = context.RequestAborted;
         try
         {
             await using var connection = await db.OpenAsync(cancellationToken);
-            return Results.Ok(ApiResult<DbCheckResponse>.Ok(
-                new DbCheckResponse("connected", connection.Database, null)));
+            await WriteJsonResponse(
+                context,
+                ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null)),
+                typeof(ApiResult<DbCheckResponse>),
+                cancellationToken);
         }
         catch (Exception ex)
         {
-            return Results.Ok(ApiResult<DbCheckResponse>.Ok(
-                new DbCheckResponse("failed", "unknown", ex.Message)));
+            await WriteJsonResponse(
+                context,
+                ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("failed", "unknown", ex.Message)),
+                typeof(ApiResult<DbCheckResponse>),
+                cancellationToken);
         }
     }
 
-    private static IResult SecurePing(IClock clock)
-        => Results.Ok(ApiResult<object?>.Ok(new { status = "secure-pong", timestamp = clock.UtcNow }));
+    private static async Task SecurePingAsync(HttpContext context, IClock clock)
+    {
+        var cancellationToken = context.RequestAborted;
+        await WriteJsonResponse(
+            context,
+            ApiResult<object?>.Ok(new { status = "secure-pong", timestamp = clock.UtcNow }),
+            typeof(ApiResult<object?>),
+            cancellationToken);
+    }
+
+    private static async Task WriteJsonResponse(
+        HttpContext context,
+        object result,
+        Type resultType,
+        CancellationToken cancellationToken)
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
+    }
 }

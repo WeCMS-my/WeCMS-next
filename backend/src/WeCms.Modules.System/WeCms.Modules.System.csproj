@@ -6,7 +6,6 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsAotCompatible>true</IsAotCompatible>
-    <NoWarn>$(NoWarn);IL2026;IL3050</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
-    <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

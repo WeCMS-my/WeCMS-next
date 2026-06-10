@@ -1,4 +1,5 @@
 using System.Data.Common;
+using WeCms.Shared.Data;
 
 namespace WeCms.Infrastructure.Data;
 

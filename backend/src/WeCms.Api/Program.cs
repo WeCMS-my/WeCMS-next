@@ -36,6 +36,9 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WeCMS";
 var jwtExpirySeconds = int.Parse(builder.Configuration["Jwt:AccessTokenExpirySeconds"] ?? "1800", CultureInfo.InvariantCulture);
 builder.Services.AddSingleton<ITokenService>(new JwtTokenService(jwtSigningKey, jwtIssuer, jwtAudience, jwtExpirySeconds));
 
+// Register JSON serializer context for Native AOT (singleton — needed by endpoint filters)
+builder.Services.AddSingleton<System.Text.Json.Serialization.JsonSerializerContext>(WeCmsJsonContext.Default);
+
 // Configure JSON serializer context for Native AOT
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

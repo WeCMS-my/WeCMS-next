@@ -1,4 +1,4 @@
-namespace WeCms.Infrastructure.Data;
+namespace WeCms.Shared.Data;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
@@ -8,3 +8,4 @@ public interface IUnitOfWork : IAsyncDisposable
     Task CommitAsync(CancellationToken cancellationToken);
     Task RollbackAsync(CancellationToken cancellationToken);
 }
+

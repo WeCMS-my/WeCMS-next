@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using WeCms.Shared.Data;
 using WeCms.Shared.Time;
 
 namespace WeCms.Infrastructure.Data;

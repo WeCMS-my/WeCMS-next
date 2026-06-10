@@ -3,7 +3,7 @@ using WeCms.Shared;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.System;
 
-namespace WeCms.Api.Json;
+namespace WeCms.Modules.System;
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(ApiResult<object?>))]
@@ -18,6 +18,6 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<SystemPingResponse>))]
 [JsonSerializable(typeof(ApiResult<SystemVersionResponse>))]
 [JsonSerializable(typeof(ApiResult<DbCheckResponse>))]
-internal sealed partial class WeCmsJsonContext : JsonSerializerContext
+internal sealed partial class WeCmsModulesSystemJsonContext : JsonSerializerContext
 {
 }

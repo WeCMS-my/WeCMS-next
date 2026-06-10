@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
+using WeCms.Shared.Data;
 
 namespace WeCms.Infrastructure.Data;
 

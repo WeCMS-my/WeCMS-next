@@ -1,5 +1,5 @@
 using Dapper;
-using WeCms.Infrastructure.Data;
+using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
 namespace WeCms.Modules.System.Permissions;

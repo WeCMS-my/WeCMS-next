@@ -3,6 +3,7 @@ using WeCms.Infrastructure.Data;
 using WeCms.Infrastructure.Migration;
 using WeCms.Infrastructure.Security;
 using WeCms.Infrastructure.Time;
+using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 using WeCms.Shared.Time;
 

@@ -2,11 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using WeCms.Shared;
 using WeCms.Shared.Security;
-
-#pragma warning disable IL2026, IL3050
-// Minimal API MapGet/MapPost use delegate reflection — handled by ASP.NET Core source generators at publish time.
 
 namespace WeCms.Modules.System.Auth;
 
@@ -35,94 +33,88 @@ public static class AuthEndpoints
         return group;
     }
 
-    private static async Task<IResult> LoginAsync(
-        LoginRequest request,
-        IAuthService authService,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
+    private static async Task LoginAsync(HttpContext httpContext)
     {
+        var cancellationToken = httpContext.RequestAborted;
+        var request = await ParseRequestAsync<LoginRequest>(httpContext, cancellationToken);
+
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
-            return Results.Ok(ApiResult<LoginResponse>.Fail(
-                ApiCodes.ValidationError, "用户名和密码不能为空"));
+            throw new DomainException(ApiCodes.ValidationError, "用户名和密码不能为空");
         }
 
-        try
-        {
-            var result = await authService.LoginAsync(
-                request,
-                httpContext.GetClientIp(),
-                httpContext.Request.Headers.UserAgent.ToString(),
-                cancellationToken);
+        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
+        var result = await authService.LoginAsync(
+            request,
+            httpContext.GetClientIp(),
+            httpContext.Request.Headers.UserAgent.ToString(),
+            cancellationToken);
 
-            return Results.Ok(ApiResult<LoginResponse>.Ok(result));
-        }
-        catch (DomainException ex)
-        {
-            return Results.Ok(ApiResult<LoginResponse>.Fail(ex.Code, ex.Message));
-        }
+        await WriteJsonResponse(httpContext, ApiResult<LoginResponse>.Ok(result), typeof(ApiResult<LoginResponse>), cancellationToken);
     }
 
-    private static async Task<IResult> RefreshAsync(
-        RefreshRequest request,
-        IAuthService authService,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
+    private static async Task RefreshAsync(HttpContext httpContext)
     {
+        var cancellationToken = httpContext.RequestAborted;
+        var request = await ParseRequestAsync<RefreshRequest>(httpContext, cancellationToken);
+
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
-            return Results.Ok(ApiResult<RefreshResponse>.Fail(
-                ApiCodes.ValidationError, "刷新令牌不能为空"));
+            throw new DomainException(ApiCodes.ValidationError, "刷新令牌不能为空");
         }
 
-        try
-        {
-            var result = await authService.RefreshAsync(
-                request,
-                httpContext.GetClientIp(),
-                httpContext.Request.Headers.UserAgent.ToString(),
-                cancellationToken);
+        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
+        var result = await authService.RefreshAsync(
+            request,
+            httpContext.GetClientIp(),
+            httpContext.Request.Headers.UserAgent.ToString(),
+            cancellationToken);
 
-            return Results.Ok(ApiResult<RefreshResponse>.Ok(result));
-        }
-        catch (DomainException ex)
-        {
-            return Results.Ok(ApiResult<RefreshResponse>.Fail(ex.Code, ex.Message));
-        }
+        await WriteJsonResponse(httpContext, ApiResult<RefreshResponse>.Ok(result), typeof(ApiResult<RefreshResponse>), cancellationToken);
     }
 
-    private static async Task<IResult> LogoutAsync(
-        LogoutRequest request,
-        IAuthService authService,
-        CancellationToken cancellationToken)
+    private static async Task LogoutAsync(HttpContext httpContext)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Results.Ok(ApiResult<object?>.Ok(null));
+        var cancellationToken = httpContext.RequestAborted;
+        var request = await ParseRequestAsync<LogoutRequest>(httpContext, cancellationToken);
 
-        await authService.LogoutAsync(request.RefreshToken, cancellationToken);
-        return Results.Ok(ApiResult<object?>.Ok(null));
+        if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
+            await authService.LogoutAsync(request.RefreshToken, cancellationToken);
+        }
+
+        await WriteJsonResponse(httpContext, ApiResult<object?>.Ok(null), typeof(ApiResult<object?>), cancellationToken);
     }
 
-    private static async Task<IResult> GetCurrentUserAsync(
-        IAuthService authService,
-        HttpContext httpContext,
-        CancellationToken cancellationToken)
+    private static async Task GetCurrentUserAsync(HttpContext httpContext)
     {
+        var cancellationToken = httpContext.RequestAborted;
         var subClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (subClaim is null || !long.TryParse(subClaim, out var userId))
         {
-            return Results.Ok(ApiResult<CurrentUserResponse>.Fail(
-                ApiCodes.Unauthorized, "未登录"));
+            throw new DomainException(ApiCodes.Unauthorized, "未登录");
         }
 
-        try
-        {
-            var result = await authService.GetCurrentUserAsync(userId, cancellationToken);
-            return Results.Ok(ApiResult<CurrentUserResponse>.Ok(result));
-        }
-        catch (DomainException ex)
-        {
-            return Results.Ok(ApiResult<CurrentUserResponse>.Fail(ex.Code, ex.Message));
-        }
+        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
+        var result = await authService.GetCurrentUserAsync(userId, cancellationToken);
+        await WriteJsonResponse(httpContext, ApiResult<CurrentUserResponse>.Ok(result), typeof(ApiResult<CurrentUserResponse>), cancellationToken);
+    }
+
+    private static async Task<T> ParseRequestAsync<T>(HttpContext context, CancellationToken cancellationToken)
+        where T : class
+    {
+        var request = await context.Request.ReadFromJsonAsync(typeof(T), WeCmsModulesSystemJsonContext.Default, cancellationToken);
+        return (request as T)!;
+    }
+
+    private static async Task WriteJsonResponse(
+        HttpContext context,
+        object result,
+        Type resultType,
+        CancellationToken cancellationToken)
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
     }
 }
