@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="WeCms.Tests.Integration" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
     <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
