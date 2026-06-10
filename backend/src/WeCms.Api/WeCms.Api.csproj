@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisMode>Recommended</AnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
+    <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
+    <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
