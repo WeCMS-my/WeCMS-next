@@ -2,7 +2,9 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using WeCms.Infrastructure.Data;
+using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 using WeCms.Shared.Time;
 
 #pragma warning disable IL2026, IL3050
@@ -23,10 +25,9 @@ public static class SystemEndpoints
         systemGroup.MapGet("/version", Version);
         systemGroup.MapGet("/db-check", DbCheck);
 
-        // M0-BE-007: secure-ping endpoint registered without auth.
-        // M0-BE-008 will add authentication services.
-        // M0-BE-009 will add RequirePermission(SystemPermissions.SystemSecurePing).
-        systemGroup.MapGet("/secure-ping", SecurePing);
+        // M0-BE-009: secure-ping with RequirePermission
+        systemGroup.MapGet("/secure-ping", SecurePing)
+            .RequirePermission(SystemPermissions.SystemSecurePing);
     }
 
     private static IResult HealthLive(IClock clock)

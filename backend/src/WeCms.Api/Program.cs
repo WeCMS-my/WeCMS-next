@@ -7,6 +7,7 @@ using WeCms.Api.Middleware;
 using WeCms.Infrastructure.Migration;
 using WeCms.Infrastructure.Security;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
 using WeCms.Shared.Security;
 
@@ -19,6 +20,10 @@ builder.Services.AddWeCmsAuth();
 // Register Auth services (scoped)
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Register Permission services
+builder.Services.AddSingleton<IPermissionChecker, PermissionChecker>();
+builder.Services.AddSingleton<PermissionEndpointFilter>();
 
 // Register JWT Token Service (singleton — uses configuration)
 var jwtSigningKey = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
