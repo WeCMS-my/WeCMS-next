@@ -26,4 +26,9 @@
     <PackageReference Include="Dapper.AOT" Version="1.0.31" />
   </ItemGroup>
 
-  <ItemGroup><PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-preview.*" /></ItemGroup></Project>
+  <ItemGroup><PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-preview.*" /></ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WeCms.Tests.Integration" />
+  </ItemGroup>
+</Project>

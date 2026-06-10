@@ -25,6 +25,10 @@ public sealed class PermissionEndpointFilter(IDbConnectionFactory db, IMemoryCac
         if (uidClaim is null || !long.TryParse(uidClaim, out var uid))
             return Results.Ok(ApiResult<string>.Fail(ApiCodes.Unauthorized, "Invalid token"));
 
+        // H0: Super admin bypasses all permission checks
+        if (user.FindFirst("is_super_admin")?.Value == "true")
+            return await next(context);
+
         // H1: Verify JWT permission_version matches current DB value (token revocation on password change / disable)
         var permissionVersion = user.FindFirst("permission_version")?.Value ?? "0";
         if (long.TryParse(permissionVersion, out var tokenPv))

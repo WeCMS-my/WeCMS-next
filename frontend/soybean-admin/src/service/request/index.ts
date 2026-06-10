@@ -54,7 +54,7 @@ async function tryRefreshToken(): Promise<boolean> {
 
   if (isRefreshing) {
     return new Promise((resolve) => {
-      refreshSubscribers.push(() => resolve(true))
+      refreshSubscribers.push((token) => resolve(!!token))
     })
   }
 
@@ -74,7 +74,7 @@ async function tryRefreshToken(): Promise<boolean> {
     return false
   } catch {
     // Notify waiting subscribers of failure (empty token = retry will fail)
-    refreshSubscribers.forEach((cb) => cb())
+    refreshSubscribers.forEach((cb) => cb(''))
     return false
   } finally {
     isRefreshing = false

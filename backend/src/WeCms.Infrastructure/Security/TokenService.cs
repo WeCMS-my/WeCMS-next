@@ -33,6 +33,7 @@ public sealed class TokenService : ITokenService
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
         var handler = new JwtSecurityTokenHandler();
+        handler.MapInboundClaims = false;
 
         try
         {
@@ -79,7 +80,7 @@ public sealed class TokenService : ITokenService
             issuer: Issuer,
             audience: Audience,
             claims: claims,
-            expires: _clock.UtcNow.DateTime.AddSeconds(_accessTokenExpirySeconds),
+            expires: _clock.UtcNow.UtcDateTime.AddSeconds(_accessTokenExpirySeconds),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
         );
 
