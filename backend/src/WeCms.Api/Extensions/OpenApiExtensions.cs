@@ -1,8 +1,12 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 namespace WeCms.Api.Extensions;
 
 public static class OpenApiExtensions
 {
     private const string ExportArg = "--export-openapi";
+    private const string StableServerUrl = "http://localhost:5000/";
 
     public static bool IsExportMode(string[] args)
         => args.Length >= 2 && args[0] == ExportArg;
@@ -30,13 +34,15 @@ public static class OpenApiExtensions
             using var client = new HttpClient { BaseAddress = new Uri(address) };
             var json = await client.GetStringAsync("/openapi/v1.json");
 
+            var normalizedJson = NormalizeOpenApiJson(json);
+
             var dir = Path.GetDirectoryName(outputPath);
             if (dir is not null)
             {
                 Directory.CreateDirectory(dir);
             }
 
-            await File.WriteAllTextAsync(outputPath, json, System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(outputPath, normalizedJson, System.Text.Encoding.UTF8);
 
             Console.WriteLine($"OpenAPI document exported to: {outputPath}");
         }
@@ -44,5 +50,20 @@ public static class OpenApiExtensions
         {
             await app.StopAsync();
         }
+    }
+
+    private static string NormalizeOpenApiJson(string json)
+    {
+        var root = JsonNode.Parse(json) as JsonObject
+            ?? throw new InvalidOperationException("OpenAPI document root must be a JSON object.");
+
+        root["servers"] = new JsonArray(
+            new JsonObject { ["url"] = StableServerUrl }
+        );
+
+        return root.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
     }
 }
