@@ -7,20 +7,23 @@
 - [x] Task 2: 确认 check-openapi-auth-request-bodies.sh 逻辑正确
   - 确认 check 脚本直接读取 `artifacts/openapi/wecms-api-v1.json`
   - 确认对 login/refresh/logout 三个 endpoint 的 requestBody schema 进行校验
-  - 确认 schema 与 DTO（LoginRequest/RefreshRequest/LogoutRequest）字段一致
 
-- [x] Task 3: 发现并修复质量门禁缺口 — 缺少 OpenAPI export 步骤
-  - 质量门禁第 6 步原本直接 check，但 `artifacts/` 被 `.gitignore`，文件可能不存在
-  - 插入 `[6/16] OpenAPI export` 步骤：`dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo`
+- [x] Task 3: 修复 OpenApiExtensions.ExportOpenApiAsync
+  - 从"复制已有 artifact"改为"启动 app → HTTP GET `/openapi/v1.json` → 写入文件"
+  - 移除 `FindRepositoryRoot` 和 `ArtifactRelativePath` 常量
+  - 使用 `app.StartAsync()` / `app.StopAsync()` 管理生命周期
+
+- [x] Task 4: 质量门禁插入 export 步骤 + 防回归
+  - 插入 `[6/16] OpenAPI export` 步骤
+  - export 前 `rm -f` 旧 artifact
   - 重新编号 `[6/15]...[15/15]` → `[7/16]...[16/16]`
-  - 验证 export → check 两步联调通过
 
-- [x] Task 4: 运行质量门禁验证 (export + check 联调)
-  - 单独运行 `dotnet run -- --export-openapi` → 通过
-  - 单独运行 `check-openapi-auth-request-bodies.sh` → 通过
-  - 确认两步可串联执行
+- [x] Task 5: 验证从零生成链路
+  - `rm -f` + `dotnet run -- --export-openapi` → 通过
+  - `check-openapi-auth-request-bodies.sh` → 通过
+  - 确认不再抛出 FileNotFoundException
 
 # Task Dependencies
 
-- Task 3 依赖 Task 1, Task 2
 - Task 4 依赖 Task 3
+- Task 5 依赖 Task 4

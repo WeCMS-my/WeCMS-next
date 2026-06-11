@@ -239,6 +239,9 @@ run_backend() {
     return 1
   fi
 
+  # P0-1: 先删除旧 artifact，强制验证 export 能从零生成
+  rm -f "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json"
+
   if ! run_gate_step "[6/16] OpenAPI export" "[6/16] OpenAPI export" \
     run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
     return 1
