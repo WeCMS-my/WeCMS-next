@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # WeCMS M0-BE check-openapi-auth-request-bodies
-# Ensures OpenAPI contains requestBody for auth POST endpoints.
+# Ensures OpenAPI auth requestBody schemas stay aligned with DTOs.
 
 set -euo pipefail
 
@@ -34,15 +34,47 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-required_paths=("/api/v1/auth/login" "/api/v1/auth/refresh" "/api/v1/auth/logout")
+check_route() {
+  local route="$1"
+  local expected_properties_json="$2"
+  local expected_required_json="$3"
 
-for route in "${required_paths[@]}"; do
-  if ! jq -e --arg route "$route" '
-      .paths[$route].post.requestBody.content["application/json"]? != null
-    ' "$OPENAPI_FILE" >/dev/null; then
-    echo "Missing request body schema for POST ${route} in OpenAPI artifact." >&2
-    exit 1
-  fi
-done
+  jq -e \
+    --arg route "$route" \
+    --argjson expected_properties "$expected_properties_json" \
+    --argjson expected_required "$expected_required_json" \
+    '
+      def resolved_schema($root; $request_body):
+        ($request_body.content["application/json"].schema) as $schema
+        | if $schema["$ref"]? then
+            $root.components.schemas[($schema["$ref"] | split("/") | last)]
+          else
+            $schema
+          end;
+
+      .paths[$route].post.requestBody as $request_body
+      | ($request_body.required == true)
+      and (resolved_schema(. ; $request_body) as $schema
+        | ($schema.type == "object")
+        and (($schema.properties | keys_unsorted | sort) == ($expected_properties | sort))
+        and ((($schema.required // []) | sort) == ($expected_required | sort))
+      )
+    ' "$OPENAPI_FILE" >/dev/null
+}
+
+check_route "/api/v1/auth/login" '["username","password"]' '["username","password"]' || {
+  echo "Login request body schema does not match LoginRequest." >&2
+  exit 1
+}
+
+check_route "/api/v1/auth/refresh" '["refreshToken"]' '["refreshToken"]' || {
+  echo "Refresh request body schema does not match RefreshRequest." >&2
+  exit 1
+}
+
+check_route "/api/v1/auth/logout" '["refreshToken"]' '["refreshToken"]' || {
+  echo "Logout request body schema does not match LogoutRequest." >&2
+  exit 1
+}
 
 echo "  OpenAPI auth request body check passed for login, refresh, logout."

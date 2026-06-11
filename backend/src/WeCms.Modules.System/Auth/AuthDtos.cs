@@ -1,6 +1,6 @@
-namespace WeCms.Modules.System.Auth;
-
 using WeCms.Shared;
+
+namespace WeCms.Modules.System.Auth;
 
 public sealed record LoginRequest(string Username, string Password);
 

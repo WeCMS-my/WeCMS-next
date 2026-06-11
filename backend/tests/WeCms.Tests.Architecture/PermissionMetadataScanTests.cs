@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using WeCms.Modules.System.Auth;
+using WeCms.Api.Extensions;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
 using WeCms.Shared.Security;

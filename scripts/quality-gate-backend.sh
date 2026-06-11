@@ -12,6 +12,7 @@ json_mode=false
 command_name="backend"
 backend_checks=()
 publish_rid="${WECMS_AOT_PUBLISH_RID:-}"
+nuget_http_cache_path="${WECMS_NUGET_HTTP_CACHE_PATH:-${TMPDIR:-/tmp}/nuget-http-cache}"
 
 json_escape() {
   local value="$1"
@@ -211,6 +212,8 @@ run_backend() {
     echo "Native AOT publish RID: ${resolved_publish_rid}"
   fi
 
+  mkdir -p "$nuget_http_cache_path"
+
   if ! run_gate_step "[1/15] dotnet build -warnaserror" "[1/15] dotnet build -warnaserror" \
     run_with_dir "$REPO_ROOT" dotnet build backend/WeCms.slnx -warnaserror --nologo; then
     return 1
@@ -227,7 +230,7 @@ run_backend() {
   fi
 
   if ! run_gate_step "[4/15] dotnet publish (Native AOT)" "[4/15] dotnet publish (Native AOT)" \
-    run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
+    run_with_dir "$REPO_ROOT" env NUGET_HTTP_CACHE_PATH="$nuget_http_cache_path" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
     return 1
   fi
 
@@ -236,26 +239,13 @@ run_backend() {
     return 1
   fi
 
-  if ! run_gate_step "[5b/15] dotnet test (Architecture)" "[5b/15] dotnet test (Architecture)" \
-    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
-    return 1
-  fi
-
-  if ! run_gate_step "[6/15] OpenAPI export" "[6/15] OpenAPI export" \
-    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
-    return 1
-  fi
-
-  # Patch OpenAPI JSON to add requestBody for Auth POST endpoints.
-  # These use RequestDelegate wrappers (AOT-compatible) which prevent the
-  # built-in OpenAPI generator from inferring request body schemas.
-  if ! run_gate_step "[6b/15] OpenAPI auth request body patch" "[6b/15] OpenAPI auth request body patch" \
-    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/patch-openapi-auth-request-bodies.sh" --openapi-file "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json"; then
-    return 1
-  fi
-
-  if ! run_gate_step "[7/15] OpenAPI auth request body check" "[7/15] OpenAPI auth request body check" \
+  if ! run_gate_step "[6/15] OpenAPI auth request body check" "[6/15] OpenAPI auth request body check" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-openapi-auth-request-bodies.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[7/15] dotnet test (Architecture)" "[7/15] dotnet test (Architecture)" \
+    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
     return 1
   fi
 

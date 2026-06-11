@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 
@@ -20,10 +17,9 @@ public sealed class AuthEndpointHandlers
         _authService = authService;
     }
 
-    public async Task LoginAsync(HttpContext httpContext)
+    public async Task LoginAsync(LoginRequest request, HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
-        var request = await ParseRequestAsync<LoginRequest>(httpContext, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
@@ -39,10 +35,9 @@ public sealed class AuthEndpointHandlers
         await WriteJsonResponse(httpContext, ApiResult<LoginResponse>.Ok(result), typeof(ApiResult<LoginResponse>), cancellationToken);
     }
 
-    public async Task RefreshAsync(HttpContext httpContext)
+    public async Task RefreshAsync(RefreshRequest request, HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
-        var request = await ParseRequestAsync<RefreshRequest>(httpContext, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
@@ -58,15 +53,16 @@ public sealed class AuthEndpointHandlers
         await WriteJsonResponse(httpContext, ApiResult<RefreshResponse>.Ok(result), typeof(ApiResult<RefreshResponse>), cancellationToken);
     }
 
-    public async Task LogoutAsync(HttpContext httpContext)
+    public async Task LogoutAsync(LogoutRequest request, HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
-        var request = await ParseRequestAsync<LogoutRequest>(httpContext, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
-            await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
+            throw new DomainException(ApiCodes.ValidationError, "刷新令牌不能为空");
         }
+
+        await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
 
         await WriteJsonResponse(httpContext, ApiResult<object?>.Ok(null), typeof(ApiResult<object?>), cancellationToken);
     }
@@ -84,13 +80,6 @@ public sealed class AuthEndpointHandlers
         await WriteJsonResponse(httpContext, ApiResult<CurrentUserResponse>.Ok(result), typeof(ApiResult<CurrentUserResponse>), cancellationToken);
     }
 
-    private static async Task<T> ParseRequestAsync<T>(HttpContext context, CancellationToken cancellationToken)
-        where T : class
-    {
-        var request = await context.Request.ReadFromJsonAsync(typeof(T), WeCmsModulesSystemJsonContext.Default, cancellationToken);
-        return (request as T)!;
-    }
-
     private static async Task WriteJsonResponse(
         HttpContext context,
         object result,
@@ -100,56 +89,4 @@ public sealed class AuthEndpointHandlers
         context.Response.ContentType = "application/json; charset=utf-8";
         await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
     }
-}
-
-/// <summary>
-/// Endpoint route registration — AOT-compatible RequestDelegate wrappers.
-/// OpenAPI requestBody schemas are patched in by the quality gate script
-/// because the built-in generator cannot infer them from RequestDelegate endpoints.
-/// </summary>
-public static class AuthEndpoints
-{
-    public static RouteGroupBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
-    {
-        var group = app.MapGroup("/api/v1/auth");
-
-        ((RouteHandlerBuilder)group.MapPost("/login", (RequestDelegate)HandleLogin))
-            .AllowAnonymous()
-            .Accepts<LoginRequest>("application/json")
-            .Produces<ApiResult<LoginResponse>>(StatusCodes.Status200OK)
-            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
-            .WithName("Auth_Login");
-
-        ((RouteHandlerBuilder)group.MapPost("/refresh", (RequestDelegate)HandleRefresh))
-            .AllowAnonymous()
-            .Accepts<RefreshRequest>("application/json")
-            .Produces<ApiResult<RefreshResponse>>(StatusCodes.Status200OK)
-            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
-            .WithName("Auth_Refresh");
-
-        ((RouteHandlerBuilder)group.MapPost("/logout", (RequestDelegate)HandleLogout))
-            .RequireAuthorization()
-            .Accepts<LogoutRequest>("application/json")
-            .Produces<ApiResult<object?>>(StatusCodes.Status200OK)
-            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
-            .WithName("Auth_Logout");
-
-        group.MapGet("/me", (RequestDelegate)HandleGetCurrentUser)
-            .RequireAuthorization()
-            .WithName("Auth_Me");
-
-        return group;
-    }
-
-    private static Task HandleLogin(HttpContext context) =>
-        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LoginAsync(context);
-
-    private static Task HandleRefresh(HttpContext context) =>
-        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().RefreshAsync(context);
-
-    private static Task HandleLogout(HttpContext context) =>
-        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LogoutAsync(context);
-
-    private static Task HandleGetCurrentUser(HttpContext context) =>
-        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().GetCurrentUserAsync(context);
 }

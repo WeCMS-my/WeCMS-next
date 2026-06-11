@@ -15,6 +15,7 @@ using WeCms.Shared.Security;
 var builder = WebApplication.CreateSlimBuilder(args);
 
 // M0-BE-010: OpenAPI document generation (source-generated for Native AOT)
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
 // Register infrastructure services (password hasher, clock, token services)
@@ -110,6 +111,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+public partial class Program { }
 
 internal static partial class Log
 {

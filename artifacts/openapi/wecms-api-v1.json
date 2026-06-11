@@ -6,12 +6,125 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:59933/"
+      "url": "http://localhost:5000/"
     }
   ],
   "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "System_HealthLive",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "System_HealthReady",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/ping": {
+      "get": {
+        "operationId": "System_Ping",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/version": {
+      "get": {
+        "operationId": "System_Version",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/db-check": {
+      "get": {
+        "operationId": "System_DbCheck",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/secure-ping": {
+      "get": {
+        "operationId": "System_SecurePing",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
+        "operationId": "Auth_Login",
         "requestBody": {
           "required": true,
           "content": {
@@ -20,12 +133,10 @@
                 "type": "object",
                 "properties": {
                   "username": {
-                    "type": "string",
-                    "description": "用户名"
+                    "type": "string"
                   },
                   "password": {
-                    "type": "string",
-                    "description": "密码"
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -35,11 +146,34 @@
               }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/auth/refresh": {
       "post": {
+        "operationId": "Auth_Refresh",
         "requestBody": {
           "required": true,
           "content": {
@@ -48,8 +182,7 @@
                 "type": "object",
                 "properties": {
                   "refreshToken": {
-                    "type": "string",
-                    "description": "刷新令牌"
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -58,22 +191,96 @@
               }
             }
           }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/auth/logout": {
       "post": {
+        "operationId": "Auth_Logout",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
                   "refreshToken": {
-                    "type": "string",
-                    "description": "刷新令牌（可选）"
+                    "type": "string"
                   }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "Auth_Me",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             }
@@ -81,5 +288,6 @@
         }
       }
     }
-  }
+  },
+  "components": null
 }
