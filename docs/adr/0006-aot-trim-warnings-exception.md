@@ -76,10 +76,35 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 ## 验证依据
 
-- `dotnet publish -c Release -r linux-x64 /p:PublishAot=true` 当前因 `llvm-objcopy/objcopy` 缺失而失败（环境限制），该路径暂时无法形成 AOT 成功结论。
+- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true` 本机通过；`linux-x64` 当前在本地环境受 `llvm-objcopy/objcopy` 与 linker 参数限制阻断（非代码问题）。CI 仍然通过 `ubuntu-latest` workflow 的 `linux-x64` 发布步骤进行实机验收，故需在 CI 环境中以该步骤为准。
 - WeCMS 自有代码当前不再依赖 `#pragma/NoWarn` 来隐藏端点级 AOT 警告；`MapGet` 已通过 `RequestDelegate` 重载规避 IL2026/IL3050 触发。
 - 所有 Endpoint 使用 source-generated JSON serializer context。
 - Dapper 调用通过 Dapper.AOT source generator 处理，不依赖运行时反射。
+
+## 持续跟踪机制（ADR-0006 持续有效性）
+
+### 版本基线
+
+- Dapper：`2.1.66`
+- Dapper.AOT：`1.0.31`
+- 基线定义文件：`scripts/checks/aot-exception-baseline.env`
+
+### 重新评估触发条件（硬规则）
+
+1. `backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj` 或 `backend/src/WeCms.Modules.System/WeCms.Modules.System.csproj` 中 `Dapper` 版本变更。
+2. `backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj` 中 `Dapper.AOT` 版本变更。
+3. CI 再次出现非自有代码之外的新 IL2104/IL3053/IL2026/IL3050 变化。
+
+### 执行机制
+
+- `.github/workflows/backend-quality-gate.yml` 已新增 `AOT exception baseline check` 步骤，执行 `scripts/checks/check-aot-exception-baseline.sh`。
+- `.github/workflows/backend-quality-gate.yml` 与 `scripts/quality-gate-backend.sh` 新增 `check-no-self-aot-suppression` 步骤，执行 `scripts/checks/check-no-self-aot-suppression.sh`；
+  该检查会拒绝在自有源码中新增 `IL2026`/`IL3050` 的 `NoWarn` 或 `#pragma` 屏蔽，确保告警持续可见。
+- 升级前提不满足基线时，脚本会阻断 CI，并提示：
+  - 更新 `scripts/checks/aot-exception-baseline.env`；
+  - 在 `ADR-0006` 中复核是否仍需保留 IL2104/IL3053 例外。
+
+通过该机制，Dapper/Dapper.AOT 的版本变更会触发 ADR 复审。
 
 ## 影响
 

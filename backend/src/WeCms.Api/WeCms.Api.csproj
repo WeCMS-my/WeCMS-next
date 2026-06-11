@@ -9,8 +9,7 @@
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisMode>Recommended</AnalysisMode>
-    <!-- ADR-0006: Dapper 2.1.66 未标记 IsTrimmable，产生 assembly-level IL2104/IL3053。
-         仅抑制第三方 Dapper assembly 的 trim 警告，自有代码零抑制。 -->
+    <!-- ADR-0006: 当前仅例外化 Dapper 组件的 IL2104/IL3053，严禁自有代码 IL2026/IL3050。 -->
     <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
