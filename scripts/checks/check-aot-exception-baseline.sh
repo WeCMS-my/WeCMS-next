@@ -31,8 +31,7 @@ fi
 
 source "$BASELINE_FILE"
 
-infrastructure_csproj="$REPO_ROOT/backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj"
-system_csproj="$REPO_ROOT/backend/src/WeCms.Modules.System/WeCms.Modules.System.csproj"
+persistence_csproj="$REPO_ROOT/backend/src/WeCms.Persistence/WeCms.Persistence.csproj"
 
 extract_version() {
   local csproj="$1"
@@ -43,31 +42,28 @@ extract_version() {
     || true
 }
 
-infra_dapper_version="$(extract_version "$infrastructure_csproj" "Dapper")"
-infra_dapper_aot_version="$(extract_version "$infrastructure_csproj" "Dapper.AOT")"
-system_dapper_version="$(extract_version "$system_csproj" "Dapper")"
+persistence_dapper_version="$(extract_version "$persistence_csproj" "Dapper")"
+persistence_dapper_aot_version="$(extract_version "$persistence_csproj" "Dapper.AOT")"
 
-if [ -z "$infra_dapper_version" ] || [ -z "$infra_dapper_aot_version" ] || [ -z "$system_dapper_version" ]; then
+if [ -z "$persistence_dapper_version" ] || [ -z "$persistence_dapper_aot_version" ]; then
   echo "Failed to read Dapper versions from project files." >&2
-  echo "  infrastructure: $infra_dapper_version"
-  echo "  system: $system_dapper_version"
-  echo "  infrastructure Dapper.AOT: $infra_dapper_aot_version"
+  echo "  persistence Dapper: $persistence_dapper_version"
+  echo "  persistence Dapper.AOT: $persistence_dapper_aot_version"
   exit 1
 fi
 
-if [ "$infra_dapper_version" != "$WECMS_DAPPER_VERSION" ] || [ "$system_dapper_version" != "$WECMS_DAPPER_VERSION" ]; then
+if [ "$persistence_dapper_version" != "$WECMS_DAPPER_VERSION" ]; then
   echo "Dapper version mismatch detected." >&2
   echo "  baseline:  $WECMS_DAPPER_VERSION"
-  echo "  infrastructure: $infra_dapper_version"
-  echo "  modules-system: $system_dapper_version"
+  echo "  persistence: $persistence_dapper_version"
   echo "Please re-evaluate docs/adr/0006-aot-trim-warnings-exception.md before merge." >&2
   exit 1
 fi
 
-if [ "$infra_dapper_aot_version" != "$WECMS_DAPPER_AOT_VERSION" ]; then
+if [ "$persistence_dapper_aot_version" != "$WECMS_DAPPER_AOT_VERSION" ]; then
   echo "Dapper.AOT version mismatch detected." >&2
   echo "  baseline: $WECMS_DAPPER_AOT_VERSION"
-  echo "  infrastructure: $infra_dapper_aot_version"
+  echo "  persistence: $persistence_dapper_aot_version"
   echo "Please re-evaluate docs/adr/0006-aot-trim-warnings-exception.md before merge." >&2
   exit 1
 fi
