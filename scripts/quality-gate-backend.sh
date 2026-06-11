@@ -178,6 +178,14 @@ run_backend() {
     return 1
   fi
 
+  # Patch OpenAPI JSON to add requestBody for Auth POST endpoints.
+  # These use RequestDelegate wrappers (AOT-compatible) which prevent the
+  # built-in OpenAPI generator from inferring request body schemas.
+  if ! run_gate_step "[6b/15] OpenAPI auth request body patch" "[6b/15] OpenAPI auth request body patch" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/patch-openapi-auth-request-bodies.sh" --openapi-file "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json"; then
+    return 1
+  fi
+
   if ! run_gate_step "[7/15] OpenAPI auth request body check" "[7/15] OpenAPI auth request body check" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-openapi-auth-request-bodies.sh"; then
     return 1

@@ -103,7 +103,9 @@ public sealed class AuthEndpointHandlers
 }
 
 /// <summary>
-/// Endpoint route registration — thin AOT-compatible RequestDelegate wrappers.
+/// Endpoint route registration — AOT-compatible RequestDelegate wrappers.
+/// OpenAPI requestBody schemas are patched in by the quality gate script
+/// because the built-in generator cannot infer them from RequestDelegate endpoints.
 /// </summary>
 public static class AuthEndpoints
 {
