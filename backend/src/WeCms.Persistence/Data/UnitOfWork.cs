@@ -1,7 +1,7 @@
 using System.Data.Common;
 using WeCms.Shared.Data;
 
-namespace WeCms.Infrastructure.Data;
+namespace WeCms.Persistence.Data;
 
 public sealed class UnitOfWork : IUnitOfWork
 {

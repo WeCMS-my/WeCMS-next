@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using WeCms.Shared.Data;
 
-namespace WeCms.Infrastructure.Data;
+namespace WeCms.Persistence.Data;
 
 public sealed class DbConnectionFactory : IDbConnectionFactory
 {

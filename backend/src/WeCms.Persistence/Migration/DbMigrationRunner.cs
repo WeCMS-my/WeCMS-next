@@ -3,7 +3,7 @@ using WeCms.Infrastructure.Security;
 using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
-namespace WeCms.Infrastructure.Migration;
+namespace WeCms.Persistence.Migration;
 
 public sealed class DbMigrationRunner
 {
