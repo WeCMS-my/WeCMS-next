@@ -26,20 +26,6 @@ jobs:
     name: Backend Quality Gate
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: wecms_dev_pass
-          MYSQL_DATABASE: wecms_dev
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,9 +55,6 @@ jobs:
       # ── 统一质量门禁（backend + DI scan） ──
       - name: Run backend quality gate (all)
         run: bash scripts/quality-gate-backend.sh all
-        env:
-          WeCMS__ConnectionStrings__Default: >-
-            Server=127.0.0.1;Port=3306;Database=wecms_dev;User=root;Password=wecms_dev_pass;Charset=utf8mb4;
 
       # ── Summary ──
       - name: Quality Gate Summary
