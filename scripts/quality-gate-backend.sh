@@ -174,7 +174,7 @@ run_backend() {
   fi
 
   if ! run_gate_step "[6/15] OpenAPI export" "[6/15] OpenAPI export" \
-    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi/wecms-api-v1.json --nologo; then
+    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
     return 1
   fi
 
