@@ -239,52 +239,57 @@ run_backend() {
     return 1
   fi
 
-  if ! run_gate_step "[6/15] OpenAPI auth request body check" "[6/15] OpenAPI auth request body check" \
+  if ! run_gate_step "[6/16] OpenAPI export" "[6/16] OpenAPI export" \
+    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
+    return 1
+  fi
+
+  if ! run_gate_step "[7/16] OpenAPI auth request body check" "[7/16] OpenAPI auth request body check" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-openapi-auth-request-bodies.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[7/15] dotnet test (Architecture)" "[7/15] dotnet test (Architecture)" \
+  if ! run_gate_step "[8/16] dotnet test (Architecture)" "[8/16] dotnet test (Architecture)" \
     run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
     return 1
   fi
 
-  if ! run_gate_step "[8/15] check-no-select-star" "[8/15] check-no-select-star" \
+  if ! run_gate_step "[9/16] check-no-select-star" "[9/16] check-no-select-star" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-select-star.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[9/15] check-no-dynamic-query" "[9/15] check-no-dynamic-query" \
+  if ! run_gate_step "[10/16] check-no-dynamic-query" "[10/16] check-no-dynamic-query" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-dynamic-query.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[10/15] check endpoint permissions (runtime architecture test)" "[10/15] check endpoint permissions (runtime architecture test)" \
+  if ! run_gate_step "[11/16] check endpoint permissions (runtime architecture test)" "[11/16] check endpoint permissions (runtime architecture test)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[11/15] check layer dependency matrix" "[11/15] check layer dependency matrix" \
+  if ! run_gate_step "[12/16] check layer dependency matrix" "[12/16] check layer dependency matrix" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-layer-dependency.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[12/15] check db boundary (architecture)" "[12/15] check db boundary (architecture)" \
+  if ! run_gate_step "[13/16] check db boundary (architecture)" "[13/16] check db boundary (architecture)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-db-boundary.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[13/15] check integrity - json context coverage" "[13/15] check integrity - json context coverage" \
+  if ! run_gate_step "[14/16] check integrity - json context coverage" "[14/16] check integrity - json context coverage" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[14/15] check integrity - no frontend change" "[14/15] check integrity - no frontend change" \
+  if ! run_gate_step "[15/16] check integrity - no frontend change" "[15/16] check integrity - no frontend change" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[15/15] check code-review" "[15/15] check code-review" \
+  if ! run_gate_step "[16/16] check code-review" "[16/16] check code-review" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-code-review.sh"; then
     return 1
   fi
