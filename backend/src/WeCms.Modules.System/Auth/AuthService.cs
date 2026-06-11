@@ -1,6 +1,7 @@
 using WeCms.Shared;
 using WeCms.Shared.Security;
 using WeCms.Shared.Data;
+using WeCms.Shared.Id;
 using WeCms.Shared.Time;
 
 namespace WeCms.Modules.System.Auth;
@@ -37,6 +38,7 @@ public sealed class AuthService : IAuthService
     private readonly IRefreshTokenHasher _refreshTokenHasher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
     private const int AccessTokenExpirySeconds = 1800;
     private const int RefreshTokenExpiryDays = 7;
 
@@ -47,7 +49,8 @@ public sealed class AuthService : IAuthService
         ITokenGenerator tokenGenerator,
         IRefreshTokenHasher refreshTokenHasher,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
@@ -56,6 +59,7 @@ public sealed class AuthService : IAuthService
         _refreshTokenHasher = refreshTokenHasher;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _idGenerator = idGenerator;
     }
 
     public async Task<LoginResponse> LoginAsync(
@@ -97,7 +101,7 @@ public sealed class AuthService : IAuthService
         var accessToken = _tokenService.GenerateAccessToken(currentUser);
         var refreshToken = _tokenGenerator.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenHasher.Hash(refreshToken);
-        var familyId = Guid.NewGuid().ToString("D");
+        var familyId = _idGenerator.NewGuid().ToString("D");
         var expiresAt = _clock.UtcNow.AddDays(RefreshTokenExpiryDays);
 
         await _unitOfWork.BeginAsync(cancellationToken);

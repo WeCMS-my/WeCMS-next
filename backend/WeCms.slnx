@@ -5,6 +5,7 @@
     <Project Path="src/WeCms.Modules.Cms/WeCms.Modules.Cms.csproj" />
     <Project Path="src/WeCms.Modules.System/WeCms.Modules.System.csproj" />
     <Project Path="src/WeCms.Shared/WeCms.Shared.csproj" />
+    <Project Path="src/WeCms.Persistence/WeCms.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj" />

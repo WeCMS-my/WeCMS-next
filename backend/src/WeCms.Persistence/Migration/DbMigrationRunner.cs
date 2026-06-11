@@ -1,5 +1,4 @@
 using Dapper;
-using WeCms.Infrastructure.Security;
 using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
@@ -69,8 +68,8 @@ public sealed class DbMigrationRunner
 
     private static string ComputeChecksum(string sql)
     {
-        var bytes = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(sql));
+        var bytes = global::System.Security.Cryptography.SHA256.HashData(
+            global::System.Text.Encoding.UTF8.GetBytes(sql));
         return Convert.ToHexStringLower(bytes);
     }
 }

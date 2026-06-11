@@ -52,17 +52,6 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore backend/WeCms.slnx
 
-      # ── 1. Build ──
-      - name: Build (warnaserror)
-        run: dotnet build backend/WeCms.slnx -warnaserror --nologo
-
-      # ── 2. AOT warning exception baseline check (ADR-0006) ──
-      - name: AOT exception baseline check
-        run: bash scripts/checks/check-aot-exception-baseline.sh
-
-      - name: AOT self-warning suppression check
-        run: bash scripts/checks/check-no-self-aot-suppression.sh
-
       - name: Ensure Linux AOT toolchain (objcopy / llvm-objcopy)
         if: runner.os == 'Linux'
         run: |
@@ -74,47 +63,12 @@ jobs:
             sudo apt-get install -y llvm binutils
           fi
 
-      # ── 3. Native AOT Publish ──
-      - name: Native AOT Publish
-        run: >-
-          dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj
-          -c Release
-          -r linux-x64
-          /p:PublishAot=true
-          --nologo
-
-      # ── 4. Tests ──
-      - name: Run tests
-        run: dotnet test backend/WeCms.slnx --nologo --verbosity normal
+      # ── 统一质量门禁（backend + DI scan） ──
+      - name: Run backend quality gate (all)
+        run: bash scripts/quality-gate-backend.sh all
         env:
           WeCMS__ConnectionStrings__Default: >-
             Server=127.0.0.1;Port=3306;Database=wecms_dev;User=root;Password=wecms_dev_pass;Charset=utf8mb4;
-
-      # ── 5. OpenAPI Export ──
-      - name: OpenAPI Export
-        run: >-
-          dotnet run --project backend/src/WeCms.Api
-          --
-          --export-openapi artifacts/openapi/wecms-api-v1.json
-          --nologo
-
-      # ── 6. SQL: no SELECT * ──
-      - name: Check no SELECT *
-        run: bash scripts/checks/check-no-select-star.sh
-
-      # ── 7. SQL: no Query<dynamic> ──
-      - name: Check no dynamic query
-        run: bash scripts/checks/check-no-dynamic-query.sh
-
-      # ── 8. Integrity Checks ──
-      - name: Check endpoint permissions
-        run: bash scripts/checks/check-endpoint-permissions.sh
-
-      - name: Check JSON context coverage
-        run: bash scripts/checks/check-json-context-coverage.sh
-
-      - name: Check no frontend change
-        run: bash scripts/checks/check-no-frontend-change.sh
 
       # ── Summary ──
       - name: Quality Gate Summary

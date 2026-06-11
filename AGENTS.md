@@ -75,10 +75,11 @@ code_review.md
 
 1. **接口先行。** 凡新增有副作用的服务类，必须先定义 `I*` 抽象接口，再写实现。这里的有副作用包括：数据库 IO、文件 IO、网络请求、缓存、邮件、存储、配置加载、进程交互、时间/随机数、加密、任务调度、外部服务调用。
 2. **构造函数注入。** 依赖必须通过构造函数传入，禁止在业务类内部 `new` 出有副作用的依赖。值对象、纯函数 helper、小型不可变 options 除外。
-3. **单一职责。** 单类不得同时承担两种以上职责，例如“采集 + 处理 + 输出”、“鉴权 + SQL + 审计”、“文件解析 + 存储 + 业务入库”。出现复合职责时必须拆分为独立类。
-4. **不可变模型。** 跨阶段传递的数据模型、请求/响应 DTO、领域快照、迁移映射结果应优先使用 `record`、只读属性或不可变集合。禁止在处理管线中途隐式修改共享状态。
-5. **依赖倒置。** 业务模块依赖抽象，不依赖具体基础设施实现。`System/Cms` 模块需要数据库、文件、缓存、邮件、时钟、存储时，应依赖 `WeCms.Shared` 或模块内抽象，由 `WeCms.Infrastructure` 提供实现。
-6. **可测试性优先。** 如果某段逻辑难以测试，必须先调整设计。禁止以“难测”为由免测。
+3. **构造参数必须是抽象。** 业务模块构造函数参数不得出现具体实现类型；只允许接口、可序列化配置、纯参数对象。
+4. **单一职责。** 单类不得同时承担两种以上职责，例如“采集 + 处理 + 输出”、“鉴权 + SQL + 审计”、“文件解析 + 存储 + 业务入库”。出现复合职责时必须拆分为独立类。
+5. **不可变模型。** 跨阶段传递的数据模型、请求/响应 DTO、领域快照、迁移映射结果应优先使用 `record`、只读属性或不可变集合。禁止在处理管线中途隐式修改共享状态。
+6. **依赖倒置。** 业务模块依赖抽象，不依赖具体基础设施实现。`System/Cms` 模块需要数据库、文件、缓存、邮件、时钟、存储时，应依赖 `WeCms.Shared` 或模块内抽象，由 `WeCms.Infrastructure` 提供实现。
+7. **可测试性优先。** 如果某段逻辑难以测试，必须先调整设计。禁止以“难测”为由免测。
 
 典型接口示例：
 
@@ -224,6 +225,15 @@ pnpm --dir frontend/soybean-admin build
 5. 不允许为通过门禁而调低覆盖率阈值、删除测试、绕过 AOT publish、移除安全检查。
 6. 禁止以“兼容旧系统”为理由加入运行时 legacy 分支、静默默认值、吞异常或 `[Obsolete]` 转发。旧系统兼容只能在迁移工具中存在。
 7. 不确定需求、契约、权限、数据库迁移、安全边界时，必须先提出澄清问题或输出风险清单，等待人工确认。
+
+#### 3.0.8 DB-BOUNDARY 数据库边界硬约束
+
+1. DB-BOUNDARY-001：`WeCms.Persistence` 为唯一允许直接引用数据库/ORM/连接器的项目。
+2. DB-BOUNDARY-002：`WeCms.Modules.*` 不得包含 SQL 文本。
+3. DB-BOUNDARY-003：`WeCms.Modules.*` 不得直接引用 `Dapper`、`Dapper.AOT`、`MySqlConnector`。
+4. DB-BOUNDARY-004：`WeCms.Modules.*` 不得依赖 `WeCms.Persistence` 的具体实现。
+5. DB-BOUNDARY-005：`WeCms.Modules.*` 的 Service/UseCase 仅通过抽象（例如 `IUnitOfWork`）控制事务边界，不得直接使用 `DbConnection` 或 `DbTransaction`。
+6. DB-BOUNDARY-006：任何突破数据库边界规则的 PR，默认 `BLOCK`。
 
 ### 3.1 后端技术硬约束
 
@@ -856,5 +866,31 @@ AOT 真实发布验证
 CI/CD 门禁
 人工最终批准
 ```
+
+以下规则在实现评审中为强制约束（DI 反例）：
+
+- 业务模块必须通过接口 + DI 引入副作用服务，不得 `new`：
+  - 数据访问：`IAuthRepository`, `IUserRepository`, `IRoleRepository`
+  - 事务：`IUnitOfWork`
+  - 时钟/时间：`IClock`
+  - ID：`IIdGenerator`
+  - 随机：`IRandomProvider`
+  - 密码：`IPasswordHasher`, `IRefreshTokenHasher`
+  - Token：`ITokenService`, `IRefreshTokenService`（如有分层）
+  - 权限：`IPermissionChecker`
+  - 文件：`IFileStorage`
+  - 邮件：`IEmailSender`
+  - 缓存：`ICacheService`
+  - 当前用户：`ICurrentUserAccessor`
+  - 审计上下文：`IAuditContextAccessor`
+  - 外部服务：`IHttpClientFactory`/typed client
+
+- 业务层禁止直接构造以下对象：
+  - `new *Repository(...)`、ORM Client（如 `SqlSugarClient`、`MySqlConnection`）
+  - `new JwtTokenService(...)`、`new Pbkdf2PasswordHasher(...)`
+  - `new FileStorage(...)`、`new SmtpClient(...)`、`new HttpClient(...)`
+  - `DateTime.UtcNow`、`Guid.NewGuid()`、`Random.Shared`
+
+- 业务模块构造函数默认仅接收接口、不可变值对象和基础类型；不得使用 Service Locator（`IServiceProvider.GetRequiredService`）获取运行时服务。
 
 任何看似“更快”的实现，只要违反本文件，必须拒绝。

@@ -8,6 +8,50 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../" && pwd)"
+json_mode=false
+command_name="backend"
+backend_checks=()
+
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '"%s"' "$value"
+}
+
+join_command() {
+  local out=""
+  local first=true part
+  for part in "$@"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      out+=" "
+    fi
+    out+="$(printf '%q' "$part")"
+  done
+  printf '%s' "$out"
+}
+
+json_array() {
+  local -n arr=$1
+  local output="["
+  local first=true item
+
+  for item in "${arr[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      output+=","
+    fi
+    output+="$item"
+  done
+  output+="]"
+  printf '%s' "$output"
+}
 
 run_with_dir() {
   local dir="$1"
@@ -19,57 +63,207 @@ run_with_dir() {
   return $rc
 }
 
-echo "=== WeCMS M0-BE Backend Quality Gate ==="
+usage() {
+  cat <<'EOF'
+Usage:
+  bash scripts/quality-gate-backend.sh [--json] [command]
 
-# ── 1. Build ──
-echo "[1/10] dotnet build -warnaserror"
-run_with_dir "$REPO_ROOT" dotnet build backend/WeCms.slnx -warnaserror --nologo
-echo "  PASSED"
+Commands:
+  backend   Run backend quality gate (build/test/publish/openapi/arch checks)
+  di        Run DI boundary static scan and output fix list
+  code-review
+           Run code review checklist static scan (DI + file governance checks)
+  all       Run backend gate then DI scan
 
-# ── 2. AOT exception baseline check (ADR-0006) ──
-echo "[2/10] AOT exception baseline check (ADR-0006)"
-run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-aot-exception-baseline.sh"
-echo "  PASSED"
+If no command provided, runs backend.
+EOF
+}
 
-# ── 3. AOT self-warning suppression check (ADR-0006) ──
-echo "[3/10] AOT self-warning suppression check (ADR-0006)"
-run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-no-self-aot-suppression.sh"
-echo "  PASSED"
+run_step() {
+  local step="$1"
+  local title="$2"
+  shift 2
 
-# ── 4. Native AOT Publish ──
-echo "[4/10] dotnet publish (Native AOT)"
-run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true --nologo
-echo "  PASSED"
+  if [[ "$json_mode" == "false" ]]; then
+    echo "$step"
+  fi
 
-# ── 5. Tests ──
-echo "[5/10] dotnet test"
-run_with_dir "$REPO_ROOT" dotnet test backend/WeCms.slnx --nologo --verbosity normal
-echo "  PASSED"
+  set +e
+  "$@"
+  local rc=$?
+  set -e
 
-# ── 6. OpenAPI Export ──
-echo "[6/10] OpenAPI export"
-run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi/wecms-api-v1.json --nologo
-echo "  PASSED"
+  local cmd_desc
+  cmd_desc="$(join_command "$@")"
+  if (( rc == 0 )); then
+    backend_checks+=("{\"step\":\"$title\",\"command\":$(json_escape "$cmd_desc"),\"status\":\"passed\"}")
+  else
+    backend_checks+=("{\"step\":\"$title\",\"command\":$(json_escape "$cmd_desc"),\"status\":\"failed\"}")
+  fi
 
-# ── 7. SQL: no SELECT * ──
-echo "[7/10] check-no-select-star"
-run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-select-star.sh"
-echo "  PASSED"
+  if (( rc != 0 )); then
+    return $rc
+  fi
 
-# ── 8. SQL: no Query<dynamic> ──
-echo "[8/10] check-no-dynamic-query"
-run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-dynamic-query.sh"
-echo "  PASSED"
+  return 0
+}
 
-# ── 9. Endpoint permission metadata scan (runtime architecture test) ──
-echo "[9/10] check endpoint permissions (runtime architecture test)"
-run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"
-echo "  PASSED"
+run_gate_step() {
+  local step_id="$1"
+  local title="$2"
+  shift 2
 
-# ── 10. Integrity ──
-echo "[10/10] check integrity"
-run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"
-run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"
-echo "  PASSED"
+  if ! run_step "$step_id" "$title" "$@"; then
+    if [[ "$json_mode" == "true" ]]; then
+      print_json_output "failed"
+    else
+      echo "=== WeCMS M0-BE Backend Quality Gate FAILED ==="
+    fi
+    return 1
+  fi
 
-echo "=== WeCMS M0-BE Backend Quality Gate PASSED ==="
+  if [[ "$json_mode" == "false" ]]; then
+    echo "  PASSED"
+  fi
+  return 0
+}
+
+print_json_output() {
+  local status="$1"
+  printf '%s\n' "{\"command\":\"backend\",\"status\":\"$status\",\"checks\":$(json_array backend_checks)}"
+}
+
+run_code_review_scan() {
+  echo "==> Run code-review checklist scan"
+  run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-code-review.sh"
+}
+
+run_backend() {
+  if [[ "$json_mode" == "false" ]]; then
+    echo "=== WeCMS M0-BE Backend Quality Gate ==="
+  fi
+
+  if ! run_gate_step "[1/13] dotnet build -warnaserror" "[1/13] dotnet build -warnaserror" \
+    run_with_dir "$REPO_ROOT" dotnet build backend/WeCms.slnx -warnaserror --nologo; then
+    return 1
+  fi
+
+  if ! run_gate_step "[2/13] AOT exception baseline check (ADR-0006)" "[2/13] AOT exception baseline check (ADR-0006)" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-aot-exception-baseline.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[3/13] AOT self-warning suppression check (ADR-0006)" "[3/13] AOT self-warning suppression check (ADR-0006)" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-no-self-aot-suppression.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[4/13] dotnet publish (Native AOT)" "[4/13] dotnet publish (Native AOT)" \
+    run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true --nologo; then
+    return 1
+  fi
+
+  if ! run_gate_step "[5/13] dotnet test" "[5/13] dotnet test" \
+    run_with_dir "$REPO_ROOT" dotnet test backend/WeCms.slnx --nologo --verbosity normal; then
+    return 1
+  fi
+
+  if ! run_gate_step "[6/13] OpenAPI export" "[6/13] OpenAPI export" \
+    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi/wecms-api-v1.json --nologo; then
+    return 1
+  fi
+
+  if ! run_gate_step "[7/13] check-no-select-star" "[7/13] check-no-select-star" \
+    run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-select-star.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[8/13] check-no-dynamic-query" "[8/13] check-no-dynamic-query" \
+    run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-dynamic-query.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[9/13] check endpoint permissions (runtime architecture test)" "[9/13] check endpoint permissions (runtime architecture test)" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[10/13] check layer dependency matrix" "[10/13] check layer dependency matrix" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-layer-dependency.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[11/13] check db boundary (architecture)" "[11/13] check db boundary (architecture)" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-db-boundary.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[12/13] check integrity - json context coverage" "[12/13] check integrity - json context coverage" \
+    run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[12/13] check integrity - no frontend change" "[12/13] check integrity - no frontend change" \
+    run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[13/13] check code-review" "[13/13] check code-review" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-code-review.sh"; then
+    return 1
+  fi
+
+  if [[ "$json_mode" == "true" ]]; then
+    print_json_output "passed"
+    return 0
+  fi
+
+  echo "=== WeCMS M0-BE Backend Quality Gate PASSED ==="
+}
+
+run_di_scan() {
+  echo "==> Run DI boundary scan"
+  bash "${SCRIPT_DIR}/review-di.sh" "${REPO_ROOT}"
+}
+
+run_code_review() {
+  run_code_review_scan
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json)
+      json_mode=true
+      shift
+      ;;
+    backend|di|code-review|all)
+      command_name="$1"
+      shift
+      ;;
+    -h|--help|help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+case "$command_name" in
+  backend)
+    run_backend
+    ;;
+  di)
+    run_di_scan
+    ;;
+  code-review)
+    run_code_review
+    ;;
+  all)
+    run_backend
+    run_di_scan
+    ;;
+esac

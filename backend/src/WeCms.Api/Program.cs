@@ -1,15 +1,15 @@
-using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
-using WeCms.Infrastructure.Migration;
 using WeCms.Infrastructure.Security;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
+using WeCms.Persistence.Data;
+using WeCms.Persistence.Migration;
 using WeCms.Shared.Security;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -17,24 +17,20 @@ var builder = WebApplication.CreateSlimBuilder(args);
 // M0-BE-010: OpenAPI document generation (source-generated for Native AOT)
 builder.Services.AddOpenApi();
 
-// Register infrastructure services (DB, password hasher, clock, migration runner, token services)
+// Register infrastructure services (password hasher, clock, token services)
 builder.Services.AddWeCmsInfrastructure();
-builder.Services.AddWeCmsAuth();
+
+// Register persistence services (DB connection, unit of work, repositories, migration runner)
+builder.Services.AddWeCmsPersistence();
 
 // Register Auth services (scoped)
-builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// Register Permission services
-builder.Services.AddSingleton<IPermissionChecker, PermissionChecker>();
+// Register Permission endpoint filter
 builder.Services.AddSingleton<PermissionEndpointFilter>();
 
-// Register JWT Token Service (singleton — uses configuration)
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "WeCMS";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WeCMS";
-var jwtExpirySeconds = int.Parse(builder.Configuration["Jwt:AccessTokenExpirySeconds"] ?? "1800", CultureInfo.InvariantCulture);
-builder.Services.AddSingleton<ITokenService>(new JwtTokenService(jwtSigningKey, jwtIssuer, jwtAudience, jwtExpirySeconds));
+// Register JWT Token Service (singleton — uses IConfiguration + IClock)
+builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 
 // Register JSON serializer context for Native AOT (singleton — needed by endpoint filters)
 builder.Services.AddSingleton<System.Text.Json.Serialization.JsonSerializerContext>(WeCmsJsonContext.Default);
@@ -46,6 +42,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 // Configure JWT Bearer authentication
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "WeCMS";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WeCMS";
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer(options =>
     {

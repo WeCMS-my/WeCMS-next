@@ -2,7 +2,7 @@ using Dapper;
 using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
-namespace WeCms.Modules.System.Permissions;
+namespace WeCms.Persistence.System.Permissions;
 
 public sealed class PermissionChecker : IPermissionChecker
 {

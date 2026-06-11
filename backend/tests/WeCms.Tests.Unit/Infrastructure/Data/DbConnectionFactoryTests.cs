@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Configuration;
-using WeCms.Infrastructure.Data;
+using WeCms.Persistence.Data;
 
 namespace WeCms.Tests.Unit.Infrastructure.Data;
 

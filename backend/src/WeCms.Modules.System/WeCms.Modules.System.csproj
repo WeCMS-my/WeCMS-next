@@ -13,7 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.1.66" />
     <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
   </ItemGroup>
 

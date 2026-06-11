@@ -1,5 +1,6 @@
 using System.Data.Common;
 using WeCms.Shared.Data;
+using WeCms.Shared.Id;
 using WeCms.Shared.Security;
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
@@ -29,6 +30,7 @@ public sealed class AuthServiceTests
             "stamp",
             1);
 
+        var idGenerator = new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var service = new AuthService(
             repository,
             hasher,
@@ -36,7 +38,8 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
-            clock);
+            clock,
+            idGenerator);
 
         hasher.Verifications["hash-admin:Admin@123"] = true;
         repository.InsertRefreshTokenResult = 100;
@@ -92,6 +95,7 @@ public sealed class AuthServiceTests
         repository.InsertRefreshTokenResult = 200;
         repository.RevokeRefreshTokenResult = 1;
 
+        var idGenerator = new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var service = new AuthService(
             repository,
             hasher,
@@ -99,7 +103,8 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
-            clock);
+            clock,
+            idGenerator);
 
         var response = await service.RefreshAsync(
             new RefreshRequest("refresh-token"),
@@ -151,6 +156,7 @@ public sealed class AuthServiceTests
         repository.InsertRefreshTokenResult = 200;
         repository.RevokeRefreshTokenResult = 0;
 
+        var idGenerator = new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var service = new AuthService(
             repository,
             hasher,
@@ -158,7 +164,8 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
-            clock);
+            clock,
+            idGenerator);
 
         var ex = await Assert.ThrowsAsync<DomainException>(
             () => service.RefreshAsync(new RefreshRequest("refresh-token"), "127.0.0.1", "agent", default));
@@ -191,6 +198,7 @@ public sealed class AuthServiceTests
         repository.InsertRefreshTokenResult = 0;
         hasher.Verifications["hash-admin:Admin@123"] = true;
 
+        var idGenerator = new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var service = new AuthService(
             repository,
             hasher,
@@ -198,7 +206,8 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
-            clock);
+            clock,
+            idGenerator);
 
         var ex = await Assert.ThrowsAsync<DomainException>(
             () => service.LoginAsync(new LoginRequest("admin", "Admin@123"), "127.0.0.1", "agent", default));
@@ -239,6 +248,7 @@ public sealed class AuthServiceTests
             1);
         repository.InsertRefreshTokenResult = 0;
 
+        var idGenerator = new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var service = new AuthService(
             repository,
             hasher,
@@ -246,7 +256,8 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
-            clock);
+            clock,
+            idGenerator);
 
         var ex = await Assert.ThrowsAsync<DomainException>(
             () => service.RefreshAsync(new RefreshRequest("refresh-token"), "127.0.0.1", "agent", default));
@@ -419,6 +430,11 @@ public sealed class AuthServiceTests
     private sealed class FakeRefreshTokenHasher : IRefreshTokenHasher
     {
         public string Hash(string token) => $"hashed:{token}";
+    }
+
+    private sealed class FakeIdGenerator(Guid value) : IIdGenerator
+    {
+        public Guid NewGuid() => value;
     }
 
     private sealed class FixedClock : IClock

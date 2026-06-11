@@ -61,17 +61,29 @@ curl http://localhost:5000/api/v1/system/db-check
 
 ```bash
 bash scripts/quality-gate-backend.sh
+bash scripts/quality-gate-backend.sh di
+bash scripts/quality-gate-backend.sh all
 ```
 
-门禁包含 7 步检查：
+`quality-gate-backend.sh` 统一入口，默认执行 backend 质量门禁；
+`di` 仅执行 DI 边界扫描；
+`all` 执行 backend+DI。
+
+CI（`backend-quality-gate.yml`）已对齐为 `all`。
+
+quality gate（backend）包含 11 步检查：
 
 1. `dotnet build -warnaserror`
-2. `dotnet test`
-3. `dotnet publish (Native AOT)`
-4. OpenAPI export
-5. 无 `SELECT *` 检查
-6. 无 `Query<dynamic>` 检查
-7. 完整性检查（权限、JSON Context、前端变更）
+2. AOT exception baseline check（ADR-0006）
+3. AOT self-warning suppression check（ADR-0006）
+4. `dotnet publish (Native AOT)`
+5. `dotnet test`
+6. OpenAPI export
+7. 无 `SELECT *` 检查
+8. 无 `Query<dynamic>` 检查
+9. Endpoint 权限元数据扫描
+10. DB boundary 架构检查
+11. 完整性检查（JSON Context、前端变更）
 
 ## 项目结构
 

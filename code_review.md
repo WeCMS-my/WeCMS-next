@@ -31,6 +31,12 @@
 [ ] 使用 dynamic / Query<dynamic>
 [ ] SQL 中出现 SELECT *
 [ ] 拼接用户输入 SQL
+[ ] 出现 `QueryAsync` / `ExecuteAsync` / `CommandDefinition` 违反数据边界（modules 层）
+[ ] WeCms.Modules.* 出现 SQL 关键字或 SQL 字符串
+[ ] WeCms.Modules.* 引用 Dapper / Dapper.AOT / MySqlConnector
+[ ] WeCms.Modules.* 直接引用 WeCms.Persistence 实现
+[ ] DB-BOUNDARY-004：任何 `WeCms.Modules.*` 对持久化实现的依赖
+[ ] DB-BOUNDARY-006：数据库边界突破（默认 `BLOCK`）
 [ ] DTO 未加入 JsonSerializerContext 导致 AOT 风险
 [ ] 业务 Endpoint 未绑定权限码且未显式 AllowAnonymous
 [ ] 前端为了 SoybeanAdmin 改写后端接口结构
@@ -112,6 +118,17 @@
 - 跨工程引用越过依赖矩阵。
 - 生产工程之间滥用 InternalsVisibleTo。
 - 新增第三方依赖无说明且影响 AOT / 安全 / 体积。
+```
+
+数据库边界新增检查点（待自动化）
+
+```text
+[ ] DB-BOUNDARY-001：只有 WeCms.Persistence 引用了 Dapper / Dapper.AOT / MySqlConnector。
+[ ] DB-BOUNDARY-002：WeCms.Modules.* 不直接处理 SQL 字符串。
+[ ] DB-BOUNDARY-003：WeCms.Modules.* 未出现 QueryAsync / ExecuteAsync / CommandDefinition。
+[ ] DB-BOUNDARY-004：WeCms.Modules.* 不能直接依赖持久化实现，必须只依赖 Repository 抽象。
+[ ] DB-BOUNDARY-005：WeCms.Modules.* 仅通过 IUnitOfWork 进行事务控制，不直接使用 DbConnection/DbTransaction。
+[ ] DB-BOUNDARY-006：数据库边界突破默认 BLOCK。
 ```
 
 ---
@@ -1069,4 +1086,53 @@ BLOCK / REQUEST_CHANGES / APPROVE_WITH_NOTES / APPROVE
 [ ] 人工 Review 通过
 ```
 
+## DI 评审检查（补齐缺口）
+
+- DI-001：业务模块不应直接 `new` 有副作用服务（Repository、DbClient、TokenService、PasswordHasher、FileStorage、EmailSender、CacheClient、HttpClient）。
+- DI-002：业务模块构造器只依赖接口、配置值对象与纯参数；不得依赖具体实现类型。
+- DI-003：Repository 接口在模块层定义，具体实现位于 Persistence 层并通过 DI 注册。
+- DI-004：数据库 Client/ORM/SQL 文本仅出现在 Persistence 层，模块层不得出现 `new MySqlConnection` 等实例化行为。
+- DI-005：时间、随机、ID、时钟、外部调用等副作用能力走接口注入，不在业务层写 `DateTime.UtcNow` / `Guid.NewGuid()` / `Random.Shared`。
+- DI-006：禁止在业务层使用 Service Locator（`IServiceProvider` 运行时解析）替代构造函数注入。
+- DI-007：跨层依赖（文件、邮件、缓存、Token、密码、审计、当前用户）需由抽象层解耦且可替换实现。
+- DI-008：若出现上述 DI 反例，评审应标记为阻断项。
+- DI-010：业务模块不得持有具体实现类型（包括 ctor 参数类型）。即便看起来像实现类，也应依赖接口。
+- DI-011：`IUnitOfWork` 与仓储接口只用于服务层事务编排；仓储本身不得处理权限、审计、HTTP、外部调用。
+- DI-012：数据库 SQL 与数据库客户端仅限 Persistence；模块层不得出现 `DbConnection`、`Dapper`、原始 SQL 文本或数据访问实现细节。
+- DI-013：允许 `new` 的对象仅限局部资源对象；若使用资源型对象（如 `CancellationTokenSource`）需有明确生命周期边界（`using` / `await using` 或明确释放）。
+
 任何 AI 生成的代码都必须经过同样门禁，不得例外。
+
+## DI 执行口径（审查清单）
+
+- [ ] 业务类 constructor 参数是否全部是接口或配置/值对象（排除实体/DTO/记录）
+- [ ] 是否出现 `new HttpClient`、`new MySqlConnection`、`new JwtTokenService`、`new Pbkdf2PasswordHasher`、`new AuthRepository` 等副作用对象
+- [ ] 是否出现 `DateTime.UtcNow`、`Guid.NewGuid`、`Random.Shared`、`IServiceProvider.GetRequiredService`
+- [ ] 模块层是否出现 SQL 文本、`ExecuteAsync`、`QueryAsync`、`CommandDefinition`、`DbConnection`/`DbTransaction`
+- [ ] 是否出现 `using` 缺失的 `CancellationTokenSource` 等局部资源未释放
+- [ ] 命名是否符合：`Services / UseCases` 使用 `...Service` / `...UseCase`，接口使用 `I...Service` / `I...Repository` / `IClock`
+
+## DI 快速静态扫描清单（`rg` 示例）
+
+可在审查前先跑快速脚本（按需调整路径）：
+
+```bash
+# 1) 构造参数是否使用具体实现（关键字过滤，需结合代码语境人工判断）
+rg -n "new\\s+(?!var|\\[|\\()\\w+Service|new\\s+\\w+Repository|new\\s+\\w+Storage|new\\s+\\w*Client\\(" backend src frontend
+
+# 2) 明确禁止的副作用对象（业务层）
+rg -n "new\\s+(HttpClient|MySqlConnection|SqlSugarClient|DbConnectionFactory|JwtTokenService|Pbkdf2PasswordHasher|SmtpClient|FileStorage)\\s*\\(" backend/src
+rg -n "DateTime\\.UtcNow|Guid\\.NewGuid\\(\\)|Random\\.Shared" backend src frontend
+
+# 3) Service Locator / 运行时服务解析
+rg -n "IServiceProvider\\.GetRequiredService|GetService\\s*<" backend/src
+
+# 4) 模块层数据库边界（排除持久化目录后检查模块目录）
+rg -n "Dapper\\.|Dapper\\.AOT|MySqlConnector|DbConnection|DbTransaction|ExecuteAsync|QueryAsync|CommandDefinition|\\bSELECT\\s+\\*\\b|\\bUPDATE\\s+\\w+\\b" backend/src/WeCms.Modules
+
+# 5) SQL 文本（粗筛）
+rg -n "\"\\s*(SELECT|INSERT|UPDATE|DELETE|INSERT INTO)\\b|FROM\\s+\\w+\" backend/src/WeCms.Modules
+
+# 6) 可疑具体实现注入到业务层 ctor（人工确认）
+rg -n "class\\s+\\w+\\(.*\\b(new\\s+)?(AuthRepository|UserRepository|RoleRepository|PermissionRepository|FileRepository|EmailRepository)\\b" backend/src/WeCms.Modules -g "*.cs"
+```
