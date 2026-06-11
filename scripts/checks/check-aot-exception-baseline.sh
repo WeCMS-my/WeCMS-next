@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # WeCMS M0-BE check-aot-exception-baseline
-# Ensures Dapper, Dapper.AOT, and MySqlConnector versions match ADR-0006 baseline before AOT publish.
+# Ensures Dapper / Dapper.AOT versions match ADR-0006 baseline before AOT publish.
 
 set -euo pipefail
 
@@ -31,48 +31,68 @@ fi
 
 source "$BASELINE_FILE"
 
-persistence_csproj="$REPO_ROOT/backend/src/WeCms.Persistence/WeCms.Persistence.csproj"
+infrastructure_csproj="$REPO_ROOT/backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj"
+system_csproj="$REPO_ROOT/backend/src/WeCms.Modules.System/WeCms.Modules.System.csproj"
 
 extract_version() {
   local csproj="$1"
   local package="$2"
-  rg -o "PackageReference Include=\"${package}\" Version=\"[^\"]+\"" "$csproj" \
+  grep -F "PackageReference Include=\"$package\"" "$csproj" \
     | head -n 1 \
-    | sed -E 's/.*Version=\"([^\"]+)\".*/\1/' \
+    | sed -E 's/.*Version="([^"]+)".*/\1/' \
     || true
 }
 
-persistence_dapper_version="$(extract_version "$persistence_csproj" "Dapper")"
-persistence_dapper_aot_version="$(extract_version "$persistence_csproj" "Dapper.AOT")"
-persistence_mysql_connector_version="$(extract_version "$persistence_csproj" "MySqlConnector")"
+infra_dapper_version="$(extract_version "$infrastructure_csproj" "Dapper")"
+infra_dapper_aot_version="$(extract_version "$infrastructure_csproj" "Dapper.AOT")"
+system_dapper_version="$(extract_version "$system_csproj" "Dapper")"
 
-if [ -z "$persistence_dapper_version" ] || [ -z "$persistence_dapper_aot_version" ] || [ -z "$persistence_mysql_connector_version" ]; then
-  echo "Failed to read required package versions from persistence project file." >&2
+if [ -z "$infra_dapper_version" ] || [ -z "$infra_dapper_aot_version" ] || [ -z "$system_dapper_version" ]; then
+  echo "Failed to read Dapper versions from project files." >&2
+  echo "  infrastructure: $infra_dapper_version"
+  echo "  system: $system_dapper_version"
+  echo "  infrastructure Dapper.AOT: $infra_dapper_aot_version"
   exit 1
 fi
 
-if [ "$persistence_dapper_version" != "$WECMS_DAPPER_VERSION" ]; then
+if [ "$infra_dapper_version" != "$WECMS_DAPPER_VERSION" ] || [ "$system_dapper_version" != "$WECMS_DAPPER_VERSION" ]; then
   echo "Dapper version mismatch detected." >&2
   echo "  baseline:  $WECMS_DAPPER_VERSION"
-  echo "  persistence: $persistence_dapper_version"
+  echo "  infrastructure: $infra_dapper_version"
+  echo "  modules-system: $system_dapper_version"
   echo "Please re-evaluate docs/adr/0006-aot-trim-warnings-exception.md before merge." >&2
   exit 1
 fi
 
-if [ "$persistence_dapper_aot_version" != "$WECMS_DAPPER_AOT_VERSION" ]; then
+if [ "$infra_dapper_aot_version" != "$WECMS_DAPPER_AOT_VERSION" ]; then
   echo "Dapper.AOT version mismatch detected." >&2
   echo "  baseline: $WECMS_DAPPER_AOT_VERSION"
-  echo "  persistence: $persistence_dapper_aot_version"
+  echo "  infrastructure: $infra_dapper_aot_version"
   echo "Please re-evaluate docs/adr/0006-aot-trim-warnings-exception.md before merge." >&2
   exit 1
 fi
 
-if [ "$persistence_mysql_connector_version" != "$WECMS_MYSQLCONNECTOR_VERSION" ]; then
-  echo "MySqlConnector version mismatch detected." >&2
-  echo "  baseline: $WECMS_MYSQLCONNECTOR_VERSION"
-  echo "  persistence: $persistence_mysql_connector_version"
+violations=()
+while IFS= read -r csproj; do
+  local_dapper_version="$(extract_version "$csproj" "Dapper")"
+  local_dapper_aot_version="$(extract_version "$csproj" "Dapper.AOT")"
+
+  if [ -n "$local_dapper_version" ] && [ "$local_dapper_version" != "$WECMS_DAPPER_VERSION" ]; then
+    violations+=("${csproj}: Dapper=$local_dapper_version")
+  fi
+
+  if [ -n "$local_dapper_aot_version" ] && [ "$local_dapper_aot_version" != "$WECMS_DAPPER_AOT_VERSION" ]; then
+    violations+=("${csproj}: Dapper.AOT=$local_dapper_aot_version")
+  fi
+done < <(find "$REPO_ROOT/backend/src" -name "*.csproj" -print)
+
+if [ "${#violations[@]}" -ne 0 ]; then
+  echo "Additional Dapper version mismatch detected." >&2
+  for item in "${violations[@]}"; do
+    echo "  $item" >&2
+  done
   echo "Please re-evaluate docs/adr/0006-aot-trim-warnings-exception.md before merge." >&2
   exit 1
 fi
 
-echo "  AOT warning baseline check passed (Dapper, Dapper.AOT, and MySqlConnector are aligned with ADR-0006)."
+echo "  AOT warning baseline check passed (Dapper versions are aligned with ADR-0006)."
