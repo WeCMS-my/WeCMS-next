@@ -163,8 +163,13 @@ run_backend() {
     return 1
   fi
 
-  if ! run_gate_step "[5/15] dotnet test (Unit + Architecture)" "[5/15] dotnet test (Unit + Architecture)" \
-    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
+  if ! run_gate_step "[5/15] dotnet test (Unit)" "[5/15] dotnet test (Unit)" \
+    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal; then
+    return 1
+  fi
+
+  if ! run_gate_step "[5b/15] dotnet test (Architecture)" "[5b/15] dotnet test (Architecture)" \
+    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
     return 1
   fi
 
