@@ -55,6 +55,13 @@ jobs:
       # ── 统一质量门禁（backend + DI scan） ──
       - name: Run backend quality gate (all)
         run: bash scripts/quality-gate-backend.sh all
+        env:
+          # Dummy — allows DbConnectionFactory constructor to succeed
+          # without a real MySQL connection. The OpenAPI export path and
+          # Architecture/Unit tests never open a DB connection, they only
+          # read the config string to construct services.
+          ConnectionStrings__Default: >-
+            Server=127.0.0.1;Port=3306;Database=none;User=none;Password=none;
 
       # ── Summary ──
       - name: Quality Gate Summary
