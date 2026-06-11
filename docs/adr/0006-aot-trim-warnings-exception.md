@@ -23,7 +23,7 @@ P1-001 修复中删除了 `WeCms.Modules.System.csproj` 的 `<NoWarn>IL2026;IL30
 **验证**（当前环境）：
 - `dotnet build backend/src/WeCms.Api/WeCms.Api.csproj -warnaserror`：2026-06-10 在当前仓库状态下通过，`SystemEndpoints` 无 IL2026/IL3050 新增。
 - `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true`：2026-06-10 在本机通过，产物为 `backend/src/WeCms.Api/bin/Release/net10.0/osx-arm64/publish/`。
-- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true`：当前仍失败于 `llvm-objcopy/objcopy` 缺失（环境限制），非代码问题。
+- 在 macOS 宿主机上强制 `-r linux-x64` 仍会受 `llvm-objcopy/objcopy` 与 Linux linker 参数限制影响，属于交叉 AOT 工具链限制，不再作为本地质量门禁默认路径。
 
 ### 第三方库：Dapper 2.1.66
 
@@ -76,7 +76,8 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 ## 验证依据
 
-- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true` 本机通过；`linux-x64` 当前在本地环境受 `llvm-objcopy/objcopy` 与 linker 参数限制阻断（非代码问题）。CI 仍然通过 `ubuntu-latest` workflow 的 `linux-x64` 发布步骤进行实机验收，故需在 CI 环境中以该步骤为准。
+- 本地 `bash scripts/quality-gate-backend.sh` 现默认按宿主 RID 执行 Native AOT publish；在 Apple Silicon/macOS 上对应 `osx-arm64`，已于 2026-06-11 实测通过。
+- CI 继续通过 `ubuntu-latest` workflow 的 `linux-x64` 发布步骤进行实机验收；Linux runner 自带/安装 AOT 所需工具链后，`linux-x64` publish 仍为硬门禁。
 - WeCMS 自有代码当前不再依赖 `#pragma/NoWarn` 来隐藏端点级 AOT 警告；`MapGet` 已通过 `RequestDelegate` 重载规避 IL2026/IL3050 触发。
 - 所有 Endpoint 使用 source-generated JSON serializer context。
 - Dapper 调用通过 Dapper.AOT source generator 处理，不依赖运行时反射。

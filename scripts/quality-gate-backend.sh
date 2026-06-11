@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../" && pwd)"
 json_mode=false
 command_name="backend"
 backend_checks=()
+publish_rid="${WECMS_AOT_PUBLISH_RID:-}"
 
 json_escape() {
   local value="$1"
@@ -63,10 +64,69 @@ run_with_dir() {
   return $rc
 }
 
+get_uname_s() {
+  printf '%s\n' "${WECMS_UNAME_S_OVERRIDE:-$(uname -s)}"
+}
+
+get_uname_m() {
+  printf '%s\n' "${WECMS_UNAME_M_OVERRIDE:-$(uname -m)}"
+}
+
+detect_host_publish_rid() {
+  local uname_s
+  local uname_m
+  uname_s="$(get_uname_s)"
+  uname_m="$(get_uname_m)"
+
+  case "$uname_s" in
+    Darwin)
+      case "$uname_m" in
+        arm64)
+          printf 'osx-arm64\n'
+          return 0
+          ;;
+        x86_64)
+          printf 'osx-x64\n'
+          return 0
+          ;;
+      esac
+      ;;
+    Linux)
+      case "$uname_m" in
+        x86_64|amd64)
+          printf 'linux-x64\n'
+          return 0
+          ;;
+        arm64|aarch64)
+          printf 'linux-arm64\n'
+          return 0
+          ;;
+      esac
+      ;;
+  esac
+
+  return 1
+}
+
+resolve_publish_rid() {
+  local explicit_publish_rid="${WECMS_AOT_PUBLISH_RID:-$publish_rid}"
+
+  if [[ -n "$explicit_publish_rid" ]]; then
+    printf '%s\n' "$explicit_publish_rid"
+    return 0
+  fi
+
+  detect_host_publish_rid
+}
+
 usage() {
   cat <<'EOF'
 Usage:
   bash scripts/quality-gate-backend.sh [--json] [command]
+
+Environment:
+  WECMS_AOT_PUBLISH_RID  Override the Native AOT publish RID.
+                         Default: current host RID (CI on Linux resolves to linux-x64).
 
 Commands:
   backend   Run backend quality gate (build/test/publish/openapi/arch checks)
@@ -139,8 +199,16 @@ run_code_review_scan() {
 }
 
 run_backend() {
+  local resolved_publish_rid
+  if ! resolved_publish_rid="$(resolve_publish_rid)"; then
+    echo "Unable to determine Native AOT publish RID for host $(get_uname_s)/$(get_uname_m)." >&2
+    echo "Set WECMS_AOT_PUBLISH_RID explicitly and rerun the quality gate." >&2
+    return 1
+  fi
+
   if [[ "$json_mode" == "false" ]]; then
     echo "=== WeCMS M0-BE Backend Quality Gate ==="
+    echo "Native AOT publish RID: ${resolved_publish_rid}"
   fi
 
   if ! run_gate_step "[1/15] dotnet build -warnaserror" "[1/15] dotnet build -warnaserror" \
@@ -159,7 +227,7 @@ run_backend() {
   fi
 
   if ! run_gate_step "[4/15] dotnet publish (Native AOT)" "[4/15] dotnet publish (Native AOT)" \
-    run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true --nologo; then
+    run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
     return 1
   fi
 
@@ -248,40 +316,46 @@ run_code_review() {
   run_code_review_scan
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --json)
-      json_mode=true
-      shift
+main() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        json_mode=true
+        shift
+        ;;
+      backend|di|code-review|all)
+        command_name="$1"
+        shift
+        ;;
+      -h|--help|help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown argument: $1" >&2
+        usage
+        exit 2
+        ;;
+    esac
+  done
+
+  case "$command_name" in
+    backend)
+      run_backend
       ;;
-    backend|di|code-review|all)
-      command_name="$1"
-      shift
+    di)
+      run_di_scan
       ;;
-    -h|--help|help)
-      usage
-      exit 0
+    code-review)
+      run_code_review
       ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      usage
-      exit 2
+    all)
+      run_backend
+      run_di_scan
       ;;
   esac
-done
+}
 
-case "$command_name" in
-  backend)
-    run_backend
-    ;;
-  di)
-    run_di_scan
-    ;;
-  code-review)
-    run_code_review
-    ;;
-  all)
-    run_backend
-    run_di_scan
-    ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
