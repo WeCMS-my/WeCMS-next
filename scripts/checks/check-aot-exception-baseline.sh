@@ -37,9 +37,9 @@ system_csproj="$REPO_ROOT/backend/src/WeCms.Modules.System/WeCms.Modules.System.
 extract_version() {
   local csproj="$1"
   local package="$2"
-  rg -o "PackageReference Include=\"${package}\" Version=\"[^\"]+\"" "$csproj" \
+  grep -F "PackageReference Include=\"$package\"" "$csproj" \
     | head -n 1 \
-    | sed -E 's/.*Version=\"([^\"]+)\".*/\1/' \
+    | sed -E 's/.*Version="([^"]+)".*/\1/' \
     || true
 }
 
@@ -49,6 +49,9 @@ system_dapper_version="$(extract_version "$system_csproj" "Dapper")"
 
 if [ -z "$infra_dapper_version" ] || [ -z "$infra_dapper_aot_version" ] || [ -z "$system_dapper_version" ]; then
   echo "Failed to read Dapper versions from project files." >&2
+  echo "  infrastructure: $infra_dapper_version"
+  echo "  system: $system_dapper_version"
+  echo "  infrastructure Dapper.AOT: $infra_dapper_aot_version"
   exit 1
 fi
 
