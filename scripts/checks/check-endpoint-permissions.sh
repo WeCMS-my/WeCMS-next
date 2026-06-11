@@ -26,7 +26,9 @@ echo "  Running PermissionMetadata architecture tests..."
 
 dotnet test \
   "$REPO_ROOT/backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj" \
-  --filter "FullyQualifiedName~WeCms.Tests.Architecture.PermissionMetadataScanTests.AllAuthenticatedEndpoints_ShouldHave_PermissionMetadata_OrBeExempt" \
+  --no-restore \
+  --no-build \
+  --filter "FullyQualifiedName~WeCms.Tests.Architecture.PermissionMetadataScanTests" \
   --nologo \
   --verbosity minimal
 
