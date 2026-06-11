@@ -2,7 +2,6 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 
@@ -11,10 +10,12 @@ namespace WeCms.Modules.System.Permissions;
 public sealed class PermissionEndpointFilter : IEndpointFilter
 {
     private readonly JsonTypeInfo<ApiResult<object?>> _apiResultTypeInfo;
+    private readonly IPermissionChecker _permissionChecker;
 
-    public PermissionEndpointFilter(JsonSerializerContext jsonContext)
+    public PermissionEndpointFilter(JsonSerializerContext jsonContext, IPermissionChecker permissionChecker)
     {
         _apiResultTypeInfo = (JsonTypeInfo<ApiResult<object?>>)jsonContext.GetTypeInfo(typeof(ApiResult<object?>))!;
+        _permissionChecker = permissionChecker;
     }
 
     public async ValueTask<object?> InvokeAsync(
@@ -37,8 +38,7 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var checker = httpContext.RequestServices.GetRequiredService<IPermissionChecker>();
-        var result = await checker.CheckAsync(userId, metadata.Code, context.HttpContext.RequestAborted);
+        var result = await _permissionChecker.CheckAsync(userId, metadata.Code, context.HttpContext.RequestAborted);
 
         if (!result.IsActive)
         {

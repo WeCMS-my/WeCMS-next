@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using WeCms.Shared.Security;
 using PermissionEndpointFilterHelper = WeCms.Tests.Unit.Permissions.PermissionEndpointFilterTestable;
 
@@ -12,7 +11,8 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ShouldShortCircuit_WhenUserNotAuthenticated()
     {
         var context = CreateContext(authenticated: false);
-        var filter = new PermissionEndpointFilterHelper();
+        var checker = new TestPermissionChecker(new PermissionCheckResult(false, false));
+        var filter = new PermissionEndpointFilterHelper(checker);
         var nextCalled = false;
 
         var result = await filter.InvokeAsync(context, _ =>
@@ -28,8 +28,9 @@ public sealed class PermissionEndpointFilterTests
     [Fact]
     public async Task InvokeAsync_ShouldShortCircuit_WhenUserHasNoPermission()
     {
-        var context = CreateContext(authenticated: true, hasPermission: false, isActive: true);
-        var filter = new PermissionEndpointFilterHelper();
+        var context = CreateContext(authenticated: true);
+        var checker = new TestPermissionChecker(new PermissionCheckResult(true, false));
+        var filter = new PermissionEndpointFilterHelper(checker);
         var nextCalled = false;
 
         var result = await filter.InvokeAsync(context, _ =>
@@ -45,8 +46,9 @@ public sealed class PermissionEndpointFilterTests
     [Fact]
     public async Task InvokeAsync_ShouldShortCircuit_WhenUserDisabled()
     {
-        var context = CreateContext(authenticated: true, hasPermission: true, isActive: false);
-        var filter = new PermissionEndpointFilterHelper();
+        var context = CreateContext(authenticated: true);
+        var checker = new TestPermissionChecker(new PermissionCheckResult(false, true));
+        var filter = new PermissionEndpointFilterHelper(checker);
         var nextCalled = false;
 
         var result = await filter.InvokeAsync(context, _ =>
@@ -62,8 +64,9 @@ public sealed class PermissionEndpointFilterTests
     [Fact]
     public async Task InvokeAsync_ShouldCallNext_WhenUserHasPermission()
     {
-        var context = CreateContext(authenticated: true, hasPermission: true, isActive: true);
-        var filter = new PermissionEndpointFilterHelper();
+        var context = CreateContext(authenticated: true);
+        var checker = new TestPermissionChecker(new PermissionCheckResult(true, true));
+        var filter = new PermissionEndpointFilterHelper(checker);
         var nextCalled = false;
 
         var result = await filter.InvokeAsync(context, _ =>
@@ -84,7 +87,8 @@ public sealed class PermissionEndpointFilterTests
         var endpoint = new Endpoint(null!, new EndpointMetadataCollection(), "test-no-metadata");
         httpContext.SetEndpoint(endpoint);
         var context = new DefaultEndpointFilterInvocationContext(httpContext);
-        var filter = new PermissionEndpointFilterHelper();
+        var checker = new TestPermissionChecker(new PermissionCheckResult(false, false));
+        var filter = new PermissionEndpointFilterHelper(checker);
         var nextCalled = false;
 
         var result = await filter.InvokeAsync(context, _ =>
@@ -96,10 +100,7 @@ public sealed class PermissionEndpointFilterTests
         Assert.True(nextCalled, "Filter should pass through when no PermissionMetadata");
     }
 
-    private static DefaultEndpointFilterInvocationContext CreateContext(
-        bool authenticated,
-        bool hasPermission = false,
-        bool isActive = true)
+    private static DefaultEndpointFilterInvocationContext CreateContext(bool authenticated)
     {
         var httpContext = new DefaultHttpContext();
 
@@ -110,14 +111,10 @@ public sealed class PermissionEndpointFilterTests
                 new(ClaimTypes.NameIdentifier, "1"),
             };
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
-            httpContext.RequestServices = new TestServiceProvider(
-                new PermissionCheckResult(isActive, hasPermission));
         }
         else
         {
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
-            httpContext.RequestServices = new TestServiceProvider(
-                new PermissionCheckResult(false, false));
         }
 
         var endpoint = new Endpoint(null!, new EndpointMetadataCollection(
@@ -126,40 +123,20 @@ public sealed class PermissionEndpointFilterTests
 
         return new DefaultEndpointFilterInvocationContext(httpContext);
     }
-
-    private sealed class TestServiceProvider : IServiceProvider
-    {
-        private readonly PermissionCheckResult _result;
-
-        public TestServiceProvider(PermissionCheckResult result) => _result = result;
-
-        public object? GetService(Type serviceType)
-        {
-            if (serviceType == typeof(IPermissionChecker))
-                return new TestPermissionChecker(_result);
-            return null;
-        }
-    }
-
-    private sealed class TestPermissionChecker : IPermissionChecker
-    {
-        private readonly PermissionCheckResult _result;
-
-        public TestPermissionChecker(PermissionCheckResult result) => _result = result;
-
-        public Task<PermissionCheckResult> CheckAsync(
-            long userId,
-            string permissionCode,
-            CancellationToken cancellationToken)
-            => Task.FromResult(_result);
-    }
 }
 
 /// <summary>
-/// Testable version of PermissionEndpointFilter that avoids DI resolution issues.
+/// Testable version of PermissionEndpointFilter with explicit IPermissionChecker injection.
 /// </summary>
 public sealed class PermissionEndpointFilterTestable
 {
+    private readonly IPermissionChecker _checker;
+
+    public PermissionEndpointFilterTestable(IPermissionChecker checker)
+    {
+        _checker = checker;
+    }
+
     public async ValueTask<object?> InvokeAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
@@ -179,8 +156,7 @@ public sealed class PermissionEndpointFilterTestable
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var checker = httpContext.RequestServices.GetRequiredService<IPermissionChecker>();
-        var result = await checker.CheckAsync(userId, metadata.Code, httpContext.RequestAborted);
+        var result = await _checker.CheckAsync(userId, metadata.Code, httpContext.RequestAborted);
 
         if (!result.IsActive)
         {
@@ -198,4 +174,17 @@ public sealed class PermissionEndpointFilterTestable
 
         return await next(context);
     }
+}
+
+internal sealed class TestPermissionChecker : IPermissionChecker
+{
+    private readonly PermissionCheckResult _result;
+
+    public TestPermissionChecker(PermissionCheckResult result) => _result = result;
+
+    public Task<PermissionCheckResult> CheckAsync(
+        long userId,
+        string permissionCode,
+        CancellationToken cancellationToken)
+        => Task.FromResult(_result);
 }

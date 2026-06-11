@@ -26,8 +26,12 @@ builder.Services.AddWeCmsPersistence();
 // Register Auth services (scoped)
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// Register Permission endpoint filter
-builder.Services.AddSingleton<PermissionEndpointFilter>();
+// Register endpoint handler classes (scoped — constructor-injected dependencies)
+builder.Services.AddScoped<AuthEndpointHandlers>();
+builder.Services.AddScoped<SystemEndpointHandlers>();
+
+// Register Permission endpoint filter (scoped — requires per-request IPermissionChecker)
+builder.Services.AddScoped<PermissionEndpointFilter>();
 
 // Register JWT Token Service (singleton — uses IConfiguration + IClock)
 builder.Services.AddSingleton<ITokenService, JwtTokenService>();

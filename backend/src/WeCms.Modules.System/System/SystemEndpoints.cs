@@ -11,66 +11,39 @@ using WeCms.Shared.Time;
 
 namespace WeCms.Modules.System.System;
 
-public static class SystemEndpoints
+/// <summary>
+/// System endpoint handlers with strict constructor injection (no Service Locator).
+/// </summary>
+public sealed class SystemEndpointHandlers
 {
-    public static void Map(WebApplication app)
+    private readonly IClock _clock;
+    private readonly IDbConnectionFactory _db;
+    private readonly ILoggerFactory _loggerFactory;
+
+    public SystemEndpointHandlers(IClock clock, IDbConnectionFactory db, ILoggerFactory loggerFactory)
     {
-        var healthGroup = app.MapGroup("/health");
-        healthGroup.MapGet("/live", (RequestDelegate)HealthLiveRequestHandler);
-        healthGroup.MapGet("/ready", (RequestDelegate)HealthReadyRequestHandler);
-
-        var systemGroup = app.MapGroup("/api/v1/system");
-        systemGroup.MapGet("/ping", (RequestDelegate)PingRequestHandler);
-        systemGroup.MapGet("/version", (RequestDelegate)VersionRequestHandler);
-        systemGroup.MapGet("/db-check", (RequestDelegate)DbCheckRequestHandler);
-
-        // M0-BE-009: secure-ping with RequirePermission
-        ((RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", (RequestDelegate)SecurePingRequestHandler))
-            .RequirePermission(SystemPermissions.SystemSecurePing);
+        _clock = clock;
+        _db = db;
+        _loggerFactory = loggerFactory;
     }
 
-    private static Task HealthLiveRequestHandler(HttpContext context)
-        => HealthLiveAsync(context, context.RequestServices.GetRequiredService<IClock>());
-
-    private static Task HealthReadyRequestHandler(HttpContext context)
-    {
-        var clock = context.RequestServices.GetRequiredService<IClock>();
-        var db = context.RequestServices.GetRequiredService<IDbConnectionFactory>();
-        return HealthReadyAsync(context, db, clock);
-    }
-
-    private static Task PingRequestHandler(HttpContext context)
-        => PingAsync(context, context.RequestServices.GetRequiredService<IClock>());
-
-    private static Task VersionRequestHandler(HttpContext context)
-        => VersionAsync(context);
-
-    private static Task DbCheckRequestHandler(HttpContext context)
-        => DbCheckAsync(
-            context,
-            context.RequestServices.GetRequiredService<IDbConnectionFactory>(),
-            context.RequestServices.GetRequiredService<ILoggerFactory>());
-
-    private static Task SecurePingRequestHandler(HttpContext context)
-        => SecurePingAsync(context, context.RequestServices.GetRequiredService<IClock>());
-
-    private static async Task HealthLiveAsync(HttpContext context, IClock clock)
+    public async Task HealthLiveAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         await WriteJsonResponse(
             context,
-            ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", clock.UtcNow)),
+            ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", _clock.UtcNow)),
             typeof(ApiResult<HealthLiveResponse>),
             cancellationToken);
     }
 
-    private static async Task HealthReadyAsync(HttpContext context, IDbConnectionFactory db, IClock clock)
+    public async Task HealthReadyAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         var sw = Stopwatch.StartNew();
         try
         {
-            await using var connection = await db.OpenAsync(cancellationToken);
+            await using var connection = await _db.OpenAsync(cancellationToken);
             sw.Stop();
             await WriteJsonResponse(
                 context,
@@ -89,17 +62,17 @@ public static class SystemEndpoints
         }
     }
 
-    private static async Task PingAsync(HttpContext context, IClock clock)
+    public async Task PingAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         await WriteJsonResponse(
             context,
-            ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("pong", TimeZoneInfo.Local.Id, clock.UtcNow)),
+            ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("pong", TimeZoneInfo.Local.Id, _clock.UtcNow)),
             typeof(ApiResult<SystemPingResponse>),
             cancellationToken);
     }
 
-    private static async Task VersionAsync(HttpContext context)
+    public async Task VersionAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         await WriteJsonResponse(
@@ -109,15 +82,12 @@ public static class SystemEndpoints
             cancellationToken);
     }
 
-    private static async Task DbCheckAsync(
-        HttpContext context,
-        IDbConnectionFactory db,
-        ILoggerFactory loggerFactory)
+    public async Task DbCheckAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         try
         {
-            await using var connection = await db.OpenAsync(cancellationToken);
+            await using var connection = await _db.OpenAsync(cancellationToken);
             await WriteJsonResponse(
                 context,
                 ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null)),
@@ -126,7 +96,7 @@ public static class SystemEndpoints
         }
         catch (Exception ex)
         {
-            var logger = loggerFactory.CreateLogger(nameof(SystemEndpoints));
+            var logger = _loggerFactory.CreateLogger(nameof(SystemEndpointHandlers));
             logger.LogError(ex, "数据库连接检查失败, traceId={TraceId}", context.TraceIdentifier);
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             await WriteJsonResponse(
@@ -137,12 +107,12 @@ public static class SystemEndpoints
         }
     }
 
-    private static async Task SecurePingAsync(HttpContext context, IClock clock)
+    public async Task SecurePingAsync(HttpContext context)
     {
         var cancellationToken = context.RequestAborted;
         await WriteJsonResponse(
             context,
-            ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("secure-pong", clock.UtcNow)),
+            ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("secure-pong", _clock.UtcNow)),
             typeof(ApiResult<SecurePingResponse>),
             cancellationToken);
     }
@@ -156,4 +126,44 @@ public static class SystemEndpoints
         context.Response.ContentType = "application/json; charset=utf-8";
         await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
     }
+}
+
+/// <summary>
+/// Endpoint route registration — thin AOT-compatible RequestDelegate wrappers.
+/// </summary>
+public static class SystemEndpoints
+{
+    public static void Map(WebApplication app)
+    {
+        var healthGroup = app.MapGroup("/health");
+        healthGroup.MapGet("/live", (RequestDelegate)HandleHealthLive);
+        healthGroup.MapGet("/ready", (RequestDelegate)HandleHealthReady);
+
+        var systemGroup = app.MapGroup("/api/v1/system");
+        systemGroup.MapGet("/ping", (RequestDelegate)HandlePing);
+        systemGroup.MapGet("/version", (RequestDelegate)HandleVersion);
+        systemGroup.MapGet("/db-check", (RequestDelegate)HandleDbCheck);
+
+        // M0-BE-009: secure-ping with RequirePermission
+        ((RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", (RequestDelegate)HandleSecurePing))
+            .RequirePermission(SystemPermissions.SystemSecurePing);
+    }
+
+    private static Task HandleHealthLive(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().HealthLiveAsync(context);
+
+    private static Task HandleHealthReady(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().HealthReadyAsync(context);
+
+    private static Task HandlePing(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().PingAsync(context);
+
+    private static Task HandleVersion(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().VersionAsync(context);
+
+    private static Task HandleDbCheck(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().DbCheckAsync(context);
+
+    private static Task HandleSecurePing(HttpContext context) =>
+        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().SecurePingAsync(context);
 }

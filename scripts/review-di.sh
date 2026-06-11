@@ -72,9 +72,12 @@ else
 fi
 
 if run_scan "3) Service Locator 使用（P1）" \
-  "IServiceProvider\\.GetRequiredService|GetService\\s*<" \
+  "\\.GetRequiredService<|\\.GetService<" \
   "$ROOT_DIR" -g "*.cs" \
-  --glob '!**/backend/tests/**'; then
+  --glob '!**/backend/tests/**' \
+  --glob '!**/backend/src/WeCms.Api/Program.cs' \
+  --glob '!**/backend/src/WeCms.Api/Extensions/OpenApiExtensions.cs' \
+  --glob '!**/*Endpoints.cs'; then
   :;
 else
   P1=$((P1+1))

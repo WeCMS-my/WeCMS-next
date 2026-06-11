@@ -8,32 +8,19 @@ using WeCms.Shared.Security;
 
 namespace WeCms.Modules.System.Auth;
 
-public static class AuthEndpoints
+/// <summary>
+/// Auth endpoint handlers with strict constructor injection (no Service Locator).
+/// </summary>
+public sealed class AuthEndpointHandlers
 {
-    public static RouteGroupBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    private readonly IAuthService _authService;
+
+    public AuthEndpointHandlers(IAuthService authService)
     {
-        var group = app.MapGroup("/api/v1/auth");
-
-        group.MapPost("/login", LoginAsync)
-            .AllowAnonymous()
-            .WithName("Auth_Login");
-
-        group.MapPost("/refresh", RefreshAsync)
-            .AllowAnonymous()
-            .WithName("Auth_Refresh");
-
-        group.MapPost("/logout", LogoutAsync)
-            .RequireAuthorization()
-            .WithName("Auth_Logout");
-
-        group.MapGet("/me", GetCurrentUserAsync)
-            .RequireAuthorization()
-            .WithName("Auth_Me");
-
-        return group;
+        _authService = authService;
     }
 
-    private static async Task LoginAsync(HttpContext httpContext)
+    public async Task LoginAsync(HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
         var request = await ParseRequestAsync<LoginRequest>(httpContext, cancellationToken);
@@ -43,8 +30,7 @@ public static class AuthEndpoints
             throw new DomainException(ApiCodes.ValidationError, "用户名和密码不能为空");
         }
 
-        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
-        var result = await authService.LoginAsync(
+        var result = await _authService.LoginAsync(
             request,
             httpContext.GetClientIp(),
             httpContext.Request.Headers.UserAgent.ToString(),
@@ -53,7 +39,7 @@ public static class AuthEndpoints
         await WriteJsonResponse(httpContext, ApiResult<LoginResponse>.Ok(result), typeof(ApiResult<LoginResponse>), cancellationToken);
     }
 
-    private static async Task RefreshAsync(HttpContext httpContext)
+    public async Task RefreshAsync(HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
         var request = await ParseRequestAsync<RefreshRequest>(httpContext, cancellationToken);
@@ -63,8 +49,7 @@ public static class AuthEndpoints
             throw new DomainException(ApiCodes.ValidationError, "刷新令牌不能为空");
         }
 
-        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
-        var result = await authService.RefreshAsync(
+        var result = await _authService.RefreshAsync(
             request,
             httpContext.GetClientIp(),
             httpContext.Request.Headers.UserAgent.ToString(),
@@ -73,21 +58,20 @@ public static class AuthEndpoints
         await WriteJsonResponse(httpContext, ApiResult<RefreshResponse>.Ok(result), typeof(ApiResult<RefreshResponse>), cancellationToken);
     }
 
-    private static async Task LogoutAsync(HttpContext httpContext)
+    public async Task LogoutAsync(HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
         var request = await ParseRequestAsync<LogoutRequest>(httpContext, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(request.RefreshToken))
         {
-            var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
-            await authService.LogoutAsync(request.RefreshToken, cancellationToken);
+            await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
         }
 
         await WriteJsonResponse(httpContext, ApiResult<object?>.Ok(null), typeof(ApiResult<object?>), cancellationToken);
     }
 
-    private static async Task GetCurrentUserAsync(HttpContext httpContext)
+    public async Task GetCurrentUserAsync(HttpContext httpContext)
     {
         var cancellationToken = httpContext.RequestAborted;
         var subClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -96,8 +80,7 @@ public static class AuthEndpoints
             throw new DomainException(ApiCodes.Unauthorized, "未登录");
         }
 
-        var authService = httpContext.RequestServices.GetRequiredService<IAuthService>();
-        var result = await authService.GetCurrentUserAsync(userId, cancellationToken);
+        var result = await _authService.GetCurrentUserAsync(userId, cancellationToken);
         await WriteJsonResponse(httpContext, ApiResult<CurrentUserResponse>.Ok(result), typeof(ApiResult<CurrentUserResponse>), cancellationToken);
     }
 
@@ -117,4 +100,54 @@ public static class AuthEndpoints
         context.Response.ContentType = "application/json; charset=utf-8";
         await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
     }
+}
+
+/// <summary>
+/// Endpoint route registration — thin AOT-compatible RequestDelegate wrappers.
+/// </summary>
+public static class AuthEndpoints
+{
+    public static RouteGroupBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/v1/auth");
+
+        ((RouteHandlerBuilder)group.MapPost("/login", (RequestDelegate)HandleLogin))
+            .AllowAnonymous()
+            .Accepts<LoginRequest>("application/json")
+            .Produces<ApiResult<LoginResponse>>(StatusCodes.Status200OK)
+            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
+            .WithName("Auth_Login");
+
+        ((RouteHandlerBuilder)group.MapPost("/refresh", (RequestDelegate)HandleRefresh))
+            .AllowAnonymous()
+            .Accepts<RefreshRequest>("application/json")
+            .Produces<ApiResult<RefreshResponse>>(StatusCodes.Status200OK)
+            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
+            .WithName("Auth_Refresh");
+
+        ((RouteHandlerBuilder)group.MapPost("/logout", (RequestDelegate)HandleLogout))
+            .RequireAuthorization()
+            .Accepts<LogoutRequest>("application/json")
+            .Produces<ApiResult<object?>>(StatusCodes.Status200OK)
+            .Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest)
+            .WithName("Auth_Logout");
+
+        group.MapGet("/me", (RequestDelegate)HandleGetCurrentUser)
+            .RequireAuthorization()
+            .WithName("Auth_Me");
+
+        return group;
+    }
+
+    private static Task HandleLogin(HttpContext context) =>
+        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LoginAsync(context);
+
+    private static Task HandleRefresh(HttpContext context) =>
+        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().RefreshAsync(context);
+
+    private static Task HandleLogout(HttpContext context) =>
+        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LogoutAsync(context);
+
+    private static Task HandleGetCurrentUser(HttpContext context) =>
+        context.RequestServices.GetRequiredService<AuthEndpointHandlers>().GetCurrentUserAsync(context);
 }

@@ -143,72 +143,77 @@ run_backend() {
     echo "=== WeCMS M0-BE Backend Quality Gate ==="
   fi
 
-  if ! run_gate_step "[1/13] dotnet build -warnaserror" "[1/13] dotnet build -warnaserror" \
+  if ! run_gate_step "[1/15] dotnet build -warnaserror" "[1/15] dotnet build -warnaserror" \
     run_with_dir "$REPO_ROOT" dotnet build backend/WeCms.slnx -warnaserror --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[2/13] AOT exception baseline check (ADR-0006)" "[2/13] AOT exception baseline check (ADR-0006)" \
+  if ! run_gate_step "[2/15] AOT exception baseline check (ADR-0006)" "[2/15] AOT exception baseline check (ADR-0006)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-aot-exception-baseline.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[3/13] AOT self-warning suppression check (ADR-0006)" "[3/13] AOT self-warning suppression check (ADR-0006)" \
+  if ! run_gate_step "[3/15] AOT self-warning suppression check (ADR-0006)" "[3/15] AOT self-warning suppression check (ADR-0006)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-no-self-aot-suppression.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[4/13] dotnet publish (Native AOT)" "[4/13] dotnet publish (Native AOT)" \
+  if ! run_gate_step "[4/15] dotnet publish (Native AOT)" "[4/15] dotnet publish (Native AOT)" \
     run_with_dir "$REPO_ROOT" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[5/13] dotnet test" "[5/13] dotnet test" \
+  if ! run_gate_step "[5/15] dotnet test" "[5/15] dotnet test" \
     run_with_dir "$REPO_ROOT" dotnet test backend/WeCms.slnx --nologo --verbosity normal; then
     return 1
   fi
 
-  if ! run_gate_step "[6/13] OpenAPI export" "[6/13] OpenAPI export" \
+  if ! run_gate_step "[6/15] OpenAPI export" "[6/15] OpenAPI export" \
     run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi/wecms-api-v1.json --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[7/13] check-no-select-star" "[7/13] check-no-select-star" \
+  if ! run_gate_step "[7/15] OpenAPI auth request body check" "[7/15] OpenAPI auth request body check" \
+    run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-openapi-auth-request-bodies.sh"; then
+    return 1
+  fi
+
+  if ! run_gate_step "[8/15] check-no-select-star" "[8/15] check-no-select-star" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-select-star.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[8/13] check-no-dynamic-query" "[8/13] check-no-dynamic-query" \
+  if ! run_gate_step "[9/15] check-no-dynamic-query" "[9/15] check-no-dynamic-query" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-dynamic-query.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[9/13] check endpoint permissions (runtime architecture test)" "[9/13] check endpoint permissions (runtime architecture test)" \
+  if ! run_gate_step "[10/15] check endpoint permissions (runtime architecture test)" "[10/15] check endpoint permissions (runtime architecture test)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[10/13] check layer dependency matrix" "[10/13] check layer dependency matrix" \
+  if ! run_gate_step "[11/15] check layer dependency matrix" "[11/15] check layer dependency matrix" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-layer-dependency.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[11/13] check db boundary (architecture)" "[11/13] check db boundary (architecture)" \
+  if ! run_gate_step "[12/15] check db boundary (architecture)" "[12/15] check db boundary (architecture)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-db-boundary.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[12/13] check integrity - json context coverage" "[12/13] check integrity - json context coverage" \
+  if ! run_gate_step "[13/15] check integrity - json context coverage" "[13/15] check integrity - json context coverage" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[12/13] check integrity - no frontend change" "[12/13] check integrity - no frontend change" \
+  if ! run_gate_step "[14/15] check integrity - no frontend change" "[14/15] check integrity - no frontend change" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[13/13] check code-review" "[13/13] check code-review" \
+  if ! run_gate_step "[15/15] check code-review" "[15/15] check code-review" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-code-review.sh"; then
     return 1
   fi

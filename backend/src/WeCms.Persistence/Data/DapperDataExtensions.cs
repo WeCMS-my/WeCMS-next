@@ -1,9 +1,9 @@
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Auth;
+using WeCms.Persistence.Modules.System.Auth;
+using WeCms.Persistence.Modules.System.Permissions;
 using WeCms.Persistence.Migration;
-using WeCms.Persistence.System.Auth;
-using WeCms.Persistence.System.Permissions;
 using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
