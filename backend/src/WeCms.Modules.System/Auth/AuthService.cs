@@ -292,7 +292,17 @@ public sealed class AuthService : IAuthService
         if (storedToken is null || storedToken.RevokedAt is not null)
             return;
 
-        await _repository.RevokeRefreshTokenAsync(null, storedToken.Id, _clock.UtcNow, null, cancellationToken);
+        var revokedRows = await _repository.RevokeRefreshTokenAsync(
+            null,
+            storedToken.Id,
+            _clock.UtcNow,
+            null,
+            cancellationToken);
+
+        if (revokedRows != 1)
+        {
+            throw new DomainException(ApiCodes.SystemError, "登出令牌吊销失败");
+        }
     }
 
     public async Task<CurrentUserResponse> GetCurrentUserAsync(
@@ -311,6 +321,6 @@ public sealed class AuthService : IAuthService
             new MeUserInfo(user.Id, user.Username, user.DisplayName),
             roles,
             permissions,
-            Array.Empty<object>());
+            Array.Empty<CurrentUserMenuDto>());
     }
 }

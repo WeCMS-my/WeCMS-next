@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using WeCms.Api.Middleware;
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
 
@@ -13,7 +16,17 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
 
     public ExceptionMiddlewareTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Database:AutoMigrate"] = "false",
+                    ["ConnectionStrings:Default"] = "Server=127.0.0.1;Port=1;Database=wecms_dev;User=wecms;Password=wecms-dev-123;Connection Timeout=1;Default Command Timeout=1;"
+                });
+            });
+        }).CreateClient();
     }
 
     [Fact]
@@ -28,11 +41,12 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task DomainException_ShouldReturnBusinessError_WithBadRequest()
     {
-        var response = await _client.GetAsync("/test/throw-domain-exception");
+        var context = await InvokeExceptionMiddlewareAsync(_ =>
+            throw new DomainException(ApiCodes.BusinessError, "测试业务异常"));
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await ReadResponseBodyAsync(context);
         Assert.Equal(2001, body.GetProperty("code").GetInt32());
         Assert.Equal("测试业务异常", body.GetProperty("msg").GetString());
         Assert.Equal(JsonValueKind.Null, body.GetProperty("data").ValueKind);
@@ -42,11 +56,12 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
     [Fact]
     public async Task UnhandledException_ShouldReturn500_WithGenericMessage()
     {
-        var response = await _client.GetAsync("/test/throw-exception");
+        var context = await InvokeExceptionMiddlewareAsync(_ =>
+            throw new InvalidOperationException("测试未处理异常"));
 
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await ReadResponseBodyAsync(context);
         Assert.Equal(5000, body.GetProperty("code").GetInt32());
         Assert.Equal("系统内部错误", body.GetProperty("msg").GetString());
         // Must NOT contain original exception message or stack trace
@@ -60,19 +75,21 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
     public async Task AllResponses_ShouldContain_TraceIdHeader()
     {
         using var pingResponse = await _client.GetAsync("/api/v1/system/ping");
-        using var errorResponse = await _client.GetAsync("/test/throw-domain-exception");
-        using var serverErrorResponse = await _client.GetAsync("/test/throw-exception");
+        using var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(string.Empty, string.Empty));
+        using var refreshResponse = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshRequest(string.Empty));
 
         Assert.Contains("X-Trace-Id", pingResponse.Headers.Select(h => h.Key));
-        Assert.Contains("X-Trace-Id", errorResponse.Headers.Select(h => h.Key));
-        Assert.Contains("X-Trace-Id", serverErrorResponse.Headers.Select(h => h.Key));
+        Assert.Contains("X-Trace-Id", loginResponse.Headers.Select(h => h.Key));
+        Assert.Contains("X-Trace-Id", refreshResponse.Headers.Select(h => h.Key));
     }
 
     [Fact]
     public async Task ErrorResponse_ShouldNotContain_StackTrace()
     {
-        var response = await _client.GetAsync("/test/throw-exception");
-        var rawJson = await response.Content.ReadAsStringAsync();
+        var context = await InvokeExceptionMiddlewareAsync(_ =>
+            throw new InvalidOperationException("测试未处理异常"));
+
+        var rawJson = await ReadRawResponseBodyAsync(context);
 
         Assert.DoesNotContain("   at ", rawJson);
         Assert.DoesNotContain("stack", rawJson.ToLowerInvariant());
@@ -106,5 +123,33 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
         var response = await _client.GetAsync("/api/v1/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private static async Task<DefaultHttpContext> InvokeExceptionMiddlewareAsync(RequestDelegate next)
+    {
+        var context = new DefaultHttpContext
+        {
+            TraceIdentifier = "trace-test",
+        };
+        context.Response.Body = new MemoryStream();
+
+        var middleware = new ExceptionMiddleware(next);
+        await middleware.InvokeAsync(context);
+
+        return context;
+    }
+
+    private static async Task<JsonElement> ReadResponseBodyAsync(HttpContext context)
+    {
+        var rawJson = await ReadRawResponseBodyAsync(context);
+        using var document = JsonDocument.Parse(rawJson);
+        return document.RootElement.Clone();
+    }
+
+    private static async Task<string> ReadRawResponseBodyAsync(HttpContext context)
+    {
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+        return await reader.ReadToEndAsync();
     }
 }

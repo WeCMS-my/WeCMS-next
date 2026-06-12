@@ -269,6 +269,61 @@ public sealed class AuthServiceTests
         Assert.Equal(0, unitOfWork.CommitCount);
     }
 
+    [Fact]
+    public async Task LogoutAsync_WhenTokenExistsAndRevokeRowsIsNotOne_ShouldThrowSystemError()
+    {
+        var repository = new TrackingAuthRepository();
+        var service = CreateService(repository);
+        repository.GetRefreshTokenByHashResult = new RefreshTokenRow(
+            11,
+            1,
+            "hashed:refresh-token",
+            "family-id",
+            new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero).AddHours(1),
+            null,
+            null);
+        repository.RevokeRefreshTokenResult = 0;
+
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.LogoutAsync("refresh-token", default));
+
+        Assert.Equal(ApiCodes.SystemError, ex.Code);
+        Assert.Equal("登出令牌吊销失败", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetCurrentUserAsync_ShouldReturnTypedEmptyMenus_WhenNoMenusExist()
+    {
+        var repository = new TrackingAuthRepository();
+        var service = CreateService(repository);
+        repository.UserByIdResult = new UserRow(
+            1,
+            "admin",
+            "Admin",
+            "hash-admin",
+            1,
+            "stamp",
+            1);
+
+        var response = await service.GetCurrentUserAsync(1, default);
+
+        Assert.Empty(response.Menus);
+        Assert.IsAssignableFrom<IReadOnlyList<CurrentUserMenuDto>>(response.Menus);
+    }
+
+    private static AuthService CreateService(TrackingAuthRepository repository)
+    {
+        return new AuthService(
+            repository,
+            new FakePasswordHasher(),
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
+    }
+
     private sealed class TrackingAuthRepository : IAuthRepository
     {
         public readonly Dictionary<string, IDbTransactionFacade?> Transactions = new();

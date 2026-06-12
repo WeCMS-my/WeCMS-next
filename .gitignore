@@ -21,4 +21,6 @@
 **/node_modules/
 
 # Build artifacts (generated)
-artifacts/
+artifacts/*
+!artifacts/openapi/
+!artifacts/openapi/wecms-api-v1.json

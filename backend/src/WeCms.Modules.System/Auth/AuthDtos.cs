@@ -14,8 +14,16 @@ public sealed record LogoutRequest(string RefreshToken);
 
 public sealed record MeUserInfo(long Id, string Username, string DisplayName);
 
+public sealed record CurrentUserMenuDto(
+    long Id,
+    string Code,
+    string Name,
+    string Component,
+    string RoutePath,
+    IReadOnlyList<CurrentUserMenuDto> Children);
+
 public sealed record CurrentUserResponse(
     MeUserInfo User,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
-    IReadOnlyList<object> Menus);
+    IReadOnlyList<CurrentUserMenuDto> Menus);

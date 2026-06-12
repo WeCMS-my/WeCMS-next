@@ -18,6 +18,17 @@ assert_equals() {
   fi
 }
 
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local message="$3"
+
+  if [[ "$haystack" != *"$needle"* ]]; then
+    echo "${message}: expected to find '${needle}' in '${haystack}'" >&2
+    exit 1
+  fi
+}
+
 assert_resolved_rid() {
   local uname_s="$1"
   local uname_m="$2"
@@ -51,5 +62,55 @@ if WECMS_AOT_PUBLISH_RID="" WECMS_UNAME_S_OVERRIDE="Plan9" WECMS_UNAME_M_OVERRID
   echo "Unsupported host should fail RID detection" >&2
   exit 1
 fi
+
+captured_commands=()
+captured_rm_targets=()
+
+rm() {
+  captured_rm_targets+=("$(join_command "$@")")
+  return 0
+}
+
+run_gate_step() {
+  local step_id="$1"
+  local title="$2"
+  shift 2
+  captured_commands+=("$step_id|$(join_command "$@")")
+  return 0
+}
+
+WECMS_AOT_PUBLISH_RID="osx-arm64"
+WECMS_NUGET_HTTP_CACHE_PATH="/tmp/wecms-test-cache"
+nuget_http_cache_path="$WECMS_NUGET_HTTP_CACHE_PATH"
+run_backend >/dev/null
+
+captured_command_blob="$(printf '%s\n' "${captured_commands[@]}")"
+assert_equals "-f $REPO_ROOT/artifacts/openapi/wecms-api-v1.json" "${captured_rm_targets[0]}" \
+  "Regression harness should only intercept the OpenAPI artifact cleanup path"
+assert_contains "$captured_command_blob" '[4/15] dotnet publish (Native AOT)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true --nologo' \
+  "Native AOT publish step should use cache-aware dotnet wrapper"
+assert_contains "$captured_command_blob" '[5/15] dotnet test (Unit)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal' \
+  "Unit test step should use cache-aware dotnet wrapper"
+assert_contains "$captured_command_blob" '[6/16] OpenAPI export|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi '"$REPO_ROOT"'/artifacts/openapi/wecms-api-v1.json --nologo' \
+  "OpenAPI export step should use cache-aware dotnet wrapper"
+assert_contains "$captured_command_blob" '[8/16] dotnet test (Architecture)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal' \
+  "Architecture test step should use cache-aware dotnet wrapper"
+
+dotnet_invocations=()
+
+dotnet() {
+  dotnet_invocations+=("cache=${NUGET_HTTP_CACHE_PATH:-}<args>$(join_command "$@")")
+}
+
+run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo
+run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo
+run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true --nologo
+
+assert_equals "cache=/tmp/wecms-test-cache<args>test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo" "${dotnet_invocations[0]}" \
+  "Cache wrapper should pass NUGET_HTTP_CACHE_PATH to dotnet test"
+assert_equals "cache=/tmp/wecms-test-cache<args>run --project backend/src/WeCms.Api -- --export-openapi $REPO_ROOT/artifacts/openapi/wecms-api-v1.json --nologo" "${dotnet_invocations[1]}" \
+  "Cache wrapper should pass NUGET_HTTP_CACHE_PATH to dotnet run"
+assert_equals "cache=/tmp/wecms-test-cache<args>publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true --nologo" "${dotnet_invocations[2]}" \
+  "Cache wrapper should pass NUGET_HTTP_CACHE_PATH to dotnet publish"
 
 echo "quality-gate-backend RID detection tests passed."

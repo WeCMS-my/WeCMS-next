@@ -65,6 +65,10 @@ run_with_dir() {
   return $rc
 }
 
+run_dotnet_with_cache() {
+  NUGET_HTTP_CACHE_PATH="$nuget_http_cache_path" dotnet "$@"
+}
+
 get_uname_s() {
   printf '%s\n' "${WECMS_UNAME_S_OVERRIDE:-$(uname -s)}"
 }
@@ -230,12 +234,12 @@ run_backend() {
   fi
 
   if ! run_gate_step "[4/15] dotnet publish (Native AOT)" "[4/15] dotnet publish (Native AOT)" \
-    run_with_dir "$REPO_ROOT" env NUGET_HTTP_CACHE_PATH="$nuget_http_cache_path" dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
+    run_with_dir "$REPO_ROOT" run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
     return 1
   fi
 
   if ! run_gate_step "[5/15] dotnet test (Unit)" "[5/15] dotnet test (Unit)" \
-    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal; then
+    run_with_dir "$REPO_ROOT" run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal; then
     return 1
   fi
 
@@ -243,7 +247,7 @@ run_backend() {
   rm -f "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json"
 
   if ! run_gate_step "[6/16] OpenAPI export" "[6/16] OpenAPI export" \
-    run_with_dir "$REPO_ROOT" dotnet run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
+    run_with_dir "$REPO_ROOT" run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
     return 1
   fi
 
@@ -253,7 +257,7 @@ run_backend() {
   fi
 
   if ! run_gate_step "[8/16] dotnet test (Architecture)" "[8/16] dotnet test (Architecture)" \
-    run_with_dir "$REPO_ROOT" dotnet test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
+    run_with_dir "$REPO_ROOT" run_dotnet_with_cache test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
     return 1
   fi
 

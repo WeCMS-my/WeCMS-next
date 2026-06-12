@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using WeCms.Api.Extensions;
+using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
 using WeCms.Shared.Security;
@@ -27,6 +28,8 @@ public sealed class PermissionMetadataScanTests
         builder.Services.AddSingleton<IPermissionChecker>(new AlwaysAllowPermissionChecker());
         builder.Services.AddSingleton<PermissionEndpointFilter>();
         builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddScoped<AuthEndpointHandlers>();
+        builder.Services.AddScoped<SystemEndpointHandlers>();
 
         builder.Services.AddAuthentication("Bearer")
             .AddJwtBearer(options =>
