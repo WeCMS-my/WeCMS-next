@@ -10,29 +10,16 @@ namespace WeCms.Tests.Integration.Auth;
 
 public sealed class AuthLogoutTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly HttpClient? _client;
-    private readonly string? _skipReason;
+    private readonly HttpClient _client;
 
     public AuthLogoutTests(WebApplicationFactory<Program> factory)
     {
-        try
-        {
-            _client = factory.CreateClient();
-        }
-        catch (Exception ex)
-        {
-            _skipReason = ex.Message;
-        }
+        _client = factory.CreateClient();
     }
 
     [Fact]
     public async Task Logout_WithEmptyBody_ShouldReturnBadRequest()
     {
-        if (_client is null || _skipReason is not null)
-        {
-            return;
-        }
-
         var client = _client;
         var login = await LoginAsync(client);
         Assert.NotNull(login.Data);
@@ -49,11 +36,6 @@ public sealed class AuthLogoutTests : IClassFixture<WebApplicationFactory<Progra
     [Fact]
     public async Task Logout_WithEmptyRefreshToken_ShouldReturnBadRequest()
     {
-        if (_client is null || _skipReason is not null)
-        {
-            return;
-        }
-
         var client = _client;
         var login = await LoginAsync(client);
         Assert.NotNull(login.Data);
@@ -72,11 +54,6 @@ public sealed class AuthLogoutTests : IClassFixture<WebApplicationFactory<Progra
     [Fact]
     public async Task Logout_ShouldReturnUnauthorized_WhenNotLoggedIn()
     {
-        if (_client is null || _skipReason is not null)
-        {
-            return;
-        }
-
         var response = await _client.PostAsJsonAsync("/api/v1/auth/logout", new LogoutRequest("refresh-token"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);

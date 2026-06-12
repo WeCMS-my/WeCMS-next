@@ -8,28 +8,16 @@ namespace WeCms.Tests.Integration.Auth;
 
 public sealed class AuthRefreshConcurrencyTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly HttpClient? _client;
-    private readonly string? _skipReason;
+    private readonly HttpClient _client;
 
     public AuthRefreshConcurrencyTests(WebApplicationFactory<Program> factory)
     {
-        try
-        {
-            _client = factory.CreateClient();
-        }
-        catch (Exception ex)
-        {
-            _skipReason = ex.Message;
-        }
+        _client = factory.CreateClient();
     }
 
     [Fact]
     public async Task Refresh_WithSameTokenConcurrently_ShouldAllowOnlyOneSuccess()
     {
-        if (_client is null || _skipReason is not null)
-        {
-            return;
-        }
         var client = _client;
 
         var loginResponse = await LoginAsync("admin", "Admin@123");
@@ -71,13 +59,7 @@ public sealed class AuthRefreshConcurrencyTests : IClassFixture<WebApplicationFa
 
     private async Task<ApiResult<LoginResponse>> LoginAsync(string username, string password)
     {
-        var client = _client;
-        if (client is null)
-        {
-            throw new InvalidOperationException("测试客户端未初始化。");
-        }
-
-        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(username, password));
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(username, password));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await ReadApiResultAsync<LoginResponse>(response);
     }

@@ -218,85 +218,90 @@ run_backend() {
 
   mkdir -p "$nuget_http_cache_path"
 
-  if ! run_gate_step "[1/15] dotnet build -warnaserror" "[1/15] dotnet build -warnaserror" \
+  if ! run_gate_step "[1/17] dotnet build -warnaserror" "[1/17] dotnet build -warnaserror" \
     run_with_dir "$REPO_ROOT" dotnet build backend/WeCms.slnx -warnaserror --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[2/15] AOT exception baseline check (ADR-0006)" "[2/15] AOT exception baseline check (ADR-0006)" \
+  if ! run_gate_step "[2/17] AOT exception baseline check (ADR-0006)" "[2/17] AOT exception baseline check (ADR-0006)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-aot-exception-baseline.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[3/15] AOT self-warning suppression check (ADR-0006)" "[3/15] AOT self-warning suppression check (ADR-0006)" \
+  if ! run_gate_step "[3/17] AOT self-warning suppression check (ADR-0006)" "[3/17] AOT self-warning suppression check (ADR-0006)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-no-self-aot-suppression.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[4/15] dotnet publish (Native AOT)" "[4/15] dotnet publish (Native AOT)" \
+  if ! run_gate_step "[4/17] dotnet publish (Native AOT)" "[4/17] dotnet publish (Native AOT)" \
     run_with_dir "$REPO_ROOT" run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r "$resolved_publish_rid" /p:PublishAot=true --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[5/15] dotnet test (Unit)" "[5/15] dotnet test (Unit)" \
+  if ! run_gate_step "[5/17] dotnet test (Unit)" "[5/17] dotnet test (Unit)" \
     run_with_dir "$REPO_ROOT" run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal; then
+    return 1
+  fi
+
+  if ! run_gate_step "[6/17] dotnet test (Integration)" "[6/17] dotnet test (Integration)" \
+    run_with_dir "$REPO_ROOT" run_dotnet_with_cache test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --verbosity normal; then
     return 1
   fi
 
   # P0-1: 先删除旧 artifact，强制验证 export 能从零生成
   rm -f "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json"
 
-  if ! run_gate_step "[6/16] OpenAPI export" "[6/16] OpenAPI export" \
+  if ! run_gate_step "[7/17] OpenAPI export" "[7/17] OpenAPI export" \
     run_with_dir "$REPO_ROOT" run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi "$REPO_ROOT/artifacts/openapi/wecms-api-v1.json" --nologo; then
     return 1
   fi
 
-  if ! run_gate_step "[7/16] OpenAPI auth request body check" "[7/16] OpenAPI auth request body check" \
+  if ! run_gate_step "[8/17] OpenAPI auth request body check" "[8/17] OpenAPI auth request body check" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-openapi-auth-request-bodies.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[8/16] dotnet test (Architecture)" "[8/16] dotnet test (Architecture)" \
+  if ! run_gate_step "[9/17] dotnet test (Architecture)" "[9/17] dotnet test (Architecture)" \
     run_with_dir "$REPO_ROOT" run_dotnet_with_cache test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal; then
     return 1
   fi
 
-  if ! run_gate_step "[9/16] check-no-select-star" "[9/16] check-no-select-star" \
+  if ! run_gate_step "[10/17] check-no-select-star" "[10/17] check-no-select-star" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-select-star.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[10/16] check-no-dynamic-query" "[10/16] check-no-dynamic-query" \
+  if ! run_gate_step "[11/17] check-no-dynamic-query" "[11/17] check-no-dynamic-query" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-dynamic-query.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[11/16] check endpoint permissions (runtime architecture test)" "[11/16] check endpoint permissions (runtime architecture test)" \
+  if ! run_gate_step "[12/17] check endpoint permissions (runtime architecture test)" "[12/17] check endpoint permissions (runtime architecture test)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-endpoint-permissions.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[12/16] check layer dependency matrix" "[12/16] check layer dependency matrix" \
+  if ! run_gate_step "[13/17] check layer dependency matrix" "[13/17] check layer dependency matrix" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-layer-dependency.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[13/16] check db boundary (architecture)" "[13/16] check db boundary (architecture)" \
+  if ! run_gate_step "[14/17] check db boundary (architecture)" "[14/17] check db boundary (architecture)" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-db-boundary.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[14/16] check integrity - json context coverage" "[14/16] check integrity - json context coverage" \
+  if ! run_gate_step "[15/17] check integrity - json context coverage" "[15/17] check integrity - json context coverage" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-json-context-coverage.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[15/16] check integrity - no frontend change" "[15/16] check integrity - no frontend change" \
+  if ! run_gate_step "[16/17] check integrity - no frontend change" "[16/17] check integrity - no frontend change" \
     run_with_dir "$REPO_ROOT" "$SCRIPT_DIR/checks/check-no-frontend-change.sh"; then
     return 1
   fi
 
-  if ! run_gate_step "[16/16] check code-review" "[16/16] check code-review" \
+  if ! run_gate_step "[17/17] check code-review" "[17/17] check code-review" \
     run_with_dir "$REPO_ROOT" bash "$SCRIPT_DIR/checks/check-code-review.sh"; then
     return 1
   fi

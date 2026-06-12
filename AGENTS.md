@@ -83,7 +83,7 @@ code_review.md
 3. **构造参数必须是抽象。** 业务模块构造函数参数不得出现具体实现类型；只允许接口、可序列化配置、纯参数对象。
 4. **单一职责。** 单类不得同时承担两种以上职责，例如“采集 + 处理 + 输出”、“鉴权 + SQL + 审计”、“文件解析 + 存储 + 业务入库”。出现复合职责时必须拆分为独立类。
 5. **不可变模型。** 跨阶段传递的数据模型、请求/响应 DTO、领域快照、迁移映射结果应优先使用 `record`、只读属性或不可变集合。禁止在处理管线中途隐式修改共享状态。
-6. **依赖倒置。** 业务模块依赖抽象，不依赖具体基础设施实现。`System/Cms` 模块需要数据库、文件、缓存、邮件、时钟、存储时，应依赖 `WeCms.Shared` 或模块内抽象，由 `WeCms.Infrastructure` 提供实现。
+6. **依赖倒置。** 业务模块依赖抽象，不依赖具体基础设施实现。`System/Cms` 模块需要数据库时，应依赖 `WeCms.Shared` 或模块内抽象，由 `WeCms.Persistence` 提供数据访问实现；需要文件、缓存、邮件、时钟、存储等非数据库能力时，应依赖 `WeCms.Shared` 或模块内抽象，由 `WeCms.Infrastructure` 提供实现。
 7. **可测试性优先。** 如果某段逻辑难以测试，必须先调整设计。禁止以“难测”为由免测。
 
 典型接口示例：
@@ -117,11 +117,17 @@ public interface IRefreshTokenHasher
 WeCms.Api
   -> WeCms.Modules.System / WeCms.Modules.Cms
   -> WeCms.Infrastructure
+  -> WeCms.Persistence
   -> WeCms.Shared
 
 WeCms.Modules.System / WeCms.Modules.Cms
   -> WeCms.Shared
   -> 必要时依赖模块内抽象
+
+WeCms.Persistence
+  -> WeCms.Shared
+  -> WeCms.Modules.System / WeCms.Modules.Cms（仅实现模块暴露的持久化抽象）
+  -> Dapper / Dapper.AOT / MySqlConnector
 
 WeCms.Infrastructure
   -> WeCms.Shared
@@ -133,12 +139,13 @@ WeCms.Shared
 
 2. `WeCms.Shared` 不得引用其它生产工程。
 3. `WeCms.Infrastructure` 不得反向引用 `WeCms.Api`、`WeCms.Modules.System`、`WeCms.Modules.Cms`。
-4. `WeCms.Modules.System` 与 `WeCms.Modules.Cms` 不得互相直接引用内部实现。跨模块交互必须通过 `WeCms.Shared` 契约、显式 Application Service 或 API 边界。
-5. 测试工程可以引用被测生产工程；`InternalsVisibleTo` 仅允许暴露给同名或明确对应的 `*.Tests` 工程，禁止暴露给其它生产工程。
-6. **单文件 ≤ 600 行。** 超过 600 行的 `.cs`、`.ts`、`.vue` 文件必须拆分。生成文件、迁移 SQL、OpenAPI 产物例外，但不得人工维护超大业务文件。
-7. **命名空间与目录一致。** C# 命名空间必须匹配目录结构，Roslyn `IDE0130` 应视为 error。
-8. **横切关注点集中。** `Clock`、`IdGenerator`、`PermissionChecker`、`UrlRedactor`、`AuditContext`、`ErrorCodes`、`DiagnosticCode`、`SlugHelper` 等通用能力应沉淀到 `WeCms.Shared` 或 `WeCms.Infrastructure`，不得在业务模块内重复实现。
-9. **慎引第三方包。** 新增 NuGet / npm 依赖必须在 PR 描述中说明：为什么不能内置实现、AOT 兼容性、License、维护状态、替代方案。
+4. `WeCms.Persistence` 是适配器层 / 数据访问实现层，不是传统 DAL；只允许实现模块或 `WeCms.Shared` 暴露的持久化抽象，不得承载业务规则、权限判断、审计编排或 HTTP 逻辑。
+5. `WeCms.Modules.System` 与 `WeCms.Modules.Cms` 不得互相直接引用内部实现。跨模块交互必须通过 `WeCms.Shared` 契约、显式 Application Service 或 API 边界。
+6. 测试工程可以引用被测生产工程；`InternalsVisibleTo` 仅允许暴露给同名或明确对应的 `*.Tests` 工程，禁止暴露给其它生产工程。
+7. **单文件 ≤ 600 行。** 超过 600 行的 `.cs`、`.ts`、`.vue` 文件必须拆分。生成文件、迁移 SQL、OpenAPI 产物例外，但不得人工维护超大业务文件。
+8. **命名空间与目录一致。** C# 命名空间必须匹配目录结构，Roslyn `IDE0130` 应视为 error。
+9. **横切关注点集中。** `Clock`、`IdGenerator`、`PermissionChecker`、`UrlRedactor`、`AuditContext`、`ErrorCodes`、`DiagnosticCode`、`SlugHelper` 等通用能力应沉淀到 `WeCms.Shared` 或 `WeCms.Infrastructure`，不得在业务模块内重复实现。
+10. **慎引第三方包。** 新增 NuGet / npm 依赖必须在 PR 描述中说明：为什么不能内置实现、AOT 兼容性、License、维护状态、替代方案。
 
 #### 3.0.3 拒绝隐式兼容与隐藏兜底
 
@@ -386,12 +393,16 @@ backend/
       CurrentUser.cs
 
     WeCms.Infrastructure/
-      Db/
       Cache/
       Security/
       Storage/
       Mail/
       Jobs/
+
+    WeCms.Persistence/
+      Data/
+      Migrations/
+      Modules/
 
     WeCms.Modules.System/
       Auth/
@@ -419,12 +430,13 @@ backend/
 
 1. `WeCms.Api` 只负责 Host、Endpoint 显式注册、中间件、JSON Source Generator 注册。
 2. `WeCms.Shared` 放通用 DTO、结果模型、错误码、权限码、基础抽象。
-3. `WeCms.Infrastructure` 放数据库、缓存、存储、邮件、任务、加密等基础设施实现。
-4. `WeCms.Modules.System` 放系统管理模块。
-5. `WeCms.Modules.Cms` 放 CMS 内容模块。
-6. 不得把业务 SQL 写入 Endpoint。
-7. 不得让 Repository 处理 HTTP、权限、审计。
-8. 不得跨模块随意复用内部 DTO。
+3. `WeCms.Infrastructure` 放缓存、存储、邮件、任务、加密等非数据库基础设施实现。
+4. `WeCms.Persistence` 放数据库连接、migration runner、Dapper/Dapper.AOT repository、权限检查器等数据访问实现；它是适配器层，不是传统 DAL。
+5. `WeCms.Modules.System` 放系统管理模块。
+6. `WeCms.Modules.Cms` 放 CMS 内容模块。
+7. 不得把业务 SQL 写入 Endpoint。
+8. 不得让 Repository 处理 HTTP、权限、审计。
+9. 不得跨模块随意复用内部 DTO。
 
 ---
 

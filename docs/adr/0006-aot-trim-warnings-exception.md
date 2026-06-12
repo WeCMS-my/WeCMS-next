@@ -36,7 +36,7 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 ## 决策
 
-1. **自有代码零容忍**：WeCMS 所有项目（`WeCms.Shared`、`WeCms.Infrastructure`、`WeCms.Modules.System`、`WeCms.Modules.Cms`）保持 `IsAotCompatible=true`，不屏蔽 IL2026/IL3050。
+1. **自有代码零容忍**：WeCMS 所有项目（`WeCms.Shared`、`WeCms.Infrastructure`、`WeCms.Persistence`、`WeCms.Modules.System`、`WeCms.Modules.Cms`）保持 `IsAotCompatible=true`，不屏蔽 IL2026/IL3050。
 2. **平台误报处置闭环**：`MapGet` 调用不再使用 `Delegate` 重载，并保留 `warnaserror` 直接可见性；不依赖局部或项目级抑制。
 3. **第三方库例外**：仅在 publish 项目 `WeCms.Api.csproj` 中，对 Dapper assembly 的 IL2104/IL3053 进行针对性抑制。
 
@@ -92,8 +92,8 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 ### 重新评估触发条件（硬规则）
 
-1. `backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj` 或 `backend/src/WeCms.Modules.System/WeCms.Modules.System.csproj` 中 `Dapper` 版本变更。
-2. `backend/src/WeCms.Infrastructure/WeCms.Infrastructure.csproj` 中 `Dapper.AOT` 版本变更。
+1. `backend/src/WeCms.Persistence/WeCms.Persistence.csproj` 中 `Dapper` 版本变更。
+2. `backend/src/WeCms.Persistence/WeCms.Persistence.csproj` 中 `Dapper.AOT` 版本变更。
 3. CI 再次出现非自有代码之外的新 IL2104/IL3053/IL2026/IL3050 变化。
 
 ### 执行机制
@@ -111,5 +111,6 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 - `WeCms.Api.csproj` 新增 Dapper assembly 的 IL2104/IL3053 抑制。
 - Endpoint 文件不再使用 `[UnconditionalSuppressMessage]`，保持警告可见性。
-- 其他项目（Shared、Infrastructure、Modules）不受影响，保持零抑制。
+- `WeCms.Persistence` 是 Dapper/Dapper.AOT/MySQL 的数据访问实现适配器层，不是传统 DAL；业务规则和事务编排仍由模块服务层通过抽象完成。
+- 其他项目（Shared、Infrastructure、Persistence、Modules）不受影响，保持零抑制。
 - AOT publish 结果受工具链约束影响；待本地/CI 完整环境安装符号剥离工具后复核。

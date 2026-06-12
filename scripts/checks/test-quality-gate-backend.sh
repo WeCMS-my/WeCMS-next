@@ -87,13 +87,15 @@ run_backend >/dev/null
 captured_command_blob="$(printf '%s\n' "${captured_commands[@]}")"
 assert_equals "-f $REPO_ROOT/artifacts/openapi/wecms-api-v1.json" "${captured_rm_targets[0]}" \
   "Regression harness should only intercept the OpenAPI artifact cleanup path"
-assert_contains "$captured_command_blob" '[4/15] dotnet publish (Native AOT)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true --nologo' \
+assert_contains "$captured_command_blob" '[4/17] dotnet publish (Native AOT)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true --nologo' \
   "Native AOT publish step should use cache-aware dotnet wrapper"
-assert_contains "$captured_command_blob" '[5/15] dotnet test (Unit)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal' \
+assert_contains "$captured_command_blob" '[5/17] dotnet test (Unit)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --verbosity normal' \
   "Unit test step should use cache-aware dotnet wrapper"
-assert_contains "$captured_command_blob" '[6/16] OpenAPI export|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi '"$REPO_ROOT"'/artifacts/openapi/wecms-api-v1.json --nologo' \
+assert_contains "$captured_command_blob" '[6/17] dotnet test (Integration)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --verbosity normal' \
+  "Integration test step should use cache-aware dotnet wrapper"
+assert_contains "$captured_command_blob" '[7/17] OpenAPI export|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache run --project backend/src/WeCms.Api -- --export-openapi '"$REPO_ROOT"'/artifacts/openapi/wecms-api-v1.json --nologo' \
   "OpenAPI export step should use cache-aware dotnet wrapper"
-assert_contains "$captured_command_blob" '[8/16] dotnet test (Architecture)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal' \
+assert_contains "$captured_command_blob" '[9/17] dotnet test (Architecture)|run_with_dir '"$REPO_ROOT"' run_dotnet_with_cache test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --verbosity normal' \
   "Architecture test step should use cache-aware dotnet wrapper"
 
 dotnet_invocations=()

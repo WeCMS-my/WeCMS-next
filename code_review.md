@@ -104,6 +104,8 @@
 [ ] 是否符合 WeCMS 依赖矩阵
 [ ] WeCms.Shared 是否没有引用其它生产工程
 [ ] WeCms.Infrastructure 是否没有反向引用 Api / Modules
+[ ] WeCms.Persistence 是否只作为适配器层 / 数据访问实现层存在，而不是承载业务规则的传统 DAL
+[ ] WeCms.Persistence 是否只实现模块或 Shared 暴露的持久化抽象
 [ ] System / Cms 模块是否没有互相引用内部实现
 [ ] InternalsVisibleTo 是否仅暴露给对应测试工程
 [ ] 单个手写代码文件是否 ≤ 600 行
@@ -116,6 +118,7 @@
 
 ```text
 - 跨工程引用越过依赖矩阵。
+- WeCms.Persistence 承载业务规则、权限编排、审计编排或 HTTP 逻辑。
 - 生产工程之间滥用 InternalsVisibleTo。
 - 新增第三方依赖无说明且影响 AOT / 安全 / 体积。
 ```
@@ -129,6 +132,7 @@
 [ ] DB-BOUNDARY-004：WeCms.Modules.* 不能直接依赖持久化实现，必须只依赖 Repository 抽象。
 [ ] DB-BOUNDARY-005：WeCms.Modules.* 仅通过 IUnitOfWork 进行事务控制，不直接使用 DbConnection/DbTransaction。
 [ ] DB-BOUNDARY-006：数据库边界突破默认 BLOCK。
+[ ] WeCms.Persistence 是 Dapper/Dapper.AOT/MySQL 适配器层，不是传统 DAL；Repository 只负责 SQL 和数据映射。
 ```
 
 ---
@@ -272,12 +276,13 @@ PR 打开评审前必须确认：
 ```text
 [ ] Endpoint 是否只处理 HTTP 绑定和返回
 [ ] Service / UseCase 是否负责业务规则
-[ ] Repository 是否只负责 SQL
+[ ] WeCms.Persistence 中的 Repository 是否只负责 SQL 和数据映射
 [ ] 事务是否由 Service / UseCase 控制
 [ ] 是否没有在 Endpoint 中直接写 SQL
 [ ] 是否没有在 Repository 中处理 HTTP/权限/审计
 [ ] DTO 是否没有跨模块随意复用
-[ ] 基础设施实现是否没有反向依赖业务模块
+[ ] WeCms.Infrastructure 是否没有反向依赖业务模块
+[ ] WeCms.Persistence 是否仅为数据访问适配器实现，不把自己变成业务层或传统 DAL
 ```
 
 风险提示：

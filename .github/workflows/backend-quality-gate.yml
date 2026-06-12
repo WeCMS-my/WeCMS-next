@@ -25,6 +25,21 @@ jobs:
   quality-gate:
     name: Backend Quality Gate
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: wecms-root-123
+          MYSQL_DATABASE: wecms_dev
+          MYSQL_USER: wecms
+          MYSQL_PASSWORD: wecms-dev-123
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pwecms-root-123"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Checkout
@@ -56,12 +71,9 @@ jobs:
       - name: Run backend quality gate (all)
         run: bash scripts/quality-gate-backend.sh all
         env:
-          # Dummy — allows DbConnectionFactory constructor to succeed
-          # without a real MySQL connection. The OpenAPI export path and
-          # Architecture/Unit tests never open a DB connection, they only
-          # read the config string to construct services.
           ConnectionStrings__Default: >-
-            Server=127.0.0.1;Port=3306;Database=none;User=none;Password=none;
+            Server=127.0.0.1;Port=3306;Database=wecms_dev;User=wecms;Password=wecms-dev-123;Pooling=true;MinimumPoolSize=1;MaximumPoolSize=20;ConnectionIdleTimeout=300;DefaultCommandTimeout=30;
+          Database__AutoMigrate: 'true'
 
       # ── Summary ──
       - name: Quality Gate Summary

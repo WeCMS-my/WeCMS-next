@@ -15,7 +15,7 @@ M0-BE 只交付一个可信后端底座，不操作 SoybeanAdmin 前端代码。
 | 层 | 技术 |
 |---|---|
 | 后端 | ASP.NET Core Minimal APIs / .NET 10 / Native AOT Only |
-| 数据访问 | Dapper / Dapper.AOT / MySQL |
+| 数据访问实现 | WeCms.Persistence / Dapper / Dapper.AOT / MySQL |
 | 前端 | SoybeanAdmin（后移，M0-BE 不开发） |
 | CI/CD | GitHub Actions |
 
@@ -78,19 +78,25 @@ bash scripts/quality-gate-backend.sh all
 
 CI（`backend-quality-gate.yml`）已对齐为 `all`。
 
-quality gate（backend）包含 11 步检查：
+quality gate（backend）包含 17 步检查：
 
 1. `dotnet build -warnaserror`
 2. AOT exception baseline check（ADR-0006）
 3. AOT self-warning suppression check（ADR-0006）
 4. `dotnet publish (Native AOT)`
-5. `dotnet test`
-6. OpenAPI export
-7. 无 `SELECT *` 检查
-8. 无 `Query<dynamic>` 检查
-9. Endpoint 权限元数据扫描
-10. DB boundary 架构检查
-11. 完整性检查（JSON Context、前端变更）
+5. `dotnet test (Unit)`
+6. `dotnet test (Integration)`
+7. OpenAPI export
+8. OpenAPI auth request body check
+9. `dotnet test (Architecture)`
+10. 无 `SELECT *` 检查
+11. 无 `Query<dynamic>` 检查
+12. Endpoint 权限元数据扫描（runtime architecture test）
+13. Layer dependency matrix 检查
+14. DB boundary 架构检查
+15. JSON Context 覆盖完整性检查
+16. 无前端变更完整性检查
+17. code-review 静态规则检查
 
 ## 项目结构
 
@@ -99,7 +105,8 @@ backend/
   src/
     WeCms.Api/              # Host 层
     WeCms.Shared/            # 共享契约
-    WeCms.Infrastructure/    # 基础设施
+    WeCms.Infrastructure/    # 非数据库基础设施适配
+    WeCms.Persistence/       # 数据访问实现适配器层（Dapper/Dapper.AOT/MySQL）
     WeCms.Modules.System/    # 系统管理模块
     WeCms.Modules.Cms/       # CMS 内容模块
   tests/
@@ -138,6 +145,7 @@ artifacts/
 
 - 后端契约优先。
 - Native AOT 从第一天进入门禁。
+- WeCms.Persistence 是 Dapper/Dapper.AOT/MySQL 的唯一数据访问实现适配器层，不是传统 DAL；业务模块只依赖抽象。
 - Dapper.AOT 从第一天进入数据访问规范。
 - 前端 SoybeanAdmin 不参与 M0-BE。
 - 旧系统不做数据迁移，不做兼容模式。
