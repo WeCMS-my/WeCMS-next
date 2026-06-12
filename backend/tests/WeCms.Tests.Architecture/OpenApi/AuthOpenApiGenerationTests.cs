@@ -67,7 +67,7 @@ public sealed class AuthOpenApiGenerationTests
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        var expectedProperties = GetExpectedPropertyNames<TRequest>()
+        var expectedProperties = GetAllPropertyNames<TRequest>()
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
@@ -77,7 +77,11 @@ public sealed class AuthOpenApiGenerationTests
             ? requiredNode.EnumerateArray().Select(item => item.GetString()!).OrderBy(name => name, StringComparer.Ordinal).ToArray()
             : [];
 
-        Assert.Equal(expectedProperties, actualRequired);
+        var expectedRequired = GetRequiredPropertyNames<TRequest>()
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedRequired, actualRequired);
     }
 
     private static JsonElement ResolveSchema(JsonElement root, JsonElement schema)
@@ -91,7 +95,16 @@ public sealed class AuthOpenApiGenerationTests
         return schema;
     }
 
-    private static string[] GetExpectedPropertyNames<TRequest>()
+    private static string[] GetAllPropertyNames<TRequest>()
+    {
+        return typeof(TRequest)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Where(property => property.GetMethod is not null && property.GetIndexParameters().Length == 0)
+            .Select(property => JsonNamingPolicy.CamelCase.ConvertName(property.Name))
+            .ToArray();
+    }
+
+    private static string[] GetRequiredPropertyNames<TRequest>()
     {
         var nullability = new NullabilityInfoContext();
 

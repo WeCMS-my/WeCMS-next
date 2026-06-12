@@ -18,6 +18,7 @@ public static class DapperDataExtensions
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // Migration runner
+        services.AddSingleton<IDbMigrationScriptProvider, FileDbMigrationScriptProvider>();
         services.AddSingleton<DbMigrationRunner>();
 
         // Repository implementations
@@ -25,6 +26,7 @@ public static class DapperDataExtensions
 
         // Permission checker
         services.AddSingleton<IPermissionChecker, PermissionChecker>();
+        services.AddScoped<IAccessTokenStateValidator, AccessTokenStateValidator>();
 
         // Configure Dapper to use snake_case column mapping
         DefaultTypeMap.MatchNamesWithUnderscores = true;

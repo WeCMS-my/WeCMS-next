@@ -48,12 +48,32 @@ public interface IAuthRepository
         SecurityEventInsertRow row,
         CancellationToken cancellationToken);
 
+    Task<int> CountRecentFailedLoginAttemptsAsync(
+        IDbTransactionFacade? transaction,
+        string? username,
+        string? ipAddress,
+        DateTimeOffset since,
+        CancellationToken cancellationToken);
+
+    Task<int> CountRecentSecurityEventsAsync(
+        IDbTransactionFacade? transaction,
+        string eventType,
+        long? userId,
+        string? ipAddress,
+        DateTimeOffset since,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<string>> GetUserRoleCodesAsync(
         IDbTransactionFacade? transaction,
         long userId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<string>> GetUserPermissionCodesAsync(
+        IDbTransactionFacade? transaction,
+        long userId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CurrentUserMenuRow>> GetUserMenusAsync(
         IDbTransactionFacade? transaction,
         long userId,
         CancellationToken cancellationToken);
@@ -73,7 +93,8 @@ public sealed record UserRow(
     string PasswordHash,
     int Status,
     string SecurityStamp,
-    int PermissionVersion);
+    int PermissionVersion,
+    bool TwoFactorEnabled = false);
 
 public sealed record RefreshTokenInsertRow(
     long UserId,
@@ -91,6 +112,15 @@ public sealed record RefreshTokenRow(
     DateTimeOffset ExpiresAt,
     DateTimeOffset? RevokedAt,
     long? ReplacedByTokenId);
+
+public sealed record CurrentUserMenuRow(
+    long Id,
+    long? ParentId,
+    string Code,
+    string Name,
+    string Component,
+    string RoutePath,
+    int SortOrder);
 
 public sealed record LoginLogInsertRow(
     long? UserId,

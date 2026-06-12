@@ -36,7 +36,7 @@ public sealed class AuthRepository : IAuthRepository
         return await ExecuteWithConnectionAsync(transaction, async (db, tx, ct) =>
             await db.QuerySingleOrDefaultAsync<UserRow>(new CommandDefinition("""
                 SELECT id, username, display_name, password_hash, status,
-                       security_stamp, permission_version
+                       security_stamp, permission_version, two_factor_enabled
                 FROM sys_user
                 WHERE username = @username
                   AND deleted_at IS NULL
@@ -55,7 +55,7 @@ public sealed class AuthRepository : IAuthRepository
         return await ExecuteWithConnectionAsync(transaction, async (db, tx, ct) =>
             await db.QuerySingleOrDefaultAsync<UserRow>(new CommandDefinition("""
                 SELECT id, username, display_name, password_hash, status,
-                       security_stamp, permission_version
+                       security_stamp, permission_version, two_factor_enabled
                 FROM sys_user
                 WHERE id = @id
                   AND deleted_at IS NULL
@@ -178,6 +178,49 @@ public sealed class AuthRepository : IAuthRepository
                 cancellationToken: ct)), cancellationToken);
     }
 
+    public async Task<int> CountRecentFailedLoginAttemptsAsync(
+        IDbTransactionFacade? transaction,
+        string? username,
+        string? ipAddress,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        return await ExecuteWithConnectionAsync(transaction, async (db, tx, ct) =>
+            await db.QuerySingleAsync<int>(new CommandDefinition("""
+                SELECT COUNT(*)
+                FROM sys_login_log
+                WHERE result = 0
+                  AND created_at >= @since
+                  AND (@username IS NULL OR username = @username)
+                  AND (@ipAddress IS NULL OR ip_address = @ipAddress)
+                """,
+                new { username, ipAddress, since = since.UtcDateTime },
+                transaction: tx,
+                cancellationToken: ct)), cancellationToken);
+    }
+
+    public async Task<int> CountRecentSecurityEventsAsync(
+        IDbTransactionFacade? transaction,
+        string eventType,
+        long? userId,
+        string? ipAddress,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        return await ExecuteWithConnectionAsync(transaction, async (db, tx, ct) =>
+            await db.QuerySingleAsync<int>(new CommandDefinition("""
+                SELECT COUNT(*)
+                FROM sys_security_event
+                WHERE event_type = @eventType
+                  AND created_at >= @since
+                  AND (@userId IS NULL OR user_id = @userId)
+                  AND (@ipAddress IS NULL OR ip_address = @ipAddress)
+                """,
+                new { eventType, userId, ipAddress, since = since.UtcDateTime },
+                transaction: tx,
+                cancellationToken: ct)), cancellationToken);
+    }
+
     public async Task<IReadOnlyList<string>> GetUserRoleCodesAsync(
         IDbTransactionFacade? transaction,
         long userId,
@@ -215,6 +258,41 @@ public sealed class AuthRepository : IAuthRepository
                     AND p.status = 1
                     AND p.deleted_at IS NULL
                 WHERE ur.user_id = @userId
+                """,
+                new { userId },
+                transaction: tx,
+                cancellationToken: ct));
+            return results.AsList();
+        }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CurrentUserMenuRow>> GetUserMenusAsync(
+        IDbTransactionFacade? transaction,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        return await ExecuteWithConnectionAsync(transaction, async (db, tx, ct) =>
+        {
+            var results = await db.QueryAsync<CurrentUserMenuRow>(new CommandDefinition("""
+                SELECT DISTINCT
+                       m.id,
+                       m.parent_id,
+                       m.code,
+                       m.name,
+                       m.component,
+                       m.route_path,
+                       m.sort_order
+                FROM sys_user_role ur
+                INNER JOIN sys_role r ON r.id = ur.role_id
+                    AND r.status = 1
+                    AND r.deleted_at IS NULL
+                INNER JOIN sys_role_menu rm ON rm.role_id = ur.role_id
+                INNER JOIN sys_menu m ON m.id = rm.menu_id
+                    AND m.status = 1
+                    AND m.is_visible = 1
+                    AND m.deleted_at IS NULL
+                WHERE ur.user_id = @userId
+                ORDER BY m.parent_id, m.sort_order, m.id
                 """,
                 new { userId },
                 transaction: tx,

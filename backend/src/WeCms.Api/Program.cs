@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
+using WeCms.Api.Security;
 using WeCms.Infrastructure.Security;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
@@ -13,6 +14,7 @@ using WeCms.Persistence.Migration;
 using WeCms.Shared.Security;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+var isOpenApiExportMode = OpenApiExtensions.IsExportMode(args);
 
 // M0-BE-010: OpenAPI document generation (source-generated for Native AOT)
 builder.Services.AddEndpointsApiExplorer();
@@ -26,13 +28,15 @@ builder.Services.AddWeCmsPersistence();
 
 // Register Auth services (scoped)
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthRiskService, AuthRiskService>();
 
 // Register endpoint handler classes (scoped — constructor-injected dependencies)
 builder.Services.AddScoped<AuthEndpointHandlers>();
-builder.Services.AddScoped<SystemEndpointHandlers>();
+builder.Services.AddSingleton<SystemEndpointHandlers>();
 
 // Register Permission endpoint filter (scoped — requires per-request IPermissionChecker)
 builder.Services.AddScoped<PermissionEndpointFilter>();
+builder.Services.AddScoped<AccessTokenValidationEvents>();
 
 // Register JWT Token Service (singleton — uses IConfiguration + IClock)
 builder.Services.AddSingleton<ITokenService, JwtTokenService>();
@@ -47,7 +51,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 // Configure JWT Bearer authentication
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"];
+if (string.IsNullOrWhiteSpace(jwtSigningKey))
+{
+    if (!isOpenApiExportMode)
+    {
+        throw new InvalidOperationException("配置缺失：Jwt:SigningKey");
+    }
+
+    jwtSigningKey = "WeCmsOpenApiExportOnlySigningKey-NotForRuntimeAuthentication";
+}
+
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "WeCMS";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WeCMS";
 builder.Services.AddAuthentication("Bearer")
@@ -64,6 +78,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
+        options.EventsType = typeof(AccessTokenValidationEvents);
     });
 
 builder.Services.AddAuthorization();
@@ -79,15 +94,24 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // M0-BE-007: Register System endpoints (health, ping, version, db-check, secure-ping)
-SystemEndpoints.Map(app);
+var systemEndpointHandlers = app.Services.GetRequiredService<SystemEndpointHandlers>();
+SystemEndpoints.Map(app, systemEndpointHandlers);
 
 // M0-BE-008: Auth endpoints
 app.MapAuthEndpoints();
 
 // M0-BE-010: Handle --export-openapi (before DB migrations — no DB needed for schema export)
-if (OpenApiExtensions.IsExportMode(args))
+if (isOpenApiExportMode)
 {
     await app.ExportOpenApiAsync(OpenApiExtensions.GetExportPath(args));
+    return;
+}
+
+if (args.Contains("--migrate-database", StringComparer.Ordinal))
+{
+    using var scope = app.Services.CreateScope();
+    var migrator = scope.ServiceProvider.GetRequiredService<DbMigrationRunner>();
+    await migrator.RunAsync();
     return;
 }
 

@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
     <ProjectReference Include="..\..\src\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Persistence\WeCms.Persistence.csproj" />
     <ProjectReference Include="..\..\src\WeCms.Shared\WeCms.Shared.csproj" />
   </ItemGroup>
 

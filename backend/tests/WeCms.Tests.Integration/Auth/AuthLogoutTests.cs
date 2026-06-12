@@ -23,9 +23,11 @@ public sealed class AuthLogoutTests : IClassFixture<WebApplicationFactory<Progra
         var client = _client;
         var login = await LoginAsync(client);
         Assert.NotNull(login.Data);
+        Assert.False(login.Data!.RequiresTwoFactor);
+        Assert.NotNull(login.Data.AccessToken);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", login.Data!.AccessToken);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", login.Data.AccessToken);
         request.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
 
         var response = await client.SendAsync(request);
@@ -39,8 +41,10 @@ public sealed class AuthLogoutTests : IClassFixture<WebApplicationFactory<Progra
         var client = _client;
         var login = await LoginAsync(client);
         Assert.NotNull(login.Data);
+        Assert.False(login.Data!.RequiresTwoFactor);
+        Assert.NotNull(login.Data.AccessToken);
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Data!.AccessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Data.AccessToken);
 
         var response = await client.PostAsJsonAsync("/api/v1/auth/logout", new LogoutRequest(string.Empty));
 

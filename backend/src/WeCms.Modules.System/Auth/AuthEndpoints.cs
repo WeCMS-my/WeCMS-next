@@ -35,6 +35,12 @@ public sealed class AuthEndpointHandlers
         return ApiResult<LoginResponse>.Ok(result);
     }
 
+    public async Task<ApiResult<CaptchaChallengeResponse>> CreateCaptchaAsync(CancellationToken cancellationToken)
+    {
+        var result = await _authService.CreateCaptchaAsync(cancellationToken);
+        return ApiResult<CaptchaChallengeResponse>.Ok(result);
+    }
+
     public async Task<ApiResult<RefreshResponse>> RefreshAsync(
         RefreshRequest request,
         string ipAddress,
@@ -65,6 +71,21 @@ public sealed class AuthEndpointHandlers
         await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
 
         return ApiResult<object?>.Ok(null);
+    }
+
+    public async Task<ApiResult<VerifyTwoFactorResponse>> VerifyTwoFactorAsync(
+        VerifyTwoFactorRequest request,
+        string ipAddress,
+        string userAgent,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.ChallengeId) || string.IsNullOrWhiteSpace(request.Code))
+        {
+            throw new DomainException(ApiCodes.ValidationError, "二次验证码不能为空");
+        }
+
+        var result = await _authService.VerifyTwoFactorAsync(request, ipAddress, userAgent, cancellationToken);
+        return ApiResult<VerifyTwoFactorResponse>.Ok(result);
     }
 
     public async Task<ApiResult<CurrentUserResponse>> GetCurrentUserAsync(

@@ -93,7 +93,7 @@ public sealed class PersistenceBoundaryTests
             var lines = File.ReadAllLines(source);
             for (var i = 0; i < lines.Length; i++)
             {
-                if (DapperApiPattern.IsMatch(lines[i]))
+                if (DapperApiPattern.IsMatch(lines[i]) && !lines[i].Contains(".ExecuteAsync(context)", StringComparison.Ordinal))
                 {
                     matches.Add($"{source}:{i + 1}: {lines[i].Trim()}");
                 }

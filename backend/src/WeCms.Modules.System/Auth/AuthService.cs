@@ -14,6 +14,8 @@ public interface IAuthService
         string userAgent,
         CancellationToken cancellationToken);
 
+    Task<CaptchaChallengeResponse> CreateCaptchaAsync(CancellationToken cancellationToken);
+
     Task<RefreshResponse> RefreshAsync(
         RefreshRequest request,
         string ipAddress,
@@ -22,6 +24,12 @@ public interface IAuthService
 
     Task LogoutAsync(
         string refreshToken,
+        CancellationToken cancellationToken);
+
+    Task<VerifyTwoFactorResponse> VerifyTwoFactorAsync(
+        VerifyTwoFactorRequest request,
+        string ipAddress,
+        string userAgent,
         CancellationToken cancellationToken);
 
     Task<CurrentUserResponse> GetCurrentUserAsync(
@@ -37,6 +45,9 @@ public sealed class AuthService : IAuthService
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IRefreshTokenHasher _refreshTokenHasher;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuthRiskService _authRiskService;
+    private readonly ICaptchaService _captchaService;
+    private readonly ITwoFactorLoginService _twoFactorLoginService;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
     private const int AccessTokenExpirySeconds = 1800;
@@ -49,6 +60,9 @@ public sealed class AuthService : IAuthService
         ITokenGenerator tokenGenerator,
         IRefreshTokenHasher refreshTokenHasher,
         IUnitOfWork unitOfWork,
+        IAuthRiskService authRiskService,
+        ICaptchaService captchaService,
+        ITwoFactorLoginService twoFactorLoginService,
         IClock clock,
         IIdGenerator idGenerator)
     {
@@ -58,6 +72,9 @@ public sealed class AuthService : IAuthService
         _tokenGenerator = tokenGenerator;
         _refreshTokenHasher = refreshTokenHasher;
         _unitOfWork = unitOfWork;
+        _authRiskService = authRiskService;
+        _captchaService = captchaService;
+        _twoFactorLoginService = twoFactorLoginService;
         _clock = clock;
         _idGenerator = idGenerator;
     }
@@ -68,6 +85,33 @@ public sealed class AuthService : IAuthService
         string userAgent,
         CancellationToken cancellationToken)
     {
+        var riskDecision = await _authRiskService.EvaluateLoginAsync(
+            request.Username,
+            ipAddress,
+            cancellationToken);
+        if (riskDecision.RequiresCaptcha)
+        {
+            if (string.IsNullOrWhiteSpace(request.CaptchaChallengeId) ||
+                string.IsNullOrWhiteSpace(request.CaptchaCode) ||
+                !await _captchaService.VerifyAsync(request.CaptchaChallengeId, request.CaptchaCode, cancellationToken))
+            {
+                await _repository.InsertLoginLogAsync(null, new LoginLogInsertRow(
+                    null, request.Username, ipAddress, userAgent, 0, "验证码校验失败"), cancellationToken);
+                await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                    null, "login_captcha_failed", "登录验证码校验失败", ipAddress, userAgent, 2), cancellationToken);
+                throw new DomainException(ApiCodes.ValidationError, "验证码无效或已过期");
+            }
+        }
+
+        if (riskDecision.IsBlocked)
+        {
+            await _repository.InsertLoginLogAsync(null, new LoginLogInsertRow(
+                null, request.Username, ipAddress, userAgent, 0, "登录限流"), cancellationToken);
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                null, riskDecision.EventType, riskDecision.Description, ipAddress, userAgent, riskDecision.Severity), cancellationToken);
+            throw new DomainException(ApiCodes.TooManyRequests, "登录失败过多，请稍后再试");
+        }
+
         var user = await _repository.GetUserByUsernameAsync(null, request.Username, cancellationToken);
 
         if (user is null)
@@ -97,6 +141,74 @@ public sealed class AuthService : IAuthService
             throw new DomainException(ApiCodes.BusinessError, "用户名或密码错误");
         }
 
+        if (user.TwoFactorEnabled)
+        {
+            var challenge = await _twoFactorLoginService.CreateChallengeAsync(user.Id, user.Username, cancellationToken);
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                user.Id,
+                "two_factor_login_required",
+                $"用户需要二次验证：{user.Username}",
+                ipAddress,
+                userAgent,
+                1), cancellationToken);
+            return new LoginResponse(null, null, 0, true, challenge.ChallengeId, challenge.Method);
+        }
+
+        return await IssueLoginTokensAsync(user, request.Username, ipAddress, userAgent, cancellationToken);
+    }
+
+    public async Task<CaptchaChallengeResponse> CreateCaptchaAsync(CancellationToken cancellationToken)
+    {
+        var challenge = await _captchaService.CreateChallengeAsync(cancellationToken);
+        return new CaptchaChallengeResponse(challenge.ChallengeId, challenge.ImageData, challenge.ExpiresIn);
+    }
+
+    public async Task<VerifyTwoFactorResponse> VerifyTwoFactorAsync(
+        VerifyTwoFactorRequest request,
+        string ipAddress,
+        string userAgent,
+        CancellationToken cancellationToken)
+    {
+        var verification = await _twoFactorLoginService.VerifyChallengeAsync(
+            request.ChallengeId,
+            request.Code,
+            cancellationToken);
+        if (!verification.IsValid)
+        {
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                null,
+                "two_factor_login_failed",
+                "二次验证失败",
+                ipAddress,
+                userAgent,
+                2), cancellationToken);
+            throw new DomainException(ApiCodes.Unauthorized, "二次验证码无效或已过期");
+        }
+
+        var user = await _repository.GetUserByIdAsync(null, verification.UserId, cancellationToken);
+        if (user is null || user.Status != 1 || !user.TwoFactorEnabled)
+        {
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                verification.UserId,
+                "two_factor_login_user_invalid",
+                "二次验证用户不存在、禁用或未启用二次验证",
+                ipAddress,
+                userAgent,
+                2), cancellationToken);
+            throw new DomainException(ApiCodes.Unauthorized, "用户已禁用");
+        }
+
+        var login = await IssueLoginTokensAsync(user, user.Username, ipAddress, userAgent, cancellationToken);
+        return new VerifyTwoFactorResponse(login.AccessToken!, login.RefreshToken!, login.ExpiresIn);
+    }
+
+    private async Task<LoginResponse> IssueLoginTokensAsync(
+        UserRow user,
+        string username,
+        string ipAddress,
+        string userAgent,
+        CancellationToken cancellationToken)
+    {
         var currentUser = new CurrentUser(user.Id, user.Username, user.DisplayName, user.PermissionVersion, user.SecurityStamp);
         var accessToken = _tokenService.GenerateAccessToken(currentUser);
         var refreshToken = _tokenGenerator.GenerateRefreshToken();
@@ -138,7 +250,7 @@ public sealed class AuthService : IAuthService
 
             var loginLogId = await _repository.InsertLoginLogAsync(
                 transaction,
-                new LoginLogInsertRow(user.Id, request.Username, ipAddress, userAgent, 1, ""),
+                new LoginLogInsertRow(user.Id, username, ipAddress, userAgent, 1, ""),
                 cancellationToken);
 
             if (loginLogId <= 0)
@@ -189,6 +301,24 @@ public sealed class AuthService : IAuthService
                 throw new DomainException(ApiCodes.Unauthorized, "无效的刷新令牌");
             }
 
+            if (txToken.RevokedAt is not null)
+            {
+                await _repository.RevokeRefreshTokenFamilyAsync(transaction, txToken.FamilyId, 0, _clock.UtcNow, cancellationToken);
+                var tokenReuseSeverity = await _authRiskService.GetRefreshTokenReuseSeverityAsync(
+                    txToken.UserId,
+                    ipAddress,
+                    cancellationToken);
+                await _repository.InsertSecurityEventAsync(transaction, new SecurityEventInsertRow(
+                    txToken.UserId,
+                    "token_reuse",
+                    $"已吊销 token 被复用，撤销整个 family：{txToken.FamilyId}",
+                    ipAddress,
+                    userAgent,
+                    tokenReuseSeverity),
+                    cancellationToken);
+                throw new DomainException(ApiCodes.Unauthorized, "令牌已被吊销");
+            }
+
             var user = await _repository.GetUserByIdAsync(transaction, txToken.UserId, cancellationToken);
             if (user is null || user.Status != 1)
             {
@@ -203,20 +333,6 @@ public sealed class AuthService : IAuthService
                         2),
                     cancellationToken);
                 throw new DomainException(ApiCodes.Unauthorized, "用户已禁用");
-            }
-
-            if (txToken.RevokedAt is not null)
-            {
-                await _repository.RevokeRefreshTokenFamilyAsync(transaction, txToken.FamilyId, 0, _clock.UtcNow, cancellationToken);
-                await _repository.InsertSecurityEventAsync(transaction, new SecurityEventInsertRow(
-                    txToken.UserId,
-                    "token_reuse",
-                    $"已吊销 token 被复用，撤销整个 family：{txToken.FamilyId}",
-                    ipAddress,
-                    userAgent,
-                    3),
-                    cancellationToken);
-                throw new DomainException(ApiCodes.Unauthorized, "令牌已被吊销");
             }
 
             if (txToken.ExpiresAt < _clock.UtcNow)
@@ -316,11 +432,56 @@ public sealed class AuthService : IAuthService
 
         var roles = await _repository.GetUserRoleCodesAsync(null, userId, cancellationToken);
         var permissions = await _repository.GetUserPermissionCodesAsync(null, userId, cancellationToken);
+        var menus = await _repository.GetUserMenusAsync(null, userId, cancellationToken);
 
         return new CurrentUserResponse(
             new MeUserInfo(user.Id, user.Username, user.DisplayName),
             roles,
             permissions,
-            Array.Empty<CurrentUserMenuDto>());
+            BuildMenuTree(menus));
+    }
+
+    private static IReadOnlyList<CurrentUserMenuDto> BuildMenuTree(IReadOnlyList<CurrentUserMenuRow> rows)
+    {
+        var byParent = rows.ToLookup(row => row.ParentId);
+        var knownIds = rows.Select(row => row.Id).ToHashSet();
+        var visiting = new HashSet<long>();
+
+        foreach (var row in rows)
+        {
+            if (row.ParentId is not null && !knownIds.Contains(row.ParentId.Value))
+                throw new DomainException(ApiCodes.SystemError, "用户菜单树数据不完整");
+        }
+
+        return BuildChildren(null);
+
+        IReadOnlyList<CurrentUserMenuDto> BuildChildren(long? parentId)
+        {
+            var children = byParent[parentId]
+                .OrderBy(row => row.SortOrder)
+                .ThenBy(row => row.Id)
+                .ToArray();
+            if (children.Length == 0)
+                return Array.Empty<CurrentUserMenuDto>();
+
+            var result = new List<CurrentUserMenuDto>(children.Length);
+            foreach (var child in children)
+            {
+                if (!visiting.Add(child.Id))
+                    throw new DomainException(ApiCodes.SystemError, "用户菜单树存在循环引用");
+
+                result.Add(new CurrentUserMenuDto(
+                    child.Id,
+                    child.Code,
+                    child.Name,
+                    child.Component,
+                    child.RoutePath,
+                    BuildChildren(child.Id)));
+
+                visiting.Remove(child.Id);
+            }
+
+            return result;
+        }
     }
 }

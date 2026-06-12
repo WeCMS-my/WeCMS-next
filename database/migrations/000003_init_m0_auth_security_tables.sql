@@ -1,4 +1,4 @@
--- M0-BE-006 Migration 003: sys_refresh_token, sys_login_log, sys_security_event, sys_schema_migration
+-- M0-BE-006 Migration 003: sys_refresh_token, sys_login_log, sys_security_event
 
 CREATE TABLE IF NOT EXISTS `sys_refresh_token` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -46,13 +46,3 @@ CREATE TABLE IF NOT EXISTS `sys_security_event` (
     KEY `idx_event_type` (`event_type`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='安全事件';
-
-CREATE TABLE IF NOT EXISTS `sys_schema_migration` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `version` VARCHAR(32) NOT NULL,
-    `name` VARCHAR(256) NOT NULL,
-    `checksum` VARCHAR(64) NOT NULL DEFAULT '',
-    `applied_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_version` (`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Schema迁移记录';

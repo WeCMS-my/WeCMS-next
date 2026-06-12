@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using WeCms.Api.Middleware;
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
@@ -72,6 +73,35 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
+    public async Task UnhandledException_ShouldWriteErrorLog()
+    {
+        var logger = new TrackingLogger<ExceptionMiddleware>();
+
+        _ = await InvokeExceptionMiddlewareAsync(
+            _ => throw new InvalidOperationException("测试未处理异常"),
+            logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Error, entry.Level);
+        Assert.IsType<InvalidOperationException>(entry.Exception);
+        Assert.Contains("Unhandled exception", entry.Message);
+        Assert.Contains("trace-test", entry.Message);
+    }
+
+    [Fact]
+    public async Task HealthReady_ShouldReturn503_WhenDatabaseUnavailable()
+    {
+        var response = await _client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(ApiCodes.SystemError, body.GetProperty("code").GetInt32());
+        Assert.Equal("not ready", body.GetProperty("data").GetProperty("status").GetString());
+        Assert.False(body.GetProperty("data").GetProperty("databaseReady").GetBoolean());
+    }
+
+    [Fact]
     public async Task AllResponses_ShouldContain_TraceIdHeader()
     {
         using var pingResponse = await _client.GetAsync("/api/v1/system/ping");
@@ -125,7 +155,9 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private static async Task<DefaultHttpContext> InvokeExceptionMiddlewareAsync(RequestDelegate next)
+    private static async Task<DefaultHttpContext> InvokeExceptionMiddlewareAsync(
+        RequestDelegate next,
+        ILogger<ExceptionMiddleware>? logger = null)
     {
         var context = new DefaultHttpContext
         {
@@ -133,7 +165,7 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
         };
         context.Response.Body = new MemoryStream();
 
-        var middleware = new ExceptionMiddleware(next);
+        var middleware = new ExceptionMiddleware(next, logger ?? new TrackingLogger<ExceptionMiddleware>());
         await middleware.InvokeAsync(context);
 
         return context;
@@ -152,4 +184,25 @@ public sealed class ExceptionMiddlewareTests : IClassFixture<WebApplicationFacto
         using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
         return await reader.ReadToEndAsync();
     }
+
+    private sealed class TrackingLogger<T> : ILogger<T>
+    {
+        public List<LogEntry> Entries { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
+        }
+    }
+
+    private sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
 }

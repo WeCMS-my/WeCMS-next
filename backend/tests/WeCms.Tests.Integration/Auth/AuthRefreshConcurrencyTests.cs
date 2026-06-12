@@ -23,8 +23,10 @@ public sealed class AuthRefreshConcurrencyTests : IClassFixture<WebApplicationFa
         var loginResponse = await LoginAsync("admin", "Admin@123");
         Assert.NotNull(loginResponse.Data);
         Assert.Equal(ApiCodes.Success, loginResponse.Code);
+        Assert.False(loginResponse.Data!.RequiresTwoFactor);
+        Assert.NotNull(loginResponse.Data.RefreshToken);
 
-        var refreshRequest = new RefreshRequest(loginResponse.Data!.RefreshToken);
+        var refreshRequest = new RefreshRequest(loginResponse.Data.RefreshToken);
         var startSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         async Task<ApiResult<RefreshResponse>> RefreshOnceAsync()

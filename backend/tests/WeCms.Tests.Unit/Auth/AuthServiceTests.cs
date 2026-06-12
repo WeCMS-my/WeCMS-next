@@ -1,5 +1,3 @@
-using System.Data.Common;
-using WeCms.Shared.Data;
 using WeCms.Shared.Id;
 using WeCms.Shared.Security;
 using WeCms.Modules.System.Auth;
@@ -38,6 +36,9 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             clock,
             idGenerator);
 
@@ -103,6 +104,9 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             clock,
             idGenerator);
 
@@ -164,6 +168,9 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             clock,
             idGenerator);
 
@@ -206,6 +213,9 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             clock,
             idGenerator);
 
@@ -256,6 +266,9 @@ public sealed class AuthServiceTests
             tokenGenerator,
             tokenHasher,
             unitOfWork,
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             clock,
             idGenerator);
 
@@ -292,7 +305,7 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
-    public async Task GetCurrentUserAsync_ShouldReturnTypedEmptyMenus_WhenNoMenusExist()
+    public async Task GetCurrentUserAsync_ShouldReturnRoleMenuTree()
     {
         var repository = new TrackingAuthRepository();
         var service = CreateService(repository);
@@ -304,11 +317,26 @@ public sealed class AuthServiceTests
             1,
             "stamp",
             1);
+        repository.MenuRows =
+        [
+            new CurrentUserMenuRow(10, null, "system", "系统管理", "layout.base", "/system", 1),
+            new CurrentUserMenuRow(11, 10, "system.user", "用户管理", "view.system_user", "/system/user", 2),
+            new CurrentUserMenuRow(12, 10, "system.role", "角色管理", "view.system_role", "/system/role", 1)
+        ];
 
         var response = await service.GetCurrentUserAsync(1, default);
 
-        Assert.Empty(response.Menus);
-        Assert.IsAssignableFrom<IReadOnlyList<CurrentUserMenuDto>>(response.Menus);
+        var root = Assert.Single(response.Menus);
+        Assert.Equal(10, root.Id);
+        Assert.Equal("system", root.Code);
+        Assert.Equal("系统管理", root.Name);
+        Assert.Equal("layout.base", root.Component);
+        Assert.Equal("/system", root.RoutePath);
+
+        Assert.Collection(
+            root.Children,
+            first => Assert.Equal("system.role", first.Code),
+            second => Assert.Equal("system.user", second.Code));
     }
 
     private static AuthService CreateService(TrackingAuthRepository repository)
@@ -320,184 +348,196 @@ public sealed class AuthServiceTests
             new FakeTokenGenerator(),
             new FakeRefreshTokenHasher(),
             new TrackingUnitOfWork(),
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
             new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
             new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
     }
 
-    private sealed class TrackingAuthRepository : IAuthRepository
+    [Fact]
+    public async Task LoginAsync_WhenUsernameIpRiskIsBlocked_ShouldReturnTooManyRequestsAndWriteHighSeverityEvent()
     {
-        public readonly Dictionary<string, IDbTransactionFacade?> Transactions = new();
+        var repository = new TrackingAuthRepository();
+        var service = new AuthService(
+            repository,
+            new FakePasswordHasher(),
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new BlockAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
 
-        public UserRow? UserByUsernameResult;
-        public UserRow? UserByIdResult;
-        public RefreshTokenRow? GetRefreshTokenByHashResult;
-        public long InsertRefreshTokenResult;
-        public int UpdateUserLastLoginResult;
-        public long InsertLoginLogResult;
-        public long InsertSecurityEventResult = 1;
-        public int RevokeRefreshTokenResult;
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.LoginAsync(new LoginRequest("admin", "wrong"), "127.0.0.1", "agent", default));
 
-        public Task<UserRow?> GetUserByUsernameAsync(
-            IDbTransactionFacade? transaction,
-            string username,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(GetUserByUsernameAsync)] = transaction;
-            return Task.FromResult(UserByUsernameResult);
-        }
-
-        public Task<UserRow?> GetUserByIdAsync(
-            IDbTransactionFacade? transaction,
-            long id,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(GetUserByIdAsync)] = transaction;
-            return Task.FromResult(UserByIdResult);
-        }
-
-        public Task<long> InsertRefreshTokenAsync(
-            IDbTransactionFacade? transaction,
-            RefreshTokenInsertRow row,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(InsertRefreshTokenAsync)] = transaction;
-            return Task.FromResult(InsertRefreshTokenResult);
-        }
-
-        public Task<RefreshTokenRow?> GetRefreshTokenByHashAsync(
-            IDbTransactionFacade? transaction,
-            string tokenHash,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(GetRefreshTokenByHashAsync)] = transaction;
-            return Task.FromResult(GetRefreshTokenByHashResult);
-        }
-
-        public Task<int> RevokeRefreshTokenAsync(
-            IDbTransactionFacade? transaction,
-            long tokenId,
-            DateTimeOffset revokedAt,
-            long? replacedByTokenId,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(RevokeRefreshTokenAsync)] = transaction;
-            return Task.FromResult(RevokeRefreshTokenResult);
-        }
-
-        public Task<int> RevokeRefreshTokenFamilyAsync(
-            IDbTransactionFacade? transaction,
-            string familyId,
-            long exceptTokenId,
-            DateTimeOffset revokedAt,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(RevokeRefreshTokenFamilyAsync)] = transaction;
-            return Task.FromResult(0);
-        }
-
-        public Task<long> InsertLoginLogAsync(
-            IDbTransactionFacade? transaction,
-            LoginLogInsertRow row,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(InsertLoginLogAsync)] = transaction;
-            return Task.FromResult(InsertLoginLogResult);
-        }
-
-        public Task<long> InsertSecurityEventAsync(
-            IDbTransactionFacade? transaction,
-            SecurityEventInsertRow row,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(InsertSecurityEventAsync)] = transaction;
-            return Task.FromResult(InsertSecurityEventResult);
-        }
-
-        public Task<IReadOnlyList<string>> GetUserRoleCodesAsync(
-            IDbTransactionFacade? transaction,
-            long userId,
-            CancellationToken cancellationToken)
-            => Task.FromResult(Array.Empty<string>() as IReadOnlyList<string>);
-
-        public Task<IReadOnlyList<string>> GetUserPermissionCodesAsync(
-            IDbTransactionFacade? transaction,
-            long userId,
-            CancellationToken cancellationToken)
-            => Task.FromResult(Array.Empty<string>() as IReadOnlyList<string>);
-
-        public Task<int> UpdateUserLastLoginAsync(
-            IDbTransactionFacade? transaction,
-            long userId,
-            DateTimeOffset loginAt,
-            string ip,
-            CancellationToken cancellationToken)
-        {
-            Transactions[nameof(UpdateUserLastLoginAsync)] = transaction;
-            return Task.FromResult(UpdateUserLastLoginResult);
-        }
+        Assert.Equal(ApiCodes.TooManyRequests, ex.Code);
+        Assert.Equal("登录失败过多，请稍后再试", ex.Message);
+        Assert.Equal("login_rate_limited_username_ip", repository.LastSecurityEvent?.EventType);
+        Assert.Equal(3, repository.LastSecurityEvent?.Severity);
+        Assert.Null(repository.Transactions.GetValueOrDefault(nameof(TrackingAuthRepository.GetUserByUsernameAsync)));
     }
 
-    private sealed class TrackingUnitOfWork : IUnitOfWork
+    [Fact]
+    public async Task RefreshAsync_WhenRevokedTokenIsReusedRepeatedly_ShouldWriteEscalatedSecurityEvent()
     {
-        private IDbTransactionFacade _transaction = new TrackingTransactionFacade();
-        public int BeginCount { get; private set; }
-        public int CommitCount { get; private set; }
-        public int RollbackCount { get; private set; }
+        var repository = new TrackingAuthRepository();
+        repository.GetRefreshTokenByHashResult = new RefreshTokenRow(
+            11,
+            1,
+            "old-hash",
+            "family-id",
+            new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero).AddHours(1),
+            new DateTimeOffset(2026, 06, 10, 9, 0, 0, TimeSpan.Zero),
+            null);
+        var service = new AuthService(
+            repository,
+            new FakePasswordHasher(),
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new EscalatedRefreshReuseAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
 
-        public IDbTransactionFacade Transaction => _transaction;
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshRequest("refresh-token"), "127.0.0.1", "agent", default));
 
-        public Task BeginAsync(CancellationToken cancellationToken) { BeginCount++; return Task.CompletedTask; }
-        public Task CommitAsync(CancellationToken cancellationToken) { CommitCount++; return Task.CompletedTask; }
-        public Task RollbackAsync(CancellationToken cancellationToken) { RollbackCount++; return Task.CompletedTask; }
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        Assert.Equal(ApiCodes.Unauthorized, ex.Code);
+        Assert.Equal("token_reuse", repository.LastSecurityEvent?.EventType);
+        Assert.Equal(4, repository.LastSecurityEvent?.Severity);
     }
 
-    private sealed class TrackingTransactionFacade : IDbTransactionFacade
+    [Fact]
+    public async Task AuthRiskService_WhenUsernameIpFailuresReachThreshold_ShouldBlockLogin()
     {
-        public DbConnection Connection => null!;
-        public DbTransaction? Inner => null;
+        var repository = new TrackingAuthRepository
+        {
+            CountRecentFailedLoginAttemptsResult = 5
+        };
+        var riskService = new AuthRiskService(
+            repository,
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)));
+
+        var decision = await riskService.EvaluateLoginAsync("admin", "127.0.0.1", default);
+
+        Assert.True(decision.IsBlocked);
+        Assert.Equal("login_rate_limited_username_ip", decision.EventType);
+        Assert.Equal(3, decision.Severity);
     }
 
-    private sealed class FakePasswordHasher : IPasswordHasher
+    [Fact]
+    public async Task LoginAsync_WhenCaptchaIsRequiredAndMissing_ShouldRejectBeforePasswordVerification()
     {
-        public Dictionary<string, bool> Verifications { get; } = new();
+        var repository = new TrackingAuthRepository();
+        var hasher = new FakePasswordHasher();
+        var service = new AuthService(
+            repository,
+            hasher,
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new CaptchaRequiredAuthRiskService(),
+            new FailingCaptchaService(),
+            new FakeTwoFactorLoginService(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
 
-        public string Hash(string password) => password;
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.LoginAsync(new LoginRequest("admin", "wrong"), "127.0.0.1", "agent", default));
 
-        public bool Verify(string password, string hash) =>
-            Verifications.TryGetValue($"{hash}:{password}", out var ok) && ok;
+        Assert.Equal(ApiCodes.ValidationError, ex.Code);
+        Assert.Equal("验证码无效或已过期", ex.Message);
+        Assert.Empty(hasher.Verifications);
+        Assert.Equal("login_captcha_failed", repository.LastSecurityEvent?.EventType);
     }
 
-    private sealed class FakeTokenService : ITokenService
+    [Fact]
+    public async Task LoginAsync_WhenTwoFactorIsEnabled_ShouldReturnChallengeWithoutIssuingTokens()
     {
-        public string GenerateAccessToken(CurrentUser user) => "access-token";
+        var repository = new TrackingAuthRepository();
+        repository.UserByUsernameResult = new UserRow(
+            1,
+            "admin",
+            "Admin",
+            "hash-admin",
+            1,
+            "stamp",
+            1,
+            true);
+        var hasher = new FakePasswordHasher();
+        hasher.Verifications["hash-admin:Admin@123"] = true;
+        var service = new AuthService(
+            repository,
+            hasher,
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
 
-        public TokenValidationResult ValidateAccessToken(string token) => new(false);
+        var response = await service.LoginAsync(
+            new LoginRequest("admin", "Admin@123"),
+            "127.0.0.1",
+            "agent",
+            default);
+
+        Assert.True(response.RequiresTwoFactor);
+        Assert.Equal("two-factor-challenge", response.TwoFactorChallengeId);
+        Assert.Null(response.AccessToken);
+        Assert.Null(response.RefreshToken);
+        Assert.Equal("two_factor_login_required", repository.LastSecurityEvent?.EventType);
     }
 
-    private sealed class FakeTokenGenerator : ITokenGenerator
+    [Fact]
+    public async Task VerifyTwoFactorAsync_WhenChallengeIsValid_ShouldIssueTokens()
     {
-        private int _next = 1;
+        var repository = new TrackingAuthRepository();
+        repository.UserByIdResult = new UserRow(
+            1,
+            "admin",
+            "Admin",
+            "hash-admin",
+            1,
+            "stamp",
+            1,
+            true);
+        repository.InsertRefreshTokenResult = 100;
+        repository.UpdateUserLastLoginResult = 1;
+        repository.InsertLoginLogResult = 999;
+        var service = new AuthService(
+            repository,
+            new FakePasswordHasher(),
+            new FakeTokenService(),
+            new FakeTokenGenerator(),
+            new FakeRefreshTokenHasher(),
+            new TrackingUnitOfWork(),
+            new AllowAuthRiskService(),
+            new PassingCaptchaService(),
+            new FakeTwoFactorLoginService(),
+            new FixedClock(new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero)),
+            new FakeIdGenerator(Guid.Parse("11111111-1111-1111-1111-111111111111")));
 
-        public string GenerateRefreshToken() => $"refresh-token-{_next++}";
+        var response = await service.VerifyTwoFactorAsync(
+            new VerifyTwoFactorRequest("two-factor-challenge", "123456"),
+            "127.0.0.1",
+            "agent",
+            default);
+
+        Assert.Equal("access-token", response.AccessToken);
+        Assert.Equal("refresh-token-1", response.RefreshToken);
     }
 
-    private sealed class FakeRefreshTokenHasher : IRefreshTokenHasher
-    {
-        public string Hash(string token) => $"hashed:{token}";
-    }
-
-    private sealed class FakeIdGenerator(Guid value) : IIdGenerator
-    {
-        public Guid NewGuid() => value;
-    }
-
-    private sealed class FixedClock : IClock
-    {
-        private readonly DateTimeOffset _utcNow;
-
-        public FixedClock(DateTimeOffset utcNow) => _utcNow = utcNow;
-
-        public DateTimeOffset UtcNow => _utcNow;
-    }
 }

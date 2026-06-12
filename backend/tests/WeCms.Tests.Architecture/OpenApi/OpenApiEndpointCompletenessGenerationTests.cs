@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Api.Extensions;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
+using WeCms.Shared.Data;
 using WeCms.Shared.Security;
+using WeCms.Shared.Time;
 
 namespace WeCms.Tests.Architecture.OpenApi;
 
@@ -58,12 +61,16 @@ public sealed class OpenApiEndpointCompletenessGenerationTests
         builder.Services.AddAuthorization();
 
         builder.Services.AddScoped<AuthEndpointHandlers>();
-        builder.Services.AddScoped<SystemEndpointHandlers>();
+        builder.Services.AddSingleton<SystemEndpointHandlers>();
+        builder.Services.AddSingleton<IClock, FixedClock>();
+        builder.Services.AddSingleton<IDbConnectionFactory, ThrowingDbConnectionFactory>();
+        builder.Services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         builder.Services.AddScoped<PermissionEndpointFilter>();
         builder.Services.AddSingleton<IPermissionChecker, AllowAllPermissionChecker>();
 
         var app = builder.Build();
-        SystemEndpoints.Map(app);
+        var systemEndpointHandlers = app.Services.GetRequiredService<SystemEndpointHandlers>();
+        SystemEndpoints.Map(app, systemEndpointHandlers);
         app.MapAuthEndpoints();
         app.MapOpenApi();
 
@@ -74,5 +81,16 @@ public sealed class OpenApiEndpointCompletenessGenerationTests
     {
         public Task<PermissionCheckResult> CheckAsync(long userId, string permissionCode, CancellationToken cancellationToken = default)
             => Task.FromResult(new PermissionCheckResult(true, true));
+    }
+
+    private sealed class FixedClock : IClock
+    {
+        public DateTimeOffset UtcNow => new(2026, 6, 13, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class ThrowingDbConnectionFactory : IDbConnectionFactory
+    {
+        public Task<System.Data.Common.DbConnection> OpenAsync(CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("DB is not needed for OpenAPI generation.");
     }
 }

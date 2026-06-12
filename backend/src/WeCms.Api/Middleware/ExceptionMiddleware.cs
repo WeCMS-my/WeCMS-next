@@ -6,11 +6,19 @@ namespace WeCms.Api.Middleware;
 
 public sealed class ExceptionMiddleware
 {
-    private readonly RequestDelegate _next;
+    private static readonly Action<ILogger, string, Exception?> LogUnhandledException =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(1, nameof(LogUnhandledException)),
+            "Unhandled exception, traceId={TraceId}");
 
-    public ExceptionMiddleware(RequestDelegate next)
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
+
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -24,8 +32,9 @@ public sealed class ExceptionMiddleware
             var statusCode = MapDomainExceptionStatusCode(ex.Code);
             await WriteErrorResponse(context, statusCode, ex.Code, ex.Message);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            LogUnhandledException(_logger, context.TraceIdentifier, ex);
             await WriteErrorResponse(context, StatusCodes.Status500InternalServerError,
                 ApiCodes.SystemError, "系统内部错误");
         }

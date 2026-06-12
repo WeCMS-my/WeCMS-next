@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging;
 using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
@@ -42,7 +41,10 @@ public sealed class SystemEndpointHandlers
         catch (Exception)
         {
             sw.Stop();
-            return ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("not ready", false, null));
+            return new ApiResult<HealthReadyResponse>(
+                ApiCodes.SystemError,
+                "数据库未就绪",
+                new HealthReadyResponse("not ready", false, null));
         }
     }
 
@@ -52,23 +54,24 @@ public sealed class SystemEndpointHandlers
     public ApiResult<SystemVersionResponse> GetVersion()
         => ApiResult<SystemVersionResponse>.Ok(new SystemVersionResponse("0.1.0", "M0-BE", "net10.0"));
 
-    public async Task<Results<Ok<ApiResult<DbCheckResponse>>, JsonHttpResult<ApiResult<DbCheckResponse>>>> GetDbCheckAsync(
+    public async Task<ApiResult<DbCheckResponse>> GetDbCheckAsync(
         HttpContext context,
         CancellationToken cancellationToken)
     {
         try
         {
             await using var connection = await _db.OpenAsync(cancellationToken);
-            return TypedResults.Ok(ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null)));
+            return ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null));
         }
         catch (Exception ex)
         {
             var logger = _loggerFactory.CreateLogger(nameof(SystemEndpointHandlers));
             logger.LogError(ex, "数据库连接检查失败, traceId={TraceId}", context.TraceIdentifier);
-            return TypedResults.Json(
-                ApiResult<DbCheckResponse>.Fail(ApiCodes.SystemError, "数据库连接检查失败", context.TraceIdentifier),
-                WeCmsModulesSystemJsonContext.Default.ApiResultDbCheckResponse,
-                statusCode: StatusCodes.Status503ServiceUnavailable);
+            return new ApiResult<DbCheckResponse>(
+                ApiCodes.SystemError,
+                "数据库连接检查失败",
+                new DbCheckResponse("disconnected", "", "数据库连接检查失败"),
+                context.TraceIdentifier);
         }
     }
 
@@ -81,33 +84,34 @@ public sealed class SystemEndpointHandlers
 /// </summary>
 public static class SystemEndpoints
 {
-    public static void Map(WebApplication app)
+    public static void Map(WebApplication app, SystemEndpointHandlers handlers)
     {
         var healthGroup = app.MapGroup("/health");
-        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live", SystemEndpointRequestDelegates.HandleHealthLiveAsync);
+        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandleHealthLiveAsync(context, handlers)));
         healthLive.Produces<ApiResult<HealthLiveResponse>>(StatusCodes.Status200OK);
         healthLive.WithName("System_HealthLive");
 
-        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready", SystemEndpointRequestDelegates.HandleHealthReadyAsync);
+        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandleHealthReadyAsync(context, handlers)));
         healthReady.Produces<ApiResult<HealthReadyResponse>>(StatusCodes.Status200OK);
+        healthReady.Produces<ApiResult<HealthReadyResponse>>(StatusCodes.Status503ServiceUnavailable);
         healthReady.WithName("System_HealthReady");
 
         var systemGroup = app.MapGroup("/api/v1/system");
-        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping", SystemEndpointRequestDelegates.HandlePingAsync);
+        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandlePingAsync(context, handlers)));
         ping.Produces<ApiResult<SystemPingResponse>>(StatusCodes.Status200OK);
         ping.WithName("System_Ping");
 
-        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version", SystemEndpointRequestDelegates.HandleVersionAsync);
+        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandleVersionAsync(context, handlers)));
         version.Produces<ApiResult<SystemVersionResponse>>(StatusCodes.Status200OK);
         version.WithName("System_Version");
 
-        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check", SystemEndpointRequestDelegates.HandleDbCheckAsync);
+        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandleDbCheckAsync(context, handlers)));
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status200OK);
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status503ServiceUnavailable);
         dbCheck.WithName("System_DbCheck");
 
         // M0-BE-009: secure-ping with RequirePermission
-        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", SystemEndpointRequestDelegates.HandleSecurePingAsync);
+        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", (RequestDelegate)(context => SystemEndpointRequestDelegates.HandleSecurePingAsync(context, handlers)));
         securePing.Produces<ApiResult<SecurePingResponse>>(StatusCodes.Status200OK);
         securePing.WithName("System_SecurePing");
         securePing.RequirePermission(SystemPermissions.SystemSecurePing);

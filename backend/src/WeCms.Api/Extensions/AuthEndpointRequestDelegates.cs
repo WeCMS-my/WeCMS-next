@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
 using WeCms.Api.Json;
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
@@ -11,13 +11,12 @@ namespace WeCms.Api.Extensions;
 
 internal static class AuthEndpointRequestDelegates
 {
-    public static async Task HandleLoginAsync(HttpContext context)
+    public static async Task HandleLoginAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
     {
         var request = await ReadRequiredRequestAsync(
             context,
             WeCmsJsonContext.Default.LoginRequest,
             "用户名和密码不能为空");
-        var handlers = context.RequestServices.GetRequiredService<AuthEndpointHandlers>();
         var result = await handlers.LoginAsync(
             request,
             context.GetClientIp(),
@@ -27,13 +26,12 @@ internal static class AuthEndpointRequestDelegates
         await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultLoginResponse);
     }
 
-    public static async Task HandleRefreshAsync(HttpContext context)
+    public static async Task HandleRefreshAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
     {
         var request = await ReadRequiredRequestAsync(
             context,
             WeCmsJsonContext.Default.RefreshRequest,
             "刷新令牌不能为空");
-        var handlers = context.RequestServices.GetRequiredService<AuthEndpointHandlers>();
         var result = await handlers.RefreshAsync(
             request,
             context.GetClientIp(),
@@ -43,21 +41,41 @@ internal static class AuthEndpointRequestDelegates
         await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultRefreshResponse);
     }
 
-    public static async Task HandleLogoutAsync(HttpContext context)
+    public static async Task HandleCaptchaAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
+    {
+        var result = await handlers.CreateCaptchaAsync(context.RequestAborted);
+
+        await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultCaptchaChallengeResponse);
+    }
+
+    public static async Task HandleVerifyTwoFactorAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
+    {
+        var request = await ReadRequiredRequestAsync(
+            context,
+            WeCmsJsonContext.Default.VerifyTwoFactorRequest,
+            "二次验证码不能为空");
+        var result = await handlers.VerifyTwoFactorAsync(
+            request,
+            context.GetClientIp(),
+            context.Request.Headers.UserAgent.ToString(),
+            context.RequestAborted);
+
+        await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultVerifyTwoFactorResponse);
+    }
+
+    public static async Task HandleLogoutAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
     {
         var request = await ReadRequiredRequestAsync(
             context,
             WeCmsJsonContext.Default.LogoutRequest,
             "刷新令牌不能为空");
-        var handlers = context.RequestServices.GetRequiredService<AuthEndpointHandlers>();
         var result = await handlers.LogoutAsync(request, context.RequestAborted);
 
         await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultObject);
     }
 
-    public static async Task HandleCurrentUserAsync(HttpContext context)
+    public static async Task HandleCurrentUserAsync(HttpContext context, [FromServices] AuthEndpointHandlers handlers)
     {
-        var handlers = context.RequestServices.GetRequiredService<AuthEndpointHandlers>();
         var result = await handlers.GetCurrentUserAsync(context.User, context.RequestAborted);
 
         await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultCurrentUserResponse);

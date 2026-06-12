@@ -16,6 +16,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<ITokenGenerator, CryptoTokenGenerator>();
         services.AddSingleton<IRefreshTokenHasher, RefreshTokenHasher>();
+        services.AddSingleton<ICaptchaService, InMemoryCaptchaService>();
+        services.AddSingleton<ITwoFactorLoginService, InMemoryTwoFactorLoginService>();
 
         return services;
     }
