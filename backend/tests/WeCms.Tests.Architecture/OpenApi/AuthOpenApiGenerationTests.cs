@@ -35,6 +35,7 @@ public sealed class AuthOpenApiGenerationTests
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddOpenApi();
         builder.Services.AddAuthorization();
+        builder.Services.AddScoped<AuthEndpointHandlers>();
 
         var app = builder.Build();
         app.MapAuthEndpoints();

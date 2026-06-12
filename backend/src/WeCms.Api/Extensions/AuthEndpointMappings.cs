@@ -18,8 +18,8 @@ public static class AuthEndpointMappings
         var group = app.MapGroup("/api/v1/auth");
 
         var login = (RouteHandlerBuilder)group.MapPost("/login",
-            static async (LoginRequest request, HttpContext context, CancellationToken cancellationToken) =>
-                TypedResults.Ok(await context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LoginAsync(
+            static async (LoginRequest request, HttpContext context, AuthEndpointHandlers handlers, CancellationToken cancellationToken) =>
+                TypedResults.Ok(await handlers.LoginAsync(
                     request,
                     context.GetClientIp(),
                     context.Request.Headers.UserAgent.ToString(),
@@ -30,8 +30,8 @@ public static class AuthEndpointMappings
         login.WithName("Auth_Login");
 
         var refresh = (RouteHandlerBuilder)group.MapPost("/refresh",
-            static async (RefreshRequest request, HttpContext context, CancellationToken cancellationToken) =>
-                TypedResults.Ok(await context.RequestServices.GetRequiredService<AuthEndpointHandlers>().RefreshAsync(
+            static async (RefreshRequest request, HttpContext context, AuthEndpointHandlers handlers, CancellationToken cancellationToken) =>
+                TypedResults.Ok(await handlers.RefreshAsync(
                     request,
                     context.GetClientIp(),
                     context.Request.Headers.UserAgent.ToString(),
@@ -42,16 +42,16 @@ public static class AuthEndpointMappings
         refresh.WithName("Auth_Refresh");
 
         var logout = (RouteHandlerBuilder)group.MapPost("/logout",
-            static async (LogoutRequest request, HttpContext context, CancellationToken cancellationToken) =>
-                TypedResults.Ok(await context.RequestServices.GetRequiredService<AuthEndpointHandlers>().LogoutAsync(request, cancellationToken)));
+            static async (LogoutRequest request, AuthEndpointHandlers handlers, CancellationToken cancellationToken) =>
+                TypedResults.Ok(await handlers.LogoutAsync(request, cancellationToken)));
         logout.RequireAuthorization();
         logout.Produces<ApiResult<object?>>(StatusCodes.Status200OK);
         logout.Produces<ApiResult<object?>>(StatusCodes.Status400BadRequest);
         logout.WithName("Auth_Logout");
 
         var me = (RouteHandlerBuilder)group.MapGet("/me",
-            static async (HttpContext context, CancellationToken cancellationToken) =>
-                TypedResults.Ok(await context.RequestServices.GetRequiredService<AuthEndpointHandlers>().GetCurrentUserAsync(context.User, cancellationToken)));
+            static async (HttpContext context, AuthEndpointHandlers handlers, CancellationToken cancellationToken) =>
+                TypedResults.Ok(await handlers.GetCurrentUserAsync(context.User, cancellationToken)));
         me.RequireAuthorization();
         me.Produces<ApiResult<CurrentUserResponse>>(StatusCodes.Status200OK);
         me.Produces<ApiResult<object?>>(StatusCodes.Status401Unauthorized);
