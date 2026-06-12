@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WeCms.Modules.System.Permissions;
@@ -28,105 +29,53 @@ public sealed class SystemEndpointHandlers
         _loggerFactory = loggerFactory;
     }
 
-    public async Task HealthLiveAsync(HttpContext context)
-    {
-        var cancellationToken = context.RequestAborted;
-        await WriteJsonResponse(
-            context,
-            ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", _clock.UtcNow)),
-            typeof(ApiResult<HealthLiveResponse>),
-            cancellationToken);
-    }
+    public ApiResult<HealthLiveResponse> GetHealthLive()
+        => ApiResult<HealthLiveResponse>.Ok(new HealthLiveResponse("healthy", _clock.UtcNow));
 
-    public async Task HealthReadyAsync(HttpContext context)
+    public async Task<ApiResult<HealthReadyResponse>> GetHealthReadyAsync(CancellationToken cancellationToken)
     {
-        var cancellationToken = context.RequestAborted;
         var sw = Stopwatch.StartNew();
         try
         {
             await using var connection = await _db.OpenAsync(cancellationToken);
             sw.Stop();
-            await WriteJsonResponse(
-                context,
-                ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("ready", true, sw.ElapsedMilliseconds)),
-                typeof(ApiResult<HealthReadyResponse>),
-                cancellationToken);
+            return ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("ready", true, sw.ElapsedMilliseconds));
         }
         catch (Exception)
         {
             sw.Stop();
-            await WriteJsonResponse(
-                context,
-                ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("not ready", false, null)),
-                typeof(ApiResult<HealthReadyResponse>),
-                cancellationToken);
+            return ApiResult<HealthReadyResponse>.Ok(new HealthReadyResponse("not ready", false, null));
         }
     }
 
-    public async Task PingAsync(HttpContext context)
-    {
-        var cancellationToken = context.RequestAborted;
-        await WriteJsonResponse(
-            context,
-            ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("pong", TimeZoneInfo.Local.Id, _clock.UtcNow)),
-            typeof(ApiResult<SystemPingResponse>),
-            cancellationToken);
-    }
+    public ApiResult<SystemPingResponse> GetPing()
+        => ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("pong", TimeZoneInfo.Local.Id, _clock.UtcNow));
 
-    public async Task VersionAsync(HttpContext context)
-    {
-        var cancellationToken = context.RequestAborted;
-        await WriteJsonResponse(
-            context,
-            ApiResult<SystemVersionResponse>.Ok(new SystemVersionResponse("0.1.0", "M0-BE", "net10.0")),
-            typeof(ApiResult<SystemVersionResponse>),
-            cancellationToken);
-    }
+    public ApiResult<SystemVersionResponse> GetVersion()
+        => ApiResult<SystemVersionResponse>.Ok(new SystemVersionResponse("0.1.0", "M0-BE", "net10.0"));
 
-    public async Task DbCheckAsync(HttpContext context)
+    public async Task<Results<Ok<ApiResult<DbCheckResponse>>, JsonHttpResult<ApiResult<DbCheckResponse>>>> GetDbCheckAsync(
+        HttpContext context,
+        CancellationToken cancellationToken)
     {
-        var cancellationToken = context.RequestAborted;
         try
         {
             await using var connection = await _db.OpenAsync(cancellationToken);
-            await WriteJsonResponse(
-                context,
-                ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null)),
-                typeof(ApiResult<DbCheckResponse>),
-                cancellationToken);
+            return TypedResults.Ok(ApiResult<DbCheckResponse>.Ok(new DbCheckResponse("connected", connection.Database, null)));
         }
         catch (Exception ex)
         {
             var logger = _loggerFactory.CreateLogger(nameof(SystemEndpointHandlers));
             logger.LogError(ex, "数据库连接检查失败, traceId={TraceId}", context.TraceIdentifier);
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            await WriteJsonResponse(
-                context,
+            return TypedResults.Json(
                 ApiResult<DbCheckResponse>.Fail(ApiCodes.SystemError, "数据库连接检查失败", context.TraceIdentifier),
-                typeof(ApiResult<DbCheckResponse>),
-                cancellationToken);
+                WeCmsModulesSystemJsonContext.Default.ApiResultDbCheckResponse,
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     }
 
-    public async Task SecurePingAsync(HttpContext context)
-    {
-        var cancellationToken = context.RequestAborted;
-        await WriteJsonResponse(
-            context,
-            ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("secure-pong", _clock.UtcNow)),
-            typeof(ApiResult<SecurePingResponse>),
-            cancellationToken);
-    }
-
-    private static async Task WriteJsonResponse(
-        HttpContext context,
-        object result,
-        Type resultType,
-        CancellationToken cancellationToken)
-    {
-        context.Response.ContentType = "application/json; charset=utf-8";
-        await context.Response.WriteAsJsonAsync(result, resultType, WeCmsModulesSystemJsonContext.Default, cancellationToken: cancellationToken);
-    }
+    public ApiResult<SecurePingResponse> GetSecurePing()
+        => ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("secure-pong", _clock.UtcNow));
 }
 
 /// <summary>
@@ -139,50 +88,44 @@ public static class SystemEndpoints
     public static void Map(WebApplication app)
     {
         var healthGroup = app.MapGroup("/health");
-        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live", (RequestDelegate)HandleHealthLive);
+        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live",
+            static (HttpContext context) =>
+                TypedResults.Ok(context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetHealthLive()));
         healthLive.Produces<ApiResult<HealthLiveResponse>>(StatusCodes.Status200OK);
         healthLive.WithName("System_HealthLive");
 
-        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready", (RequestDelegate)HandleHealthReady);
+        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready",
+            static async (HttpContext context, CancellationToken cancellationToken) =>
+                TypedResults.Ok(await context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetHealthReadyAsync(cancellationToken)));
         healthReady.Produces<ApiResult<HealthReadyResponse>>(StatusCodes.Status200OK);
         healthReady.WithName("System_HealthReady");
 
         var systemGroup = app.MapGroup("/api/v1/system");
-        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping", (RequestDelegate)HandlePing);
+        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping",
+            static (HttpContext context) =>
+                TypedResults.Ok(context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetPing()));
         ping.Produces<ApiResult<SystemPingResponse>>(StatusCodes.Status200OK);
         ping.WithName("System_Ping");
 
-        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version", (RequestDelegate)HandleVersion);
+        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version",
+            static (HttpContext context) =>
+                TypedResults.Ok(context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetVersion()));
         version.Produces<ApiResult<SystemVersionResponse>>(StatusCodes.Status200OK);
         version.WithName("System_Version");
 
-        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check", (RequestDelegate)HandleDbCheck);
+        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check",
+            static (HttpContext context, CancellationToken cancellationToken) =>
+                context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetDbCheckAsync(context, cancellationToken));
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status200OK);
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status503ServiceUnavailable);
         dbCheck.WithName("System_DbCheck");
 
         // M0-BE-009: secure-ping with RequirePermission
-        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", (RequestDelegate)HandleSecurePing);
+        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping",
+            static (HttpContext context) =>
+                TypedResults.Ok(context.RequestServices.GetRequiredService<SystemEndpointHandlers>().GetSecurePing()));
         securePing.Produces<ApiResult<SecurePingResponse>>(StatusCodes.Status200OK);
         securePing.WithName("System_SecurePing");
         securePing.RequirePermission(SystemPermissions.SystemSecurePing);
     }
-
-    private static Task HandleHealthLive(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().HealthLiveAsync(context);
-
-    private static Task HandleHealthReady(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().HealthReadyAsync(context);
-
-    private static Task HandlePing(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().PingAsync(context);
-
-    private static Task HandleVersion(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().VersionAsync(context);
-
-    private static Task HandleDbCheck(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().DbCheckAsync(context);
-
-    private static Task HandleSecurePing(HttpContext context) =>
-        context.RequestServices.GetRequiredService<SystemEndpointHandlers>().SecurePingAsync(context);
 }
