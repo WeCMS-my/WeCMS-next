@@ -102,6 +102,7 @@
 
 ```text
 [ ] 是否符合 WeCMS 依赖矩阵
+[ ] WeCms.Persistence -> WeCms.Modules.System / WeCms.Modules.Cms 是否仅用于实现模块暴露的 repository port
 [ ] WeCms.Shared 是否没有引用其它生产工程
 [ ] WeCms.Infrastructure 是否没有反向引用 Api / Modules
 [ ] WeCms.Persistence 是否只作为适配器层 / 数据访问实现层存在，而不是承载业务规则的传统 DAL
@@ -113,6 +114,19 @@
 [ ] 横切关注点是否沉淀到 Shared / Infrastructure
 [ ] 新增第三方依赖是否说明必要性、AOT 兼容、License、替代方案
 ```
+
+WeCMS 生产工程依赖矩阵：
+
+```text
+WeCms.Api -> WeCms.Modules.System / WeCms.Modules.Cms / WeCms.Infrastructure / WeCms.Persistence / WeCms.Shared
+WeCms.Modules.System -> WeCms.Shared
+WeCms.Modules.Cms -> WeCms.Shared
+WeCms.Persistence -> WeCms.Shared / WeCms.Modules.System / WeCms.Modules.Cms
+WeCms.Infrastructure -> WeCms.Shared
+WeCms.Shared -> 不引用其它生产工程
+```
+
+`WeCms.Persistence` 引用 System/Cms 模块是受控的依赖倒置实现方向：模块定义 repository port，Persistence 提供 Dapper/Dapper.AOT/MySQL adapter。反方向 `WeCms.Modules.* -> WeCms.Persistence`、模块层 SQL、模块层数据库连接器或 ORM 引用仍然是阻断项。
 
 阻断条件：
 

@@ -81,6 +81,7 @@ wecms-next/
       WeCms.Api/
       WeCms.Shared/
       WeCms.Infrastructure/
+      WeCms.Persistence/
       WeCms.Modules.System/
       WeCms.Modules.Cms/
     tests/
@@ -120,9 +121,10 @@ wecms-next/
 |---|---|
 | `backend/src/WeCms.Api` | API 启动项目，Minimal APIs 入口 |
 | `backend/src/WeCms.Shared` | 统一返回、错误码、权限常量、公共 DTO |
-| `backend/src/WeCms.Infrastructure` | 数据库、缓存、存储、安全、邮件、任务基础设施 |
-| `backend/src/WeCms.Modules.System` | 用户、角色、菜单、权限、认证、设置、日志等系统模块 |
-| `backend/src/WeCms.Modules.Cms` | 栏目、文章、页面、媒体等 CMS 模块 |
+| `backend/src/WeCms.Infrastructure` | 缓存、存储、安全、邮件、任务等非数据库基础设施实现 |
+| `backend/src/WeCms.Persistence` | 数据库连接、migration runner、Dapper/Dapper.AOT repository 实现；允许引用 `WeCms.Modules.System` / `WeCms.Modules.Cms` 仅用于实现模块暴露的 repository port |
+| `backend/src/WeCms.Modules.System` | 用户、角色、菜单、权限、认证、设置、日志等系统模块；定义业务服务和 repository port，不直接引用 Persistence |
+| `backend/src/WeCms.Modules.Cms` | 栏目、文章、页面、媒体等 CMS 模块；定义业务服务和 repository port，不直接引用 Persistence |
 | `database/migrations` | 新系统数据库迁移脚本 |
 | `database/seeds` | base/demo/test 种子数据 |
 | `database/legacy-migration` | ThinkPHP 旧数据迁移脚本 |
@@ -358,11 +360,20 @@ M0 即执行以下限制：
 6. Repository 方法必须接收 CancellationToken。
 7. 写操作必须校验 affected rows。
 8. 所有 SQL 必须进入 Code Review。
+9. SQL、Dapper/Dapper.AOT、MySqlConnector 只能出现在 WeCms.Persistence。
+10. WeCms.Persistence 可以引用 System/Cms 模块，只能实现模块暴露的 repository port；模块不得反向依赖 Persistence。
 ```
 
 ### 7.5 数据访问样例
 
 ```csharp
+// backend/src/WeCms.Modules.System/Users/IUserRepository.cs
+public interface IUserRepository
+{
+    Task<IReadOnlyList<MinimalUserItem>> GetMinimalUsersAsync(
+        CancellationToken cancellationToken);
+}
+
 public sealed record MinimalUserItem(
     long Id,
     string Username,
@@ -371,7 +382,8 @@ public sealed record MinimalUserItem(
     DateTimeOffset CreatedAt
 );
 
-public sealed class UserRepository(IDbConnectionFactory connectionFactory)
+// backend/src/WeCms.Persistence/Modules/System/Users/UserRepository.cs
+public sealed class UserRepository(IDbConnectionFactory connectionFactory) : IUserRepository
 {
     public async Task<IReadOnlyList<MinimalUserItem>> GetMinimalUsersAsync(
         CancellationToken cancellationToken)

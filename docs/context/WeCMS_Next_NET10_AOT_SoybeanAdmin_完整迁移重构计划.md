@@ -205,12 +205,18 @@ wecms-next/
         Time/
 
       WeCms.Infrastructure/
-        Data/
         Security/
         Storage/
         Cache/
         Crypto/
         Logging/
+
+      WeCms.Persistence/
+        Data/
+        Migration/
+        Modules/
+          System/
+          Cms/
 
       WeCms.Modules.System/
         Auth/
@@ -224,6 +230,12 @@ wecms-next/
         I18n/
         Dicts/
         SecurityCenter/
+
+      WeCms.Modules.Cms/
+        Channels/
+        Articles/
+        Media/
+        Pages/
 
     tests/
       WeCms.Tests.Unit/
@@ -256,6 +268,19 @@ wecms-next/
 开发与迁移成本更低
 后续可以按模块拆服务
 ```
+
+项目依赖矩阵：
+
+```text
+WeCms.Api -> WeCms.Modules.System / WeCms.Modules.Cms / WeCms.Infrastructure / WeCms.Persistence / WeCms.Shared
+WeCms.Modules.System -> WeCms.Shared
+WeCms.Modules.Cms -> WeCms.Shared
+WeCms.Persistence -> WeCms.Shared / WeCms.Modules.System / WeCms.Modules.Cms
+WeCms.Infrastructure -> WeCms.Shared
+WeCms.Shared -> 不引用其它生产工程
+```
+
+`WeCms.Persistence` 是数据库适配器层，负责数据库连接、migration runner、Dapper/Dapper.AOT repository 实现。它允许引用 `WeCms.Modules.System` / `WeCms.Modules.Cms`，但只能用于实现模块暴露的 repository port；模块不得反向引用 Persistence，也不得持有 SQL、Dapper、Dapper.AOT、MySqlConnector、`DbConnection` 或 `DbTransaction`。
 
 ---
 
@@ -360,7 +385,7 @@ using Dapper.AOT;
 可放在：
 
 ```text
-WeCms.Infrastructure/Data/DapperAotModule.cs
+WeCms.Persistence/Data/DapperAotModule.cs
 ```
 
 ### 7.2 查询规则
@@ -5426,12 +5451,12 @@ src/
     Auth/
       AuthEndpoints.cs
       AuthService.cs
-      AuthRepository.cs
+      IAuthRepository.cs
       AuthDtos.cs
     Users/
       UserEndpoints.cs
       UserService.cs
-      UserRepository.cs
+      IUserRepository.cs
       UserDtos.cs
     Roles/
     Menus/
@@ -5450,11 +5475,22 @@ src/
     Media/
     Pages/
 
-  WeCms.Infrastructure/
-    Db/
+  WeCms.Persistence/
+    Data/
       DbConnectionFactory.cs
       UnitOfWork.cs
-      SqlMapperConfig.cs
+      DbTransactionFacade.cs
+    Migration/
+      DbMigrationRunner.cs
+    Modules/
+      System/
+        Auth/
+          AuthRepository.cs
+        Users/
+          UserRepository.cs
+      Cms/
+
+  WeCms.Infrastructure/
     Cache/
     Security/
     Storage/
@@ -5473,12 +5509,14 @@ src/
     Validation/
 ```
 
+依赖矩阵以 `WeCms.Persistence` 为唯一数据库适配器层：`WeCms.Persistence -> WeCms.Shared / WeCms.Modules.System / WeCms.Modules.Cms` 合法，但只能实现模块暴露的 repository port。`WeCms.Modules.* -> WeCms.Persistence`、模块内 SQL、模块直接引用 Dapper/Dapper.AOT/MySqlConnector 均为阻断项。
+
 #### 30.8.1 后端分层规则
 
 ```text
 CODE-BE-001：Endpoint 只负责 HTTP 绑定、参数绑定和结果返回。
 CODE-BE-002：Service / UseCase 负责业务规则、事务和对象级授权。
-CODE-BE-003：Repository 只负责 SQL，不包含业务判断。
+CODE-BE-003：Repository 实现只允许位于 WeCms.Persistence，且只负责 SQL 和数据映射，不包含业务判断。
 CODE-BE-004：事务只能由 Service / UseCase 控制。
 CODE-BE-005：DTO 不跨模块随意复用。
 CODE-BE-006：所有 DTO 必须加入 JsonSerializerContext。
@@ -5486,6 +5524,7 @@ CODE-BE-007：所有 Endpoint 必须显式注册，不使用运行时扫描。
 CODE-BE-008：所有模块必须有独立权限码常量。
 CODE-BE-009：所有 Repository 方法必须支持 CancellationToken。
 CODE-BE-010：所有 SQL 必须参数化，排序字段必须白名单。
+CODE-BE-011：System/Cms 模块只能定义 repository port，不得引用 Persistence 实现。
 ```
 
 #### 30.8.2 Endpoint 示例规范

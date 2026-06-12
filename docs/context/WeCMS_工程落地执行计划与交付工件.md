@@ -162,21 +162,21 @@ src/
     Auth/
       AuthEndpoints.cs
       AuthService.cs
-      AuthRepository.cs
+      IAuthRepository.cs
       AuthDtos.cs
       AuthValidators.cs
       AuthPermissions.cs
     Users/
       UserEndpoints.cs
       UserService.cs
-      UserRepository.cs
+      IUserRepository.cs
       UserDtos.cs
       UserValidators.cs
       UserPermissions.cs
     Roles/
       RoleEndpoints.cs
       RoleService.cs
-      RoleRepository.cs
+      IRoleRepository.cs
       RoleDtos.cs
       RoleValidators.cs
       RolePermissions.cs
@@ -201,12 +201,24 @@ src/
     Tags/
     Links/
 
-  WeCms.Infrastructure/
-    Db/
+  WeCms.Persistence/
+    Data/
       DbConnectionFactory.cs
       UnitOfWork.cs
-      DbTransactionManager.cs
-      DapperAotConfig.cs
+      DbTransactionFacade.cs
+    Migration/
+      DbMigrationRunner.cs
+    Modules/
+      System/
+        Auth/
+          AuthRepository.cs
+        Users/
+          UserRepository.cs
+        Roles/
+          RoleRepository.cs
+      Cms/
+
+  WeCms.Infrastructure/
     Cache/
       CacheKeyBuilder.cs
       PermissionCache.cs
@@ -226,7 +238,6 @@ src/
       MailTemplateRenderer.cs
     Jobs/
       JobRunner.cs
-      JobRepository.cs
     OpenApi/
       OpenApiExporter.cs
 
@@ -244,12 +255,25 @@ src/
     Security/
 ```
 
+依赖矩阵说明：
+
+```text
+WeCms.Api -> WeCms.Modules.System / WeCms.Modules.Cms / WeCms.Infrastructure / WeCms.Persistence / WeCms.Shared
+WeCms.Modules.System -> WeCms.Shared
+WeCms.Modules.Cms -> WeCms.Shared
+WeCms.Persistence -> WeCms.Shared / WeCms.Modules.System / WeCms.Modules.Cms
+WeCms.Infrastructure -> WeCms.Shared
+WeCms.Shared -> 不引用其它生产工程
+```
+
+`WeCms.Persistence` 是数据库适配器层，引用 System/Cms 模块只用于实现模块暴露的 repository port。System/Cms 模块不得引用 `WeCms.Persistence`、Dapper、Dapper.AOT、MySqlConnector、`DbConnection`、`DbTransaction` 或 SQL 文本。`WeCms.Infrastructure` 只承载非数据库基础设施实现，不能作为数据库访问层。
+
 后端代码边界规则：
 
 ```text
 BE-SKELETON-001：Endpoint 只负责 HTTP 输入输出绑定，不写业务规则。
 BE-SKELETON-002：Service 负责业务规则、事务边界、领域不变量。
-BE-SKELETON-003：Repository 只负责 SQL，不写权限判断，不写业务流程。
+BE-SKELETON-003：Repository 实现只允许位于 WeCms.Persistence，且只负责 SQL 和数据映射，不写权限判断，不写业务流程。
 BE-SKELETON-004：DTO 不复用数据库实体。
 BE-SKELETON-005：Request DTO、Response DTO、Query DTO 必须分开。
 BE-SKELETON-006：所有 DTO 必须加入 WeCmsJsonContext。
@@ -257,6 +281,7 @@ BE-SKELETON-007：所有 Endpoint 必须显式注册。
 BE-SKELETON-008：所有模块必须有权限码常量文件。
 BE-SKELETON-009：所有模块必须有 API 契约测试。
 BE-SKELETON-010：所有模块必须有 Repository 集成测试。
+BE-SKELETON-011：System/Cms 模块只能定义 repository port，不得直接依赖 Persistence 实现。
 ```
 
 Endpoint 示例规范：

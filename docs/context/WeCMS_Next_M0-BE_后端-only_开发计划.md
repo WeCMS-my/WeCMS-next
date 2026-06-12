@@ -175,15 +175,27 @@ backend/
       ValidationError.cs
       Pagination/
       Security/
-      Time/
-
-    WeCms.Infrastructure/
+        IPermissionChecker.cs
       Data/
         IDbConnectionFactory.cs
-        DbConnectionFactory.cs
         IUnitOfWork.cs
+      Time/
+
+    WeCms.Persistence/
+      Data/
+        DbConnectionFactory.cs
         UnitOfWork.cs
         DapperAotModule.cs
+      Modules/
+        System/
+          Auth/
+            AuthRepository.cs
+          Permissions/
+            PermissionChecker.cs
+      Migration/
+        DbMigrationRunner.cs
+
+    WeCms.Infrastructure/
       Security/
         IPasswordHasher.cs
         Pbkdf2PasswordHasher.cs
@@ -211,8 +223,6 @@ backend/
         PermissionMetadata.cs
         PermissionEndpointExtensions.cs
         PermissionEndpointFilter.cs
-        PermissionChecker.cs
-        PermissionRepository.cs
         SystemPermissions.cs
 
     WeCms.Modules.Cms/
@@ -922,7 +932,7 @@ dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj
 
 ---
 
-### M0-BE-005：实现 Infrastructure Data / Dapper.AOT
+### M0-BE-005：实现 Persistence / Dapper.AOT
 
 #### 目标
 
