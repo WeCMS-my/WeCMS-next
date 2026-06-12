@@ -18,6 +18,8 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<SystemPingResponse>))]
 [JsonSerializable(typeof(ApiResult<SystemVersionResponse>))]
 [JsonSerializable(typeof(ApiResult<DbCheckResponse>))]
+[JsonSerializable(typeof(ApiResult<SecurePingResponse>))]
+[JsonSerializable(typeof(SecurePingResponse))]
 internal sealed partial class WeCmsJsonContext : JsonSerializerContext
 {
 }
