@@ -250,8 +250,7 @@ scripts/
   quality-gate-backend.sh
   db/
     reset-dev-db.sh
-    apply-migrations.sh
-    seed-dev.sh
+  smoke-admin-login.sh
   checks/
     check-no-select-star.sh
     check-no-dynamic-query.sh
@@ -951,9 +950,11 @@ AOT publish 通过
 ```bash
 docker compose up -d mysql
 bash scripts/db/reset-dev-db.sh
-bash scripts/db/apply-migrations.sh
-bash scripts/db/seed-dev.sh
+dotnet run --project backend/src/WeCms.Api --launch-profile http
 ```
+
+开发环境的 schema、基础权限和 `admin / Admin@123` 账号由 `DbMigrationRunner` 在应用启动时统一创建。
+主初始化流程不得手工执行 `database/seeds/*.sql` 写入 admin 密码。
 
 ---
 
@@ -966,11 +967,11 @@ bash scripts/db/seed-dev.sh
 #### 验收
 
 ```bash
-curl http://localhost:5000/health/live
-curl http://localhost:5000/health/ready
-curl http://localhost:5000/api/v1/system/ping
-curl http://localhost:5000/api/v1/system/version
-curl http://localhost:5000/api/v1/system/db-check
+curl http://localhost:5207/health/live
+curl http://localhost:5207/health/ready
+curl http://localhost:5207/api/v1/system/ping
+curl http://localhost:5207/api/v1/system/version
+curl http://localhost:5207/api/v1/system/db-check
 ```
 
 ---
@@ -989,6 +990,7 @@ Refresh Token 只保存 hash
 refresh 后旧 token 失效
 logout 后 refresh token 失效
 /auth/me 返回 user / roles / permissions / menus
+scripts/smoke-admin-login.sh 可验证初始化后 admin / Admin@123 真实登录
 ```
 
 ---

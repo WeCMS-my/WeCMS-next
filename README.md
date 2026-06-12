@@ -37,24 +37,31 @@ docker compose up -d mysql
 
 ```bash
 bash scripts/db/reset-dev-db.sh
-bash scripts/db/apply-migrations.sh
-bash scripts/db/seed-dev.sh
 ```
+
+开发环境的 schema、基础权限和 `admin / Admin@123` 账号由后端启动时的 `DbMigrationRunner` 统一创建。
+不要在主初始化流程中手工执行 `database/seeds/*.sql`，避免绕过运行时密码 hash 生成。
 
 ### 3. 运行后端
 
 ```bash
-dotnet run --project backend/src/WeCms.Api
+dotnet run --project backend/src/WeCms.Api --launch-profile http
 ```
 
 ### 4. 验证 API
 
 ```bash
-curl http://localhost:5000/health/live
-curl http://localhost:5000/health/ready
-curl http://localhost:5000/api/v1/system/ping
-curl http://localhost:5000/api/v1/system/version
-curl http://localhost:5000/api/v1/system/db-check
+curl http://localhost:5207/health/live
+curl http://localhost:5207/health/ready
+curl http://localhost:5207/api/v1/system/ping
+curl http://localhost:5207/api/v1/system/version
+curl http://localhost:5207/api/v1/system/db-check
+```
+
+验证初始化后的默认管理员可登录：
+
+```bash
+bash scripts/smoke-admin-login.sh
 ```
 
 ## M0-BE 质量门禁

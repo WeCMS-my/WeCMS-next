@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -82,47 +81,33 @@ public sealed class SystemEndpointHandlers
 /// </summary>
 public static class SystemEndpoints
 {
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Minimal API registration is validated by integration tests and AOT publish.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Minimal API registration is validated by integration tests and AOT publish.")]
     public static void Map(WebApplication app)
     {
         var healthGroup = app.MapGroup("/health");
-        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live",
-            static (SystemEndpointHandlers handlers) =>
-                TypedResults.Ok(handlers.GetHealthLive()));
+        var healthLive = (RouteHandlerBuilder)healthGroup.MapGet("/live", SystemEndpointRequestDelegates.HandleHealthLiveAsync);
         healthLive.Produces<ApiResult<HealthLiveResponse>>(StatusCodes.Status200OK);
         healthLive.WithName("System_HealthLive");
 
-        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready",
-            static async (SystemEndpointHandlers handlers, CancellationToken cancellationToken) =>
-                TypedResults.Ok(await handlers.GetHealthReadyAsync(cancellationToken)));
+        var healthReady = (RouteHandlerBuilder)healthGroup.MapGet("/ready", SystemEndpointRequestDelegates.HandleHealthReadyAsync);
         healthReady.Produces<ApiResult<HealthReadyResponse>>(StatusCodes.Status200OK);
         healthReady.WithName("System_HealthReady");
 
         var systemGroup = app.MapGroup("/api/v1/system");
-        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping",
-            static (SystemEndpointHandlers handlers) =>
-                TypedResults.Ok(handlers.GetPing()));
+        var ping = (RouteHandlerBuilder)systemGroup.MapGet("/ping", SystemEndpointRequestDelegates.HandlePingAsync);
         ping.Produces<ApiResult<SystemPingResponse>>(StatusCodes.Status200OK);
         ping.WithName("System_Ping");
 
-        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version",
-            static (SystemEndpointHandlers handlers) =>
-                TypedResults.Ok(handlers.GetVersion()));
+        var version = (RouteHandlerBuilder)systemGroup.MapGet("/version", SystemEndpointRequestDelegates.HandleVersionAsync);
         version.Produces<ApiResult<SystemVersionResponse>>(StatusCodes.Status200OK);
         version.WithName("System_Version");
 
-        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check",
-            static (HttpContext context, SystemEndpointHandlers handlers, CancellationToken cancellationToken) =>
-                handlers.GetDbCheckAsync(context, cancellationToken));
+        var dbCheck = (RouteHandlerBuilder)systemGroup.MapGet("/db-check", SystemEndpointRequestDelegates.HandleDbCheckAsync);
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status200OK);
         dbCheck.Produces<ApiResult<DbCheckResponse>>(StatusCodes.Status503ServiceUnavailable);
         dbCheck.WithName("System_DbCheck");
 
         // M0-BE-009: secure-ping with RequirePermission
-        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping",
-            static (SystemEndpointHandlers handlers) =>
-                TypedResults.Ok(handlers.GetSecurePing()));
+        var securePing = (RouteHandlerBuilder)systemGroup.MapGet("/secure-ping", SystemEndpointRequestDelegates.HandleSecurePingAsync);
         securePing.Produces<ApiResult<SecurePingResponse>>(StatusCodes.Status200OK);
         securePing.WithName("System_SecurePing");
         securePing.RequirePermission(SystemPermissions.SystemSecurePing);

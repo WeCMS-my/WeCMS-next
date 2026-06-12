@@ -100,7 +100,7 @@ Dapper 是 WeCMS 数据访问层的核心依赖，不可替换。Dapper.AOT 1.0.
 
 - `.github/workflows/backend-quality-gate.yml` 已新增 `AOT exception baseline check` 步骤，执行 `scripts/checks/check-aot-exception-baseline.sh`。
 - `.github/workflows/backend-quality-gate.yml` 与 `scripts/quality-gate-backend.sh` 新增 `check-no-self-aot-suppression` 步骤，执行 `scripts/checks/check-no-self-aot-suppression.sh`；
-  该检查会拒绝在自有源码中新增 `IL2026`/`IL3050` 的 `NoWarn` 或 `#pragma` 屏蔽，确保告警持续可见。
+  该检查会拒绝在自有源码中新增 `IL2026`/`IL3050` 的 `NoWarn`、`#pragma`、`[UnconditionalSuppressMessage]`、`[SuppressMessage]`，并阻断 `DynamicDependency` 等 Trim/AOT 依赖保留属性进入主干，确保告警持续可见。
 - 升级前提不满足基线时，脚本会阻断 CI，并提示：
   - 更新 `scripts/checks/aot-exception-baseline.env`；
   - 在 `ADR-0006` 中复核是否仍需保留 IL2104/IL3053 例外。
