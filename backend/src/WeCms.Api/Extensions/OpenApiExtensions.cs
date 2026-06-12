@@ -1,11 +1,15 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.OpenApi;
 
 namespace WeCms.Api.Extensions;
 
 public static class OpenApiExtensions
 {
     private const string ExportArg = "--export-openapi";
+    private const string OpenApiAssemblyName = "Microsoft.AspNetCore.OpenApi";
+    private const string OpenApiDocumentProviderTypeName = "Microsoft.Extensions.ApiDescriptions.OpenApiDocumentProvider";
     private const string StableServerUrl = "http://localhost:5000/";
 
     public static bool IsExportMode(string[] args)
@@ -17,23 +21,11 @@ public static class OpenApiExtensions
     public static async Task ExportOpenApiAsync(this WebApplication app, string outputPath)
     {
         app.MapOpenApi();
-
-        app.Urls.Add("http://127.0.0.1:0");
         await app.StartAsync();
 
         try
         {
-            var addressesFeature = app.Services
-                .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
-                .Features
-                .Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>();
-
-            var address = addressesFeature?.Addresses.FirstOrDefault()
-                ?? throw new InvalidOperationException("无法获取服务器绑定地址");
-
-            using var client = new HttpClient { BaseAddress = new Uri(address) };
-            var json = await client.GetStringAsync("/openapi/v1.json");
-
+            var json = await GenerateOpenApiJsonAsync(app.Services);
             var normalizedJson = NormalizeOpenApiJson(json);
 
             var dir = Path.GetDirectoryName(outputPath);
@@ -50,6 +42,30 @@ public static class OpenApiExtensions
         {
             await app.StopAsync();
         }
+    }
+
+    private static async Task<string> GenerateOpenApiJsonAsync(IServiceProvider services)
+    {
+        var providerType = Type.GetType($"{OpenApiDocumentProviderTypeName}, {OpenApiAssemblyName}")
+            ?? throw new InvalidOperationException($"无法加载类型：{OpenApiDocumentProviderTypeName}");
+
+        var provider = Activator.CreateInstance(providerType, services)
+            ?? throw new InvalidOperationException($"无法创建实例：{OpenApiDocumentProviderTypeName}");
+
+        using var writer = new StringWriter();
+        var generateMethod = providerType.GetMethod(
+            "GenerateAsync",
+            BindingFlags.Instance | BindingFlags.Public,
+            null,
+            [typeof(string), typeof(TextWriter), typeof(OpenApiSpecVersion)],
+            null)
+            ?? throw new InvalidOperationException("无法定位 OpenAPI GenerateAsync 方法。");
+
+        var task = (Task?)generateMethod.Invoke(provider, ["v1", writer, OpenApiSpecVersion.OpenApi3_1])
+            ?? throw new InvalidOperationException("OpenAPI GenerateAsync 未返回任务。");
+
+        await task;
+        return writer.ToString();
     }
 
     private static string NormalizeOpenApiJson(string json)
