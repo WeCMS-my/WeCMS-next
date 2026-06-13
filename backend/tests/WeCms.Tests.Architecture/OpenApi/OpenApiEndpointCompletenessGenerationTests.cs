@@ -57,7 +57,7 @@ public sealed class OpenApiEndpointCompletenessGenerationTests
 
         builder.Services.AddRouting();
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddOpenApi();
+        builder.Services.AddWeCmsOpenApi();
         builder.Services.AddAuthorization();
 
         builder.Services.AddScoped<AuthEndpointHandlers>();

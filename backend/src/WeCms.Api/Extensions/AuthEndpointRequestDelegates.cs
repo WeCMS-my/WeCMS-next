@@ -69,7 +69,11 @@ internal static class AuthEndpointRequestDelegates
             context,
             WeCmsJsonContext.Default.LogoutRequest,
             "刷新令牌不能为空");
-        var result = await handlers.LogoutAsync(request, context.RequestAborted);
+        var result = await handlers.LogoutAsync(
+            request,
+            context.GetClientIp(),
+            context.Request.Headers.UserAgent.ToString(),
+            context.RequestAborted);
 
         await WriteOkAsync(context, result, WeCmsJsonContext.Default.ApiResultObject);
     }

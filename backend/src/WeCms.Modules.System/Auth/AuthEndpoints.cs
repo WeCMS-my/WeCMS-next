@@ -61,14 +61,18 @@ public sealed class AuthEndpointHandlers
         return ApiResult<RefreshResponse>.Ok(result);
     }
 
-    public async Task<ApiResult<object?>> LogoutAsync(LogoutRequest request, CancellationToken cancellationToken)
+    public async Task<ApiResult<object?>> LogoutAsync(
+        LogoutRequest request,
+        string ipAddress,
+        string userAgent,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
         {
             throw new DomainException(ApiCodes.ValidationError, "刷新令牌不能为空");
         }
 
-        await _authService.LogoutAsync(request.RefreshToken, cancellationToken);
+        await _authService.LogoutAsync(request.RefreshToken, ipAddress, userAgent, cancellationToken);
 
         return ApiResult<object?>.Ok(null);
     }

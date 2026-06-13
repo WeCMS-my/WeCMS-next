@@ -50,37 +50,4 @@ public sealed class JwtTokenService : ITokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public WeCms.Shared.Security.TokenValidationResult ValidateAccessToken(string token)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_signingKey));
-
-        try
-        {
-            var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
-                ValidateIssuer = true,
-                ValidIssuer = _issuer,
-                ValidateAudience = true,
-                ValidAudience = _audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero,
-            }, out _);
-
-            var userId = long.Parse(principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value!);
-            var username = principal.FindFirst(JwtRegisteredClaimNames.UniqueName)?.Value!;
-            var displayName = principal.FindFirst("displayName")?.Value ?? "";
-            var permissionVersion = int.Parse(principal.FindFirst("permissionVersion")?.Value ?? "0");
-            var securityStamp = principal.FindFirst("securityStamp")?.Value ?? "";
-
-            var user = new CurrentUser(userId, username, displayName, permissionVersion, securityStamp);
-            return new WeCms.Shared.Security.TokenValidationResult(true, user);
-        }
-        catch
-        {
-            return new WeCms.Shared.Security.TokenValidationResult(false);
-        }
-    }
 }

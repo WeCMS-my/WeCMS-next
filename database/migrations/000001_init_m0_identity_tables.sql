@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
     `avatar_file_id` BIGINT UNSIGNED NULL DEFAULT NULL,
     `password_hash` VARCHAR(512) NOT NULL DEFAULT '',
     `password_hash_algorithm` VARCHAR(32) NOT NULL DEFAULT 'pbkdf2-sha256',
-    `password_migrated_at` DATETIME(3) NULL DEFAULT NULL,
     `status` TINYINT NOT NULL DEFAULT 1 COMMENT '0=禁用,1=正常',
     `security_stamp` CHAR(36) NOT NULL DEFAULT '' COMMENT '用于使token/重置密码失效',
     `permission_version` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '权限快照版本，角色变更时递增',

@@ -1,5 +1,6 @@
 using WeCms.Api.Extensions;
 using WeCms.Modules.System.System;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Architecture;
 
@@ -26,6 +27,14 @@ public sealed class EndpointRegistrationDependencyInjectionTests
     {
         Assert.Equal("WeCms.Api.Extensions", typeof(AuthEndpointMappings).Namespace);
         Assert.Equal("WeCms.Modules.System.System", typeof(SystemEndpoints).Namespace);
+    }
+
+    [Fact]
+    public void TokenServiceContract_ShouldNotExpose_ManualValidationFallback()
+    {
+        var method = typeof(ITokenService).GetMethod("ValidateAccessToken");
+
+        Assert.Null(method);
     }
 
     private static string FindRepositoryRoot()

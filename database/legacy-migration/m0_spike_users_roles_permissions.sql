@@ -16,7 +16,7 @@
 --   id (BIGINT UNSIGNED AUTO_INCREMENT)
 --   legacy_id (预留，当前为 NULL)
 --   username, display_name, email, phone, avatar_file_id
---   password_hash, password_hash_algorithm, password_migrated_at
+--   password_hash, password_hash_algorithm
 --   status, security_stamp, permission_version
 --   two_factor_enabled, two_factor_rebind_required
 --   last_login_at, last_login_ip
@@ -25,7 +25,7 @@
 --
 -- 差异:
 --   1. 新表使用 BIGINT UNSIGNED 主键（旧表 INT UNSIGNED）
---   2. 新表 password 拆分为 password_hash + algorithm + migrated_at
+--   2. 新表 password 拆分为 password_hash + algorithm，不保留旧密码迁移升级字段
 --   3. 新表新增 permission_version 用于权限缓存失效
 --   4. 新表新增 security_stamp 用于强制重新登录
 --   5. 新表使用软删除 (deleted_at) 代替物理删除

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 
 namespace WeCms.Api.Extensions;
@@ -12,6 +13,16 @@ public static class OpenApiExtensions
     private const string OpenApiDocumentProviderTypeName = "Microsoft.Extensions.ApiDescriptions.OpenApiDocumentProvider";
     private const string DocumentName = "v1";
     private const string StableServerUrl = "http://localhost:5000/";
+
+    public static IServiceCollection AddWeCmsOpenApi(this IServiceCollection services)
+    {
+        services.AddOpenApi(options =>
+        {
+            options.AddDocumentTransformer<SystemOpenApiDocumentTransformer>();
+        });
+
+        return services;
+    }
 
     public static bool IsExportMode(string[] args)
         => Array.IndexOf(args, ExportArg) >= 0;
@@ -29,8 +40,11 @@ public static class OpenApiExtensions
 
     public static async Task ExportOpenApiAsync(this WebApplication app, string outputPath)
     {
+        Console.WriteLine("OpenAPI export: mapping endpoint.");
         app.MapOpenApi();
+        Console.WriteLine("OpenAPI export: generating document.");
         var json = await GenerateOpenApiJsonForExportOnlyAsync(app.Services);
+        Console.WriteLine("OpenAPI export: normalizing document.");
         var normalizedJson = NormalizeOpenApiJson(json);
 
         var dir = Path.GetDirectoryName(outputPath);

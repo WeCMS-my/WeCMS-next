@@ -183,8 +183,6 @@ internal sealed class FakePasswordHasher : IPasswordHasher
 internal sealed class FakeTokenService : ITokenService
 {
     public string GenerateAccessToken(CurrentUser user) => "access-token";
-
-    public TokenValidationResult ValidateAccessToken(string token) => new(false);
 }
 
 internal sealed class FakeTokenGenerator : ITokenGenerator

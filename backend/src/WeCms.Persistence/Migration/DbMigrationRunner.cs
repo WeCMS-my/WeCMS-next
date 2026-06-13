@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
@@ -38,15 +39,18 @@ public sealed class DbMigrationRunner
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IDbMigrationScriptProvider _scriptProvider;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IConfiguration _configuration;
 
     public DbMigrationRunner(
         IDbConnectionFactory connectionFactory,
         IDbMigrationScriptProvider scriptProvider,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IConfiguration configuration)
     {
         _connectionFactory = connectionFactory;
         _scriptProvider = scriptProvider;
         _passwordHasher = passwordHasher;
+        _configuration = configuration;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
@@ -113,8 +117,17 @@ public sealed class DbMigrationRunner
 
     private object? BuildParameters(DbMigrationScript script)
     {
-        return script.Sql.Contains("@PasswordHash", StringComparison.Ordinal)
-            ? new { PasswordHash = _passwordHasher.Hash("Admin@123") }
-            : null;
+        if (!script.Sql.Contains("@PasswordHash", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var seedAdminPassword = _configuration["Database:SeedAdminPassword"];
+        if (string.IsNullOrWhiteSpace(seedAdminPassword))
+        {
+            throw new InvalidOperationException("Database:SeedAdminPassword 未配置，无法初始化超级管理员密码。");
+        }
+
+        return new { PasswordHash = _passwordHasher.Hash(seedAdminPassword) };
     }
 }

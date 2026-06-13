@@ -18,7 +18,7 @@ var isOpenApiExportMode = OpenApiExtensions.IsExportMode(args);
 
 // M0-BE-010: OpenAPI document generation (source-generated for Native AOT)
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOpenApi();
+builder.Services.AddWeCmsOpenApi();
 
 // Register infrastructure services (password hasher, clock, token services)
 builder.Services.AddWeCmsInfrastructure();

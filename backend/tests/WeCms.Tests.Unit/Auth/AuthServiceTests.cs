@@ -298,10 +298,49 @@ public sealed class AuthServiceTests
         repository.RevokeRefreshTokenResult = 0;
 
         var ex = await Assert.ThrowsAsync<DomainException>(
-            () => service.LogoutAsync("refresh-token", default));
+            () => service.LogoutAsync("refresh-token", "127.0.0.1", "agent", default));
 
         Assert.Equal(ApiCodes.SystemError, ex.Code);
         Assert.Equal("登出令牌吊销失败", ex.Message);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenRefreshTokenDoesNotExist_ShouldAuditAndThrowUnauthorized()
+    {
+        var repository = new TrackingAuthRepository();
+        var service = CreateService(repository);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.LogoutAsync("refresh-token", "127.0.0.1", "agent", default));
+
+        Assert.Equal(ApiCodes.Unauthorized, ex.Code);
+        Assert.Equal("刷新令牌无效或已失效", ex.Message);
+        Assert.Equal("logout_refresh_invalid", repository.LastSecurityEvent?.EventType);
+        Assert.Equal("127.0.0.1", repository.LastSecurityEvent?.IpAddress);
+        Assert.Equal("agent", repository.LastSecurityEvent?.UserAgent);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenRefreshTokenAlreadyRevoked_ShouldAuditAndThrowUnauthorized()
+    {
+        var repository = new TrackingAuthRepository();
+        var service = CreateService(repository);
+        repository.GetRefreshTokenByHashResult = new RefreshTokenRow(
+            11,
+            1,
+            "hashed:refresh-token",
+            "family-id",
+            new DateTimeOffset(2026, 06, 10, 10, 0, 0, TimeSpan.Zero).AddHours(1),
+            new DateTimeOffset(2026, 06, 10, 9, 0, 0, TimeSpan.Zero),
+            null);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(
+            () => service.LogoutAsync("refresh-token", "127.0.0.1", "agent", default));
+
+        Assert.Equal(ApiCodes.Unauthorized, ex.Code);
+        Assert.Equal("刷新令牌无效或已失效", ex.Message);
+        Assert.Equal("logout_refresh_revoked", repository.LastSecurityEvent?.EventType);
+        Assert.Equal(1, repository.LastSecurityEvent?.UserId);
     }
 
     [Fact]

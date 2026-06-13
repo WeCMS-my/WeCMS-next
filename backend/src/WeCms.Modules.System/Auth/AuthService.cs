@@ -24,6 +24,8 @@ public interface IAuthService
 
     Task LogoutAsync(
         string refreshToken,
+        string ipAddress,
+        string userAgent,
         CancellationToken cancellationToken);
 
     Task<VerifyTwoFactorResponse> VerifyTwoFactorAsync(
@@ -400,13 +402,36 @@ public sealed class AuthService : IAuthService
 
     public async Task LogoutAsync(
         string refreshToken,
+        string ipAddress,
+        string userAgent,
         CancellationToken cancellationToken)
     {
         var tokenHash = _refreshTokenHasher.Hash(refreshToken);
         var storedToken = await _repository.GetRefreshTokenByHashAsync(null, tokenHash, cancellationToken);
 
-        if (storedToken is null || storedToken.RevokedAt is not null)
-            return;
+        if (storedToken is null)
+        {
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                null,
+                "logout_refresh_invalid",
+                "登出请求使用不存在的 refresh token",
+                ipAddress,
+                userAgent,
+                1), cancellationToken);
+            throw new DomainException(ApiCodes.Unauthorized, "刷新令牌无效或已失效");
+        }
+
+        if (storedToken.RevokedAt is not null)
+        {
+            await _repository.InsertSecurityEventAsync(null, new SecurityEventInsertRow(
+                storedToken.UserId,
+                "logout_refresh_revoked",
+                "登出请求复用已吊销的 refresh token",
+                ipAddress,
+                userAgent,
+                2), cancellationToken);
+            throw new DomainException(ApiCodes.Unauthorized, "刷新令牌无效或已失效");
+        }
 
         var revokedRows = await _repository.RevokeRefreshTokenAsync(
             null,

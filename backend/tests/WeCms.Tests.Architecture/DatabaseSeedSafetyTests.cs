@@ -39,6 +39,43 @@ public sealed class DatabaseSeedSafetyTests
     }
 
     [Fact]
+    public void DbMigrationRunner_ShouldNotEmbedDefaultAdminPassword()
+    {
+        var runnerPath = Path.Combine(
+            RepoRoot,
+            "backend",
+            "src",
+            "WeCms.Persistence",
+            "Migration",
+            "DbMigrationRunner.cs");
+        var source = File.ReadAllText(runnerPath);
+
+        Assert.DoesNotContain("Admin@123", source, StringComparison.Ordinal);
+        Assert.Contains("Database:SeedAdminPassword", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DatabaseScripts_ShouldNotKeepLegacyPasswordMigrationField()
+    {
+        var databaseRoot = Path.Combine(RepoRoot, "database");
+        var matches = new List<string>();
+
+        foreach (var sqlFile in Directory.EnumerateFiles(databaseRoot, "*.sql", SearchOption.AllDirectories))
+        {
+            var lines = File.ReadAllLines(sqlFile);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Contains("password_migrated_at", StringComparison.Ordinal))
+                {
+                    matches.Add($"{Path.GetRelativePath(RepoRoot, sqlFile)}:{i + 1}: {lines[i].Trim()}");
+                }
+            }
+        }
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
     public void SchemaMigrationFiles_ShouldNotDefineRunnerMetadataTables()
     {
         var migrationDir = Path.Combine(RepoRoot, "database", "migrations");
