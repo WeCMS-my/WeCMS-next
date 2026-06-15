@@ -8,10 +8,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsAotCompatible>true</IsAotCompatible>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableAotAnalyzer>true</EnableAotAnalyzer>
-    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL2070;IL2072</WarningsAsErrors>
   </PropertyGroup>
 
 </Project>

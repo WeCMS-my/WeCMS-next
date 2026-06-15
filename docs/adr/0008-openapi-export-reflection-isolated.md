@@ -2,12 +2,13 @@
 
 ## Status
 
-Accepted
+Accepted with historical AOT background.
 
 ## Context
 
-WeCMS requires Native AOT publish and treats trim/AOT warnings as build failures.
-The runtime API host must avoid reflection-heavy implementation paths.
+This ADR was created when WeCMS still used Native AOT as the runtime baseline.
+The current repository runtime baseline is JIT, but the decision to isolate the
+OpenAPI export reflection path to a bounded CLI-only flow remains valid.
 
 The .NET 10 `Microsoft.AspNetCore.OpenApi` package exposes the runtime OpenAPI
 endpoint through `MapOpenApi()`, but the build-time document provider used by
@@ -37,8 +38,7 @@ The export path must stay covered by:
 - architecture tests documenting the reflection boundary;
 - package-version checks that reject preview/stable ASP.NET Core package mixing;
 - backend quality gate execution of `--export-openapi`;
-- Native AOT publish followed by running the published binary with
-  `--export-openapi`.
+- published-binary execution with `--export-openapi`.
 
 ## Consequences
 
@@ -47,5 +47,4 @@ Any new reflection outside this file must be reviewed independently.
 
 If .NET later exposes a stable public build-time OpenAPI export API, this ADR
 must be revisited and the reflection path removed.
-
 
