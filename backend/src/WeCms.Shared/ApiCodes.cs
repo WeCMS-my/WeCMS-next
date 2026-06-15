@@ -10,5 +10,6 @@ public static class ApiCodes
     public const int Conflict = 40901;
     public const int TooManyRequests = 42901;
     public const int BusinessError = 50001;
+    public const int InvalidConfiguration = 50002;
     public const int SystemError = 50000;
 }
