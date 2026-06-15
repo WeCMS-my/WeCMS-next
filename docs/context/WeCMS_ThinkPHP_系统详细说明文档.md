@@ -9,7 +9,7 @@
 
 ## 1. 文档目的
 
-本文档用于在 **完整迁移到 ASP.NET Core Minimal APIs + .NET 10 Native AOT + SqlSugar ORM + SoybeanAdmin** 前，对现有 ThinkPHP CMS 进行系统化梳理，明确：
+本文档用于在 **完整迁移到 ASP.NET Core Minimal APIs + .NET 10 JIT publish/runtime + SqlSugar ORM + SoybeanAdmin** 前，对现有 ThinkPHP CMS 进行系统化梳理，明确：
 
 1. 当前系统的技术栈、目录结构与运行模型。
 2. 当前系统已有业务模块与功能边界。
@@ -1542,6 +1542,5 @@ CSV 权限字段
 Session token 认证模型
 未脱敏 SQL dump
 ```
-
 
 

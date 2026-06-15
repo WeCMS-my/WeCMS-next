@@ -1,116 +1,18 @@
-﻿# ADR-0006：Native AOT / Trim 警告例外管理
+# ADR-0006：Native AOT / Trim 警告例外管理
 
 ## 状态
 
-Accepted
+Superseded by `ADR-0009`.
 
-## 背景
+## 说明
 
-P1-001 修复中删除了 `WeCms.Modules.System.csproj` 的 `<NoWarn>IL2026;IL3050</NoWarn>` 以及 Endpoint 文件中的 `#pragma warning disable IL2026, IL3050`，让真实 AOT 警告暴露出来。
+本文件保留为历史记录。
 
-经过修复后，WeCMS 自有代码的真实 AOT 警告可被直接追踪；平台级 `MapGet/MapPost` 警告已通过路由绑定方式调整进行清零，不再作为待清零平台例外保留。
+它描述的是 WeCMS 仍以 Native AOT 作为强制运行时基线时的告警例外治理方式。自 `ADR-0009：运行时基线从 Native AOT 切换为 JIT` 生效后，本文件不再作为现行规则、合并门禁或发布基线。
 
-## 分析
+## 当前结论
 
-### 自有代码：已解决
-
-`PermissionEndpointFilter.cs` 原先使用 `Results.Json(value, statusCode:)` 重载（需要 `JsonSerializerOptions`），在 AOT 下不安全。已改为使用 `TypedResults.Json(value, JsonTypeInfo, statusCode:)` 重载，通过注入 `JsonSerializerContext` 获取 `JsonTypeInfo<ApiResult<object?>>`。
-
-### 平台级路由警告：ASP.NET Minimal API `MapGet` 风险警报
-
-`MapGet` 的 `Delegate` 重载在标注了 `RequiresUnreferencedCode` / `RequiresDynamicCode` 的场景下会触发 IL2026/IL3050。我们已将端点注册改为 `RequestDelegate` 重载（将依赖从 `HttpContext.RequestServices` 注入），避免该警告再次出现。
-
-**验证**（当前环境）：
-- `dotnet build backend/src/WeCms.Api/WeCms.Api.csproj -warnaserror`：2026-06-10 在当前仓库状态下通过，`SystemEndpoints` 无 IL2026/IL3050 新增。
-- `dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r osx-arm64 /p:PublishAot=true`：2026-06-10 在本机通过，产物为 `backend/src/WeCms.Api/bin/Release/net10.0/osx-arm64/publish/`。
-- 在 macOS 宿主机上强制 `-r linux-x64` 仍会受 `llvm-objcopy/objcopy` 与 Linux linker 参数限制影响，属于交叉 AOT 工具链限制，不再作为本地质量门禁默认路径。
-
-### 第三方库：SqlSugar ORM
-
-SqlSugar ORM 已被确认为 WeCMS 新的数据访问 ORM 方向。由于 SqlSugar ORM 对 Native AOT / Trim 的支持需要在当前目标运行时和目标 RID 下实际验证，因此不得沿用旧数据访问库的 AOT 例外基线。
-
-SqlSugar ORM 引入或升级时，必须重新执行 Native AOT publish，并记录实际出现的 IL2104 / IL3053 / IL2026 / IL3050 警告。只有经人工审查确认来自第三方库且无运行时风险的警告，才允许进入 `WeCms.Api.csproj` 的针对性例外。
-
-SqlSugar ORM 不得成为放宽自有代码 AOT 要求的理由。WeCMS 自有代码仍必须保持零 IL2026 / IL3050 抑制。
-
-## 决策
-
-1. **自有代码零容忍**：WeCMS 所有项目（`WeCms.Shared`、`WeCms.Infrastructure`、`WeCms.Persistence`、`WeCms.Modules.System`、`WeCms.Modules.Cms`）保持 `IsAotCompatible=true`，不屏蔽 IL2026/IL3050。
-2. **平台误报处置闭环**：`MapGet` 调用不再使用 `Delegate` 重载，并保留 `warnaserror` 直接可见性；不依赖局部或项目级抑制。
-3. **第三方库例外**：仅当 SqlSugar ORM 在实际 Native AOT publish 中产生可解释、可复核的第三方库警告时，才允许在 publish 项目 `WeCms.Api.csproj` 中进行针对性抑制。
-
-## 例外详情
-
-### 平台级异常（已清零）
-
-| 项目 | 警告码 | 来源 | 处理结果 | 风险 |
-|---|---|---|---|---|
-| WeCms.Modules.System | IL2026 / IL3050 | `SystemEndpoints` `MapGet(Delegate)`（已重构前） | 2026-06-10 已清零：改为 `MapGet(RequestDelegate)` + `-warnaserror` 验证通过 | 低（仅历史遗留背景） |
-
-移除条件已满足：平台级 `MapGet` 告警路径已重构为 `RequestDelegate`，未保留抑制。
-
-### 第三方库
-
-| 项目 | 警告码 | 来源 | 原因 | 风险评估 |
-|---|---|---|---|---|
-| WeCms.Api | 待验证 | SqlSugar ORM 相关 assembly | SqlSugar ORM Native AOT / Trim 兼容性需实测 | 待评估 — 引入前必须运行 AOT publish 并更新基线 |
-
-## 移除条件
-
-### 平台误报
-
-当以下条件满足时可评估关闭该警告：
-
-1. 已完成 `MapGet(RequestDelegate)` 重构。
-2. 2026-06-10 执行 `dotnet build backend/src/WeCms.Api/WeCms.Api.csproj -warnaserror` 后，在源代码层面无 IL2026/IL3050 回归。
-
-### 第三方库
-
-当以下任一条件满足时移除此例外：
-
-1. SqlSugar ORM 在目标版本中通过 Native AOT publish 且不再产生第三方库警告。
-2. 迁移到完全 AOT-safe 的替代数据访问方案。
-3. .NET 10 GA 或 SqlSugar ORM 版本升级后重新评估。
-
-## 验证依据
-
-- 本地 `bash scripts/quality-gate-backend.sh` 现默认按宿主 RID 执行 Native AOT publish；在 Apple Silicon/macOS 上对应 `osx-arm64`，已于 2026-06-11 实测通过。
-- CI 继续通过 `ubuntu-latest` workflow 的 `linux-x64` 发布步骤进行实机验收；Linux runner 自带/安装 AOT 所需工具链后，`linux-x64` publish 仍为硬门禁。
-- WeCMS 自有代码当前不再依赖 `#pragma/NoWarn` 来隐藏端点级 AOT 警告；`MapGet` 已通过 `RequestDelegate` 重载规避 IL2026/IL3050 触发。
-- 所有 Endpoint 使用 source-generated JSON serializer context。
-- SqlSugar ORM 调用必须通过 WeCms.Persistence 中的显式 repository 实现封装；不得在业务模块中暴露 ORM Client、动态查询或运行时反射依赖。
-
-## 持续跟踪机制（ADR-0006 持续有效性）
-
-### 版本基线
-
-- SqlSugar ORM：版本待锁定
-- 基线定义文件：`scripts/checks/aot-exception-baseline.env`
-
-### 重新评估触发条件（硬规则）
-
-1. `backend/src/WeCms.Persistence/WeCms.Persistence.csproj` 中 SqlSugar ORM 包版本变更。
-2. SqlSugar ORM Provider 或 MySQL 连接器版本变更。
-3. CI 再次出现非自有代码之外的新 IL2104/IL3053/IL2026/IL3050 变化。
-
-### 执行机制
-
-- `.github/workflows/backend-quality-gate.yml` 已新增 `AOT exception baseline check` 步骤，执行 `scripts/checks/check-aot-exception-baseline.sh`。
-- `.github/workflows/backend-quality-gate.yml` 与 `scripts/quality-gate-backend.sh` 新增 `check-no-self-aot-suppression` 步骤，执行 `scripts/checks/check-no-self-aot-suppression.sh`；
-  该检查会拒绝在自有源码中新增 `IL2026`/`IL3050` 的 `NoWarn`、`#pragma`、`[UnconditionalSuppressMessage]`、`[SuppressMessage]`，并阻断 `DynamicDependency` 等 Trim/AOT 依赖保留属性进入主干，确保告警持续可见。
-- 升级前提不满足基线时，脚本会阻断 CI，并提示：
-  - 更新 `scripts/checks/aot-exception-baseline.env`；
-  - 在 `ADR-0006` 中复核是否仍需保留 IL2104/IL3053 例外。
-
-通过该机制，SqlSugar ORM 的版本变更会触发 ADR 复审。
-
-## 影响
-
-- `WeCms.Api.csproj` 只允许保留经过本 ADR 复核的 SqlSugar ORM 第三方库 AOT/Trim 抑制。
-- Endpoint 文件不再使用 `[UnconditionalSuppressMessage]`，保持警告可见性。
-- `WeCms.Persistence` 是 SqlSugar ORM / MySQL 的数据访问实现适配器层，不是传统 DAL；业务规则和事务编排仍由模块服务层通过抽象完成。
-- 其他项目（Shared、Infrastructure、Persistence、Modules）不受影响，保持零抑制。
-- AOT publish 结果受工具链约束影响；待本地/CI 完整环境安装符号剥离工具后复核。
-
-
+1. WeCMS 当前运行时基线为 `.NET 10 JIT publish/runtime`。
+2. 本文件中的 `PublishAot`、`IsAotCompatible`、AOT/Trim 告警例外、宿主 RID AOT 验证路径均已退出现行治理。
+3. 如需查看历史 AOT 决策背景，可保留阅读本文件版本历史；但不得再将其作为当前开发任务的验收标准。
 
