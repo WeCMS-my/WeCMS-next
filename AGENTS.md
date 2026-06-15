@@ -265,6 +265,7 @@ pnpm --dir frontend/soybean-admin build
 12. 所有 Endpoint 必须显式注册。
 13. 除 `AllowAnonymous` 接口外，所有业务 Endpoint 必须绑定权限码或内部访问策略。
 14. 新增 NuGet 包必须经过 AOT 兼容性说明，不能自行随意添加。
+15. Native AOT publish 必须做到 `0 error / 0 warning`；禁止通过 suppress、NoWarn、降低警告级别、忽略日志或标记“后续修复”隐藏 AOT / trim / source generator 问题。
 
 ### 3.2 数据访问硬约束
 

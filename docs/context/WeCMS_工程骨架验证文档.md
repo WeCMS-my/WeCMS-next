@@ -288,10 +288,11 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj \
 
 ```text
 1. 发布成功。
-2. Native AOT warning 不得忽略。
-3. 原生可执行文件可启动。
-4. health endpoint 可访问。
-5. 数据库连接检查可访问。
+2. Native AOT publish 必须为 0 error / 0 warning。
+3. 禁止通过 suppress / NoWarn / 降低警告级别 / 忽略日志 / 标记后续修复隐藏 AOT、trim、source generator 问题。
+4. 原生可执行文件可启动。
+5. health endpoint 可访问。
+6. 数据库连接检查可访问。
 ```
 
 ---

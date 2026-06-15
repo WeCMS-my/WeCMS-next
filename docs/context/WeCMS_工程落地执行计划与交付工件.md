@@ -709,10 +709,12 @@ frontend/soybean-admin/src/service/generated/
 
 ```text
 1. linux-x64 AOT 发布成功。
-2. P0 安全用例全部通过。
-3. P95 性能目标达成。
-4. 高危依赖为 0。
-5. OpenAPI 无未确认破坏性变更。
+2. Native AOT publish 必须为 0 error / 0 warning。
+3. 禁止通过 suppress / NoWarn / 降低警告级别 / 忽略日志 / 标记后续修复隐藏 AOT、trim、source generator 问题。
+4. P0 安全用例全部通过。
+5. P95 性能目标达成。
+6. 高危依赖为 0。
+7. OpenAPI 无未确认破坏性变更。
 ```
 
 #### M10：灰度上线与旧系统切换

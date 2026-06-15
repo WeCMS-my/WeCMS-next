@@ -316,7 +316,8 @@ PR 打开评审前必须确认：
 
 ```text
 [ ] `dotnet publish -c Release -r linux-x64 /p:PublishAot=true` 是否通过
-[ ] 是否无 trim/AOT 警告或警告已合理处理
+[ ] Native AOT publish 是否为 0 error / 0 warning
+[ ] 是否无 trim/AOT/source generator 警告，且没有通过 suppress、NoWarn、降低警告级别或忽略日志隐藏问题
 [ ] DTO 是否加入 JsonSerializerContext
 [ ] Endpoint 输入输出类型是否可被 Source Generator 处理
 [ ] 是否没有 runtime reflection scan
@@ -331,6 +332,8 @@ PR 打开评审前必须确认：
 
 ```text
 - AOT publish 失败。
+- AOT publish 存在任何 warning。
+- 通过 suppress、NoWarn、降低警告级别、忽略日志或标记“后续修复”隐藏 AOT / trim / source generator 问题。
 - 引入运行时反射扫描作为核心机制。
 - DTO 未覆盖导致运行时序列化失败风险。
 ```

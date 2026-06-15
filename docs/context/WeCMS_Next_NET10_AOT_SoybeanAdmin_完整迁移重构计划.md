@@ -174,10 +174,11 @@ dotnet publish src/WeCms.Api/WeCms.Api.csproj \
 并且：
 
 ```text
-1. 无阻塞 AOT 警告。
-2. 无运行时 JSON metadata 缺失。
-3. 所有关联 Endpoint 可启动。
-4. 基础 API smoke test 通过。
+1. Native AOT publish 必须为 0 error / 0 warning。
+2. 禁止通过 suppress / NoWarn / 降低警告级别 / 忽略日志 / 标记后续修复隐藏 AOT、trim、source generator 问题。
+3. 无运行时 JSON metadata 缺失。
+4. 所有关联 Endpoint 可启动。
+5. 基础 API smoke test 通过。
 ```
 
 ***

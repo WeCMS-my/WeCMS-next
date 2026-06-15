@@ -335,6 +335,8 @@ WeCms.Modules.Cms -> WeCms.Modules.System 内部实现
 禁止 Newtonsoft.Json 进入核心业务路径
 禁止 DTO 未加入 JsonSerializerContext
 禁止引入未验证 AOT 的第三方库
+Native AOT publish 必须做到 0 error / 0 warning
+禁止通过 suppress / NoWarn / 降低警告级别 / 忽略日志 / 标记后续修复隐藏 AOT、trim、source generator 问题
 ```
 
 ### 5.2 SqlSugar ORM / SQL 红线
