@@ -1,13 +1,14 @@
 ﻿# WeCMS Next .NET 10 JIT + SoybeanAdmin 完整迁移重构计划
 
 > 说明：文件名保留历史路径以避免引用漂移，但当前正文已经切换为 **JIT 运行时基线**。  
+> 说明：本文件是历史命名路径下的总览文档，**不是** M0-BE 当前执行入口；当前 backend-only 主计划请优先阅读 `docs/context/WeCMS Next M0-BE 后端-only 开发计划 v2.0.md`。  
 > 目标技术栈：ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime / SqlSugar ORM / SoybeanAdmin
 
 ---
 
 ## 1. 文档定位
 
-本文档描述 WeCMS Next 的当前迁移重构主线。它回答以下问题：
+本文档描述 WeCMS Next 的长期迁移重构总览。它回答以下问题：
 
 1. 后端采用什么 API 编程模型
 2. 后端采用什么运行时与发布基线
@@ -22,6 +23,7 @@
 - 运行时基线为 JIT publish/runtime
 - ORM 方向为 SqlSugar
 - OpenAPI 仍是前后端契约来源
+- 当前 M0-BE 阶段仍是 backend-only，前端开发与前端 generated 类型生成继续后移
 
 ---
 
@@ -33,7 +35,7 @@
 - `CreateSlimBuilder`
 - 后端契约优先
 - 模块化单体
-- OpenAPI 生成与前端 generated 类型
+- OpenAPI 作为契约来源
 - SqlSugar 仅限 `WeCms.Persistence`
 
 ### 2.2 已变更
@@ -61,7 +63,7 @@
 | Host 启动 | `WebApplication.CreateSlimBuilder(args)` |
 | ORM | SqlSugar ORM |
 | 数据库 | MySQL |
-| 前端 | SoybeanAdmin |
+| 前端 | SoybeanAdmin（后移，当前 M0-BE 不开发） |
 | 契约来源 | OpenAPI |
 
 ---
@@ -88,6 +90,8 @@
 6. 排序字段必须白名单映射。
 7. Repository 方法必须支持 `CancellationToken`。
 8. Service / UseCase 负责业务规则和事务边界。
+9. Repository interface 只保留在模块层或 `WeCms.Shared`，Repository implementation 只允许存在于 `WeCms.Persistence`。
+10. Service / UseCase 获取 Repository、UnitOfWork、Clock、Token、密码、随机数等有副作用依赖时，必须通过接口 + DI。
 
 ---
 
@@ -139,8 +143,10 @@ docs/
 
 - `WeCms.Persistence` 是唯一数据库适配器层
 - `WeCms.Modules.*` 不得反向依赖 `WeCms.Persistence`
+- 所有数据库访问只能发生在 `WeCms.Persistence`
+- `WeCms.Modules.*` 不得持有 SQL 文本、ORM Client、数据库连接或 Persistence implementation
 - `WeCms.Shared` 不得引用其它生产工程
-- `WeCms.Infrastructure` 不做数据库适配层
+- `WeCms.Infrastructure` 不做数据库适配层，也不得持有 SQL 文本、ORM Client、数据库连接或 Persistence implementation
 
 ---
 
@@ -157,7 +163,6 @@ JsonSerializerContext
 Health endpoint
 SqlSugar ORM db-check
 OpenAPI 生成
-SoybeanAdmin request 封装
 JIT publish gate
 ThinkPHP migration spike
 ```
@@ -215,8 +220,8 @@ ThinkPHP migration spike
 ## 9. 验收原则
 
 1. 当前发布要求是 `build + test + publish` 全部通过。
-2. OpenAPI 必须可生成且可作为前端类型来源。
+2. OpenAPI 必须可生成，并作为后续前端 generated 类型的唯一契约来源。
 3. SqlSugar 必须满足数据库边界与 SQL 纪律。
 4. Minimal API、`CreateSlimBuilder`、契约优先继续保留。
 5. 一期不得实现运行时 AI 功能。
-
+6. 当前 M0-BE 阶段不修改 `frontend/**`，不运行 `pnpm`，不生成前端 TypeScript generated。

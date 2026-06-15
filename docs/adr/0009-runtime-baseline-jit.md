@@ -24,6 +24,8 @@ WeCMS Next 现阶段继续采用：
 4. SqlSugar 继续作为 ORM/数据库适配方向，但不再要求以 AOT 兼容性作为准入前提。
 5. `WeCms.Persistence` 继续作为唯一允许直接引用 ORM / 数据库连接器的生产数据库适配层。
 6. 所有 AOT 专属门禁、分析器、例外基线、发布要求从现行治理中移除。
+7. Repository interface 保留在模块层或 `WeCms.Shared`，Repository implementation 只能存在于 `WeCms.Persistence`。
+8. Service / UseCase 获取 Repository、UnitOfWork、时钟、密码、Token、随机数等有副作用依赖时，必须通过接口 + DI。
 
 ## 保留不变的规则
 
@@ -33,6 +35,8 @@ WeCMS Next 现阶段继续采用：
 - 禁止 MVC Controller、Razor、EF Core
 - OpenAPI 作为前后端契约来源
 - `WeCms.Modules.*` 不得直接引用 SqlSugar / MySQL 连接器
+- 所有数据库访问只能发生在 `WeCms.Persistence`
+- `WeCms.Api`、`WeCms.Infrastructure`、`WeCms.Shared` 也不得直接持有 SQL 文本、ORM Client、数据库连接或 Repository implementation
 - 禁止 `dynamic`
 - 禁止 `SELECT *`
 - 禁止拼接用户输入到 SQL
@@ -62,4 +66,3 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 
 - 本 ADR 取代 `ADR-0006` 作为当前运行时基线治理依据。
 - `docs/specs/sqlsugar-aot-spike/*` 仅保留为历史 AOT 调研材料，不再是现行准入门槛。
-

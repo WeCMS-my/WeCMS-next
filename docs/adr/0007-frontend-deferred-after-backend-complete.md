@@ -23,6 +23,7 @@ WeCMS Next 采用后端契约优先策略。SoybeanAdmin 是 UI 模板，不是 
 4. M0-BE 阶段不生成前端 TypeScript generated 类型。
 5. M0-BE 阶段不修改 SoybeanAdmin request / route / store / view。
 6. M0-BE 阶段 OpenAPI 仅作为后端契约产物输出到 `artifacts/openapi/`，不用于前端类型生成。
+7. M0-BE 阶段后端继续按 `.NET 10 JIT publish/runtime + SqlSugar + MySQL` 推进，所有数据库访问集中在 `WeCms.Persistence`，不因前端需求放宽数据库边界或 DI 规则。
 
 ## 前端进入条件
 
@@ -82,6 +83,5 @@ M0-BE 阶段明确禁止：
 ## 关联 ADR
 
 - [ADR-0005：旧系统不做数据迁移，不做兼容模式](./0005-no-legacy-data-migration-and-frontend-deferred.md)
-- [ADR-0006：Native AOT / Trim 警告例外管理](./0006-aot-trim-warnings-exception.md)
-
+- [ADR-0009：运行时基线从 Native AOT 切换为 JIT](./0009-runtime-baseline-jit.md)
 

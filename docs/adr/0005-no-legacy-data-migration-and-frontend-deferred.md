@@ -39,7 +39,7 @@ Accepted
 
 M0-BE 保留：
 
-- AOT 后端工程骨架
+- JIT 后端工程骨架
 - MySQL / SqlSugar ORM
 - 最小 Auth
 - 权限元数据
@@ -47,12 +47,17 @@ M0-BE 保留：
 - seed 初始化
 - Schema 对照报告
 
+补充约束：
+
+- 所有数据库访问必须集中在 `WeCms.Persistence`
+- `WeCms.Modules.*` 只保留 repository port / 业务抽象，不保留 SQL、ORM Client、数据库连接或持久化实现依赖
+- 业务服务只能通过接口 + DI 获取 Repository、UnitOfWork、密码、Token、时钟、随机数等有副作用依赖
+
 M0-BE 移除：
 
 - 真实旧数据迁移
 - 旧密码兼容
 - 旧 token 兼容
 - 旧 2FA secret 迁移
-
 
 

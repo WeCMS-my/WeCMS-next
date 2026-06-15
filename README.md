@@ -1,6 +1,6 @@
 ﻿# WeCMS Next
 
-> 从 ThinkPHP CMS 完整迁移重构到 .NET 10 + Native AOT + SqlSugar ORM + SoybeanAdmin 的新一代 CMS 系统。
+> 从 ThinkPHP CMS 完整迁移重构到 .NET 10 + JIT publish/runtime + SqlSugar ORM + MySQL 的新一代 CMS 系统。
 
 ---
 
@@ -14,7 +14,7 @@ M0-BE 只交付一个可信后端底座，不操作 SoybeanAdmin 前端代码。
 
 | 层 | 技术 |
 |---|---|
-| 后端 | ASP.NET Core Minimal APIs / .NET 10 / Native AOT Only |
+| 后端 | ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime |
 | 数据访问实现 | WeCms.Persistence / SqlSugar ORM / MySQL |
 | 前端 | SoybeanAdmin（后移，M0-BE 不开发） |
 | CI/CD | GitHub Actions |
@@ -78,25 +78,16 @@ bash scripts/quality-gate-backend.sh all
 
 CI（`backend-quality-gate.yml`）已对齐为 `all`。
 
-quality gate（backend）包含 17 步检查：
+当前文档基线下，backend quality gate 以 JIT + Persistence 边界治理为准，重点覆盖以下检查面：
 
 1. `dotnet build -warnaserror`
-2. AOT exception baseline check（ADR-0006）
-3. AOT self-warning suppression check（ADR-0006）
-4. `dotnet publish (Native AOT)`
-5. `dotnet test (Unit)`
-6. `dotnet test (Integration)`
-7. OpenAPI export
-8. OpenAPI auth request body check
-9. `dotnet test (Architecture)`
-10. 无 `SELECT *` 检查
-11. 无 dynamic 查询/返回检查
-12. Endpoint 权限元数据扫描（runtime architecture test）
-13. Layer dependency matrix 检查
-14. DB boundary 架构检查
-15. JSON Context 覆盖完整性检查
-16. 无前端变更完整性检查
-17. code-review 静态规则检查
+2. `dotnet test`
+3. `dotnet publish`（标准 JIT publish）
+4. OpenAPI export
+5. OpenAPI auth request body check
+6. DB boundary / layer dependency / DI boundary 检查
+7. 无前端变更完整性检查
+8. code-review 静态规则检查
 
 ## 项目结构
 
@@ -138,15 +129,16 @@ artifacts/
 | 编号 | 标题 | 状态 |
 |---|---|---|
 | [ADR-0005](docs/adr/0005-no-legacy-data-migration-and-frontend-deferred.md) | 旧系统不做数据迁移，不做兼容模式 | Accepted |
-| [ADR-0006](docs/adr/0006-aot-trim-warnings-exception.md) | Native AOT / Trim 警告例外管理 | Accepted |
 | [ADR-0007](docs/adr/0007-frontend-deferred-after-backend-complete.md) | 前端后移，后端 API 全部完成后再开发 | Accepted |
+| [ADR-0009](docs/adr/0009-runtime-baseline-jit.md) | 运行时基线从 Native AOT 切换为 JIT | Accepted |
 
 ## 核心原则
 
 - 后端契约优先。
-- Native AOT 从第一天进入门禁。
+- 当前运行时基线为 `.NET 10 JIT publish/runtime`，不再将 Native AOT 作为现行门禁。
 - WeCms.Persistence 是 SqlSugar ORM / MySQL 的唯一数据访问实现适配器层，不是传统 DAL；业务模块只依赖抽象。
-- SqlSugar ORM 从第一天进入数据访问规范。
+- 所有数据库访问只能发生在 WeCms.Persistence；WeCms.Modules.* 不得持有 SQL、ORM Client、连接器或持久化实现依赖。
+- 业务代码中的 Repository、UnitOfWork、时钟、Token、密码、随机数等有副作用依赖必须通过接口 + DI 获取。
 - 前端 SoybeanAdmin 不参与 M0-BE。
 - 旧系统不做数据迁移，不做兼容模式。
 - AI 接入是二期独立项目，一期不实现运行时 AI 功能。
@@ -155,13 +147,12 @@ artifacts/
 
 - [AGENTS.md](AGENTS.md) — AI 协作者项目级指令
 - [code_review.md](code_review.md) — 代码审查基线
-- [M0-BE 开发计划](docs/context/WeCMS_Next_M0-BE_后端-only_开发计划.md)
+- [M0-BE 开发计划 v2.0](docs/context/WeCMS%20Next%20M0-BE%20%E5%90%8E%E7%AB%AF-only%20%E5%BC%80%E5%8F%91%E8%AE%A1%E5%88%92%20v2.0.md)
 - [工程骨架验证文档](docs/context/WeCMS_工程骨架验证文档.md)
-- [完整迁移重构计划](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
+- [完整迁移重构计划（历史命名路径）](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
 
 ## 许可证
 
 Proprietary
-
 
 

@@ -4,16 +4,16 @@
 
 当前仓库对应的真实正文文档是：
 
-- `docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md`
+- `docs/context/WeCMS Next M0-BE 后端-only 开发计划 v2.0.md`
 
 阅读顺序要求：
 
 1. 先阅读本入口文件，确认映射关系。
-2. 再完整阅读 `docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md`。
+2. 再完整阅读 `docs/context/WeCMS Next M0-BE 后端-only 开发计划 v2.0.md`。
 
 维护规则：
 
 - 本文件只承担稳定路径与映射说明，不复制完整正文，避免双份事实源漂移。
 - 如果中文源文档重命名，本文件必须同步更新。
-
+- 历史命名文件 `docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md` 可保留用于旧引用兼容，但不再作为 M0-BE 当前主计划入口。
 

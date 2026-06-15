@@ -9,7 +9,7 @@
 前端范围：本阶段不操作 `frontend/**`
 旧系统迁移策略：旧系统仅作为业务和 Schema 参考，不迁移旧数据，不做兼容模式
 文档状态：Accepted Draft
-推荐执行工具：Trae / Codex / Claude Code / Cursor
+推荐执行工具：Codex
 
 ---
 
@@ -149,6 +149,15 @@ Repository implementation
 Migration Runner
 Seed Runner
 SQL / ORM 查询表达式
+```
+
+额外硬约束：
+
+```text
+Repository interface 只允许存在于模块层或 WeCms.Shared
+Repository implementation 只允许存在于 WeCms.Persistence
+Service / UseCase 只能通过接口 + DI 获取 Repository、UnitOfWork、Clock、Token、密码、随机数等有副作用依赖
+WeCms.Api / WeCms.Infrastructure / WeCms.Shared 也不得持有 SQL 文本、ORM Client、数据库连接或 Repository implementation
 ```
 
 ---
@@ -1208,7 +1217,7 @@ Code review rules
 
 ---
 
-# 19. Trae 执行 Prompt
+# 19. Codex 执行 Prompt
 
 ```text
 你是 WeCMS Next M0-BE 后端-only 重构 Agent。
@@ -1274,87 +1283,3 @@ WeCMS Next M0-BE 不再采用 Native AOT，不再使用 Dapper / Dapper.AOT。
 ```
 
 
-
-你是 WeCMS Next 后端工程开发 Agent。
-
-当前任务目标：
-将 WeCMS Next M0-BE 技术路线从 Native AOT + Dapper/Dapper.AOT 调整为普通 .NET 10 JIT + SqlSugarCore + MySQL。
-
-重要项目决策：
-
-1. 使用 Codex 开发，不使用 Trae。
-2. M0-BE 是后端-only 阶段。
-3. 禁止修改 frontend/**。
-4. 禁止运行 pnpm。
-5. 禁止生成前端 TypeScript generated。
-6. 旧 ThinkPHP 系统仅作为业务和 Schema 参考。
-7. 不迁移旧用户、角色、权限、菜单、配置、日志、文件。
-8. 不做旧密码 hash 兼容。
-9. 不做 legacy runtime compatibility。
-10. 前端 SoybeanAdmin 后移，等后端全部 API 完成并稳定后再进入前端开发。
-
-技术路线调整：
-
-1. 删除 Native AOT 目标。
-2. 删除 PublishAot。
-3. 删除 /p:PublishAot=true。
-4. 删除 AOT exception baseline。
-5. 删除 IL2026 / IL3050 专项门禁。
-6. 删除 Dapper。
-7. 删除 Dapper.AOT。
-8. 删除 Dapper 相关脚本和 ADR 例外。
-9. 新增或保留 WeCms.Persistence 作为唯一数据库操作层。
-10. WeCms.Persistence 引用 SqlSugarCore。
-11. WeCms.Modules.* 禁止引用 SqlSugarCore。
-12. WeCms.Modules.* 禁止包含 SQL 字符串。
-13. WeCms.Modules.* 禁止出现数据库连接、ORM Client、Query/Update/Insert/Delete 操作。
-14. Repository interface 保留在模块层或 Shared。
-15. Repository implementation 只能在 WeCms.Persistence。
-16. Service 只能通过接口和 DI 获取依赖。
-17. 业务代码不得 new 数据库、ORM、Repository、Token、密码、时间、随机数等有副作用对象。
-
-当前只执行一个小任务，不允许扩大范围：
-
-任务名称：
-M0-BE-v2.0-001：更新文档、ADR 和开发规则，声明从 AOT + Dapper 改为 JIT + SqlSugar。
-
-允许修改：
-
-* README.md
-* AGENTS.md
-* code_review.md
-* docs/adr/**
-* docs/context/**
-
-禁止修改：
-
-* backend/src/**
-* backend/tests/**
-* database/**
-* scripts/**
-* frontend/**
-
-必须完成：
-
-1. 更新 M0-BE 技术路线为 .NET 10 JIT + SqlSugarCore + MySQL。
-2. 删除文档中 Native AOT Only / Dapper.AOT 作为当前目标的描述。
-3. 增加 SqlSugar 只能存在于 WeCms.Persistence 的规则。
-4. 增加所有数据库访问只能在 WeCms.Persistence 的规则。
-5. 增加业务模块全部通过接口 + DI 的规则。
-6. 保留旧系统不迁移、不兼容、从 seed 初始化的规则。
-7. 保留前端后移规则。
-8. 不修改任何代码文件。
-
-验证命令：
-
-* 不需要运行 dotnet build。
-* 只需输出修改文件清单和规则变更摘要。
-
-输出格式：
-
-1. 修改文件清单
-2. 新增文件清单
-3. 删除文件清单
-4. 本轮规则变更摘要
-5. 未完成项
-6. 下一轮建议任务

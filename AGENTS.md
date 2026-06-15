@@ -196,6 +196,8 @@ WeCms.Shared
 11. 分页参数必须校验，最大 `pageSize` 不超过 100。
 12. 写操作必须检查 affected rows。
 13. 批量操作必须限制最大数量。
+14. Repository interface 只能定义在模块层或 `WeCms.Shared`，Repository implementation 只能存在于 `WeCms.Persistence`。
+15. Service / UseCase 获取 Repository、UnitOfWork、时钟、密码、Token、随机数等有副作用依赖时，必须通过接口 + DI，不得依赖具体实现。
 
 ### DB-BOUNDARY
 
@@ -204,6 +206,7 @@ WeCms.Shared
 3. `WeCms.Modules.*` 不得直接引用 `SqlSugar ORM`、`MySqlConnector`。
 4. `WeCms.Modules.*` 不得依赖 `WeCms.Persistence` 的具体实现。
 5. `WeCms.Modules.*` 仅通过抽象控制事务边界，不得直接使用 `DbConnection` / `DbTransaction`。
+6. `WeCms.Api`、`WeCms.Infrastructure`、`WeCms.Shared` 也不得直接持有 SQL 文本、ORM Client、数据库连接或 Repository implementation。
 
 ---
 
@@ -327,7 +330,7 @@ pnpm --dir frontend/soybean-admin build
 
 ### M0：工程骨架验证
 
-目标：跑通 .NET 10 JIT publish + SqlSugar ORM + OpenAPI + SoybeanAdmin 联通。
+目标：跑通 .NET 10 JIT publish + SqlSugar ORM + OpenAPI + MySQL 联通。
 
 交付：
 

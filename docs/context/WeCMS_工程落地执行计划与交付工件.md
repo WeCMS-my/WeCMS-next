@@ -2,6 +2,7 @@
 
 > 说明：本文件已按 JIT 运行时基线更新。  
 > 关联执行文档：`WeCMS_工程骨架验证文档.md`
+> 说明：当前执行阶段为 M0-BE backend-only；涉及 `frontend/**`、`pnpm`、前端 generated 类型的内容仅作为后续阶段预留，不是本阶段必交项。
 
 ---
 
@@ -14,7 +15,7 @@
 - 后端：ASP.NET Core Minimal APIs + .NET 10 + JIT publish/runtime
 - 数据访问：SqlSugar ORM
 - 契约：OpenAPI
-- 前端：SoybeanAdmin
+- 前端：SoybeanAdmin（后移）
 
 ---
 
@@ -46,7 +47,8 @@
 - test 结果
 - publish 结果
 - OpenAPI 产物
-- 前端 typecheck / lint / build 结果（如涉及）
+- 数据库边界 / DI 边界 / 分层边界审计结果
+- 前端 typecheck / lint / build 结果（仅后续前端阶段涉及时提供）
 
 ---
 
@@ -91,8 +93,8 @@
 ### 阶段 C：契约交付
 
 - 建 OpenAPI 产物
-- 前端从 OpenAPI 生成类型
-- 保证前后端契约一致
+- 保证后端契约一致
+- 前端从 OpenAPI 生成类型属于后续前端阶段
 
 ### 阶段 D：认证与系统模块
 
@@ -112,18 +114,11 @@ dotnet test backend/WeCms.sln
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 
-前端：
-
-```bash
-pnpm --dir frontend/soybean-admin typecheck
-pnpm --dir frontend/soybean-admin lint
-pnpm --dir frontend/soybean-admin build
-```
-
 说明：
 
 - 当前不再使用 Native AOT publish gate
 - 当前发布要求是标准 JIT publish
+- 当前 M0-BE 为 backend-only，不运行 `pnpm`，不修改 `frontend/**`
 - 规则制定或规则文档修改属于文档治理例外，可不执行本节门禁
 - 上述例外仅适用于规则/流程文档本身；若伴随代码、测试、脚本或生成产物改动，则仍需完整执行门禁
 
@@ -136,6 +131,9 @@ pnpm --dir frontend/soybean-admin build
 - OpenAPI 契约优先
 - SqlSugar 仅限 `WeCms.Persistence`
 - `WeCms.Modules.*` 不得引用 ORM / MySQL 连接器
+- 所有数据库访问只能发生在 `WeCms.Persistence`
+- Repository interface 只保留在模块层或 `WeCms.Shared`，implementation 只允许在 `WeCms.Persistence`
+- Service / UseCase 获取 Repository、UnitOfWork、Clock、Token、密码、随机数等有副作用依赖时必须通过接口 + DI
 - 禁止 `dynamic`
 - 禁止 `SELECT *`
 - 禁止拼接用户输入 SQL
@@ -152,6 +150,7 @@ pnpm --dir frontend/soybean-admin build
 | Publish | `dotnet publish` | 成功 |
 | Contract | OpenAPI | 可生成 |
 | ORM | SqlSugar 边界 | 通过 |
-| Frontend | typecheck / lint / build | 成功，如涉及 |
+| Boundary | Persistence / DI / Layer Audit | 通过 |
+| Frontend | typecheck / lint / build | 后续前端阶段如涉及再执行 |
 | Audit | 当前任务审计 | 通过 |
 | Final Audit | 本次改动范围最终总审计 | 通过 |

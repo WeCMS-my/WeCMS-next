@@ -32,6 +32,7 @@
 [ ] WeCms.Modules.* 出现 SQL 文本
 [ ] WeCms.Modules.* 引用 SqlSugar ORM / MySqlConnector
 [ ] WeCms.Modules.* 直接引用 WeCms.Persistence 实现
+[ ] WeCms.Api / WeCms.Infrastructure / WeCms.Shared 出现 SQL 文本、ORM Client、数据库连接或 Repository implementation
 [ ] DTO 未加入 JsonSerializerContext
 [ ] 业务 Endpoint 未绑定权限码且未显式 AllowAnonymous
 [ ] 前端改写后端接口结构
@@ -97,6 +98,7 @@
 [ ] Endpoint 只处理 HTTP 绑定和返回
 [ ] Service / UseCase 负责业务规则
 [ ] WeCms.Persistence 中的 Repository 只负责 SQL 和数据映射
+[ ] Repository interface 只定义在模块层或 Shared，Repository implementation 只存在于 WeCms.Persistence
 [ ] 事务由 Service / UseCase 控制
 [ ] Endpoint 中没有直接写 SQL
 [ ] Repository 中没有 HTTP/权限/审计逻辑
@@ -128,6 +130,7 @@
 [ ] 只有 WeCms.Persistence 引用了 SqlSugar ORM / MySqlConnector
 [ ] WeCms.Modules.* 不直接处理 SQL 字符串
 [ ] WeCms.Modules.* 未出现 SqlSugarClient / ISqlSugarClient / Ado 原始 SQL API
+[ ] WeCms.Api / WeCms.Infrastructure / WeCms.Shared 未出现 SQL 文本、ORM Client、数据库连接或 Repository implementation
 [ ] WeCms.Modules.* 不直接依赖持久化实现
 [ ] WeCms.Persistence 只做数据访问适配，不承载业务规则、权限编排、审计编排或 HTTP 逻辑
 ```
@@ -139,6 +142,7 @@
 ```text
 [ ] 新增有副作用服务类是否先定义 I* 接口
 [ ] 有副作用依赖是否通过构造函数注入
+[ ] Repository、UnitOfWork、时钟、密码、Token、随机数等有副作用依赖是否通过接口 + DI 获取
 [ ] 业务类内部是否没有 new 有副作用依赖
 [ ] 单类是否只承担单一职责
 [ ] 跨阶段模型是否优先使用 record / 只读属性 / 不可变集合
