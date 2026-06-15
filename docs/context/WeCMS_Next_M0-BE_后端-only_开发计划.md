@@ -1,18 +1,18 @@
-﻿# WeCMS Next M0-BE 后端-only 开发计划
+# WeCMS Next M0-BE 后端-only 开发计划
 
-> 文档类型：后端-only M0 重建执行计划  
-> 适用阶段：M0-BE  
-> 推荐执行工具：Trae IDE  
-> 技术栈：ASP.NET Core Minimal APIs / .NET 10 / Native AOT Only / SqlSugar ORM / MySQL  
-> 前端范围：本阶段不操作 `frontend/soybean-admin`  
-> 文档版本：v1.0  
-> 生成日期：2026-06-10  
+> 文档类型：后端-only M0 重建执行计划\
+> 适用阶段：M0-BE\
+> 推荐执行工具：Trae IDE\
+> 技术栈：ASP.NET Core Minimal APIs / .NET 10 / Native AOT Only / SqlSugar ORM / MySQL\
+> 前端范围：本阶段不操作 `frontend/soybean-admin`\
+> 文档版本：v1.0\
+> 生成日期：2026-06-10
 
----
+***
 
 ## 0. 核心结论
 
-WeCMS Next 当前 M0 阶段建议收缩为 **M0-BE：后端-only 工程底座重建**。
+WeCMS Next 当前 M0 阶段建议收缩为   M0-BE：后端-only 工程底座重建  。
 
 本阶段不再操作 SoybeanAdmin 前端代码，不初始化前端、不修改前端 request、不生成前端 TypeScript generated、不运行 pnpm 命令。
 
@@ -43,7 +43,7 @@ M3：系统基础模块
 M4：CMS 内容模块
 ```
 
----
+***
 
 ## 1. 设计依据
 
@@ -52,6 +52,7 @@ M4：CMS 内容模块
 ```text
 AGENTS.md
 code_review.md
+.trae/rules/wecms-engineering-principles.md
 docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md
 docs/context/WeCMS_工程骨架验证文档.md
 docs/context/WeCMS_工程落地执行计划与交付工件.md
@@ -71,32 +72,32 @@ docs/context/WeCMS_ThinkPHP_系统详细说明文档.md
 8. ThinkPHP 迁移只做 Spike，不做完整迁移。
 ```
 
----
+***
 
 ## 2. M0-BE 阶段边界
 
 ### 2.1 M0-BE 只做
 
-| 范围 | 是否做 | 说明 |
-|---|---:|---|
-| 后端 solution | 是 | 创建 `backend/WeCms.sln` |
-| .NET 10 Minimal API | 是 | 只使用 Minimal APIs |
-| Native AOT publish | 是 | 必须真实通过 |
-| SqlSugar ORM | 是 | 禁止 EF Core |
-| MySQL docker-compose | 是 | 提供本地开发数据库 |
-| database migration / seed | 是 | 最小 M0 表和 super admin seed |
-| ApiResult / PagedResult / ApiCodes | 是 | 后端统一契约 |
-| ExceptionMiddleware / RequestIdMiddleware | 是 | 统一错误和 trace |
-| JsonSerializerContext | 是 | 当前所有 DTO 必须覆盖 |
-| Health / System endpoints | 是 | `live / ready / ping / version / db-check` |
-| Auth 最小闭环 | 是 | `login / refresh / logout / me` |
-| PermissionMetadata / RequirePermission | 是 | 权限元数据底座 |
-| Endpoint 权限扫描测试 | 是 | 无权限码 endpoint 必须被扫描出来 |
-| OpenAPI JSON 输出 | 是 | 输出到 `artifacts/openapi/wecms-api-v1.json` |
-| ThinkPHP 迁移 Spike | 是 | 只输出报告，不迁移全量 |
-| Backend-only quality gate | 是 | 不包含前端命令 |
+| 范围                                        | 是否做 | 说明                                         |
+| ----------------------------------------- | --: | ------------------------------------------ |
+| 后端 solution                               |   是 | 创建 `backend/WeCms.sln`                     |
+| .NET 10 Minimal API                       |   是 | 只使用 Minimal APIs                           |
+| Native AOT publish                        |   是 | 必须真实通过                                     |
+| SqlSugar ORM                              |   是 | 禁止 EF Core                                 |
+| MySQL docker-compose                      |   是 | 提供本地开发数据库                                  |
+| database migration / seed                 |   是 | 最小 M0 表和 super admin seed                  |
+| ApiResult / PagedResult / ApiCodes        |   是 | 后端统一契约                                     |
+| ExceptionMiddleware / RequestIdMiddleware |   是 | 统一错误和 trace                                |
+| JsonSerializerContext                     |   是 | 当前所有 DTO 必须覆盖                              |
+| Health / System endpoints                 |   是 | `live / ready / ping / version / db-check` |
+| Auth 最小闭环                                 |   是 | `login / refresh / logout / me`            |
+| PermissionMetadata / RequirePermission    |   是 | 权限元数据底座                                    |
+| Endpoint 权限扫描测试                           |   是 | 无权限码 endpoint 必须被扫描出来                      |
+| OpenAPI JSON 输出                           |   是 | 输出到 `artifacts/openapi/wecms-api-v1.json`  |
+| ThinkPHP 迁移 Spike                         |   是 | 只输出报告，不迁移全量                                |
+| Backend-only quality gate                 |   是 | 不包含前端命令                                    |
 
----
+***
 
 ### 2.2 M0-BE 明确不做
 
@@ -120,7 +121,7 @@ docs/context/WeCMS_ThinkPHP_系统详细说明文档.md
 不一次性迁移全部旧数据
 ```
 
----
+***
 
 ## 3. M0-BE 总体架构
 
@@ -282,7 +283,7 @@ artifacts/
     aot-publish-report.md
 ```
 
----
+***
 
 ## 4. 后端依赖矩阵
 
@@ -319,7 +320,7 @@ WeCms.Modules.System -> WeCms.Modules.Cms 内部实现
 WeCms.Modules.Cms -> WeCms.Modules.System 内部实现
 ```
 
----
+***
 
 ## 5. M0-BE 后端技术红线
 
@@ -376,31 +377,31 @@ M0-BE 禁止生成 frontend generated 类型
 M0-BE 禁止改 SoybeanAdmin request / route / store / view
 ```
 
----
+***
 
 ## 6. M0-BE API 范围
 
 ### 6.1 Health / System API
 
-| Method | Path | 权限 | 说明 |
-|---|---|---|---|
-| GET | `/health/live` | Anonymous | 进程存活 |
-| GET | `/health/ready` | Anonymous | 数据库 ready |
-| GET | `/api/v1/system/ping` | Anonymous | API smoke |
-| GET | `/api/v1/system/version` | Anonymous | 版本信息 |
-| GET | `/api/v1/system/db-check` | Anonymous | MySQL 连接检查 |
-| GET | `/api/v1/system/secure-ping` | `sys:system:secure-ping` | 权限过滤器验证 |
+| Method | Path                         | 权限                       | 说明         |
+| ------ | ---------------------------- | ------------------------ | ---------- |
+| GET    | `/health/live`               | Anonymous                | 进程存活       |
+| GET    | `/health/ready`              | Anonymous                | 数据库 ready  |
+| GET    | `/api/v1/system/ping`        | Anonymous                | API smoke  |
+| GET    | `/api/v1/system/version`     | Anonymous                | 版本信息       |
+| GET    | `/api/v1/system/db-check`    | Anonymous                | MySQL 连接检查 |
+| GET    | `/api/v1/system/secure-ping` | `sys:system:secure-ping` | 权限过滤器验证    |
 
 ### 6.2 Auth API
 
-| Method | Path | 权限 | 审计 | 限流 | 说明 |
-|---|---|---|---|---|---|
-| POST | `/api/v1/auth/login` | Anonymous | 是 | 是 | 登录 |
-| POST | `/api/v1/auth/refresh` | Anonymous | 是 | 是 | 刷新 Token |
-| POST | `/api/v1/auth/logout` | Authenticated | 是 | 是 | 退出 |
-| GET | `/api/v1/auth/me` | Authenticated | 否 | 是 | 当前用户 |
+| Method | Path                   | 权限            | 审计 | 限流 | 说明       |
+| ------ | ---------------------- | ------------- | -- | -- | -------- |
+| POST   | `/api/v1/auth/login`   | Anonymous     | 是  | 是  | 登录       |
+| POST   | `/api/v1/auth/refresh` | Anonymous     | 是  | 是  | 刷新 Token |
+| POST   | `/api/v1/auth/logout`  | Authenticated | 是  | 是  | 退出       |
+| GET    | `/api/v1/auth/me`      | Authenticated | 否  | 是  | 当前用户     |
 
----
+***
 
 ## 7. 统一响应模型
 
@@ -474,7 +475,7 @@ public static class ApiCodes
 }
 ```
 
----
+***
 
 ## 8. JsonSerializerContext 规则
 
@@ -512,7 +513,7 @@ AOT publish 不出现 JSON metadata 缺失
 check-json-context-coverage.sh 通过
 ```
 
----
+***
 
 ## 9. 数据库设计
 
@@ -611,7 +612,7 @@ created_at
 updated_at
 ```
 
----
+***
 
 ## 10. Auth 最小闭环设计
 
@@ -715,7 +716,7 @@ GET /api/v1/auth/me
 
 M0-BE 中 `menus` 可以为空数组，后续 M0.5-FE / M2 再接动态路由。
 
----
+***
 
 ## 11. 权限元数据设计
 
@@ -775,7 +776,7 @@ public static class SystemPermissions
 .RequirePermission(SystemPermissions.SystemSecurePing)
 ```
 
----
+***
 
 ## 12. OpenAPI 后端契约输出
 
@@ -804,7 +805,7 @@ OpenAPI JSON 能生成
 不修改 frontend
 ```
 
----
+***
 
 ## 13. ThinkPHP 迁移 Spike
 
@@ -856,7 +857,7 @@ artifacts/reports/migration-spike-report.md
 需要人工处理的数据
 ```
 
----
+***
 
 ## 14. M0-BE 开发阶段
 
@@ -885,7 +886,7 @@ frontend/**
 dotnet build backend/WeCms.sln -warnaserror
 ```
 
----
+***
 
 ### M0-BE-002：配置 .NET 10 Native AOT
 
@@ -902,7 +903,7 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj \
   /p:PublishAot=true
 ```
 
----
+***
 
 ### M0-BE-003：实现 Shared 契约层
 
@@ -916,7 +917,7 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj \
 dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj
 ```
 
----
+***
 
 ### M0-BE-004：实现 Middleware
 
@@ -932,7 +933,7 @@ dotnet test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj
 响应包含 traceId
 ```
 
----
+***
 
 ### M0-BE-005：实现 Persistence / SqlSugar ORM
 
@@ -949,7 +950,7 @@ Repository 方法带 CancellationToken
 AOT publish 通过
 ```
 
----
+***
 
 ### M0-BE-006：实现 database migration 和 seed
 
@@ -968,7 +969,7 @@ dotnet run --project backend/src/WeCms.Api --launch-profile http
 开发环境的 schema、基础权限和 `admin / Admin@123` 账号由 `DbMigrationRunner` 在应用启动时统一创建。
 主初始化流程不得手工执行 `database/seeds/*.sql` 写入 admin 密码。
 
----
+***
 
 ### M0-BE-007：实现 System endpoints
 
@@ -986,7 +987,7 @@ curl http://localhost:5207/api/v1/system/version
 curl http://localhost:5207/api/v1/system/db-check
 ```
 
----
+***
 
 ### M0-BE-008：实现 Auth 最小闭环
 
@@ -1005,7 +1006,7 @@ logout 后 refresh token 失效
 scripts/smoke-admin-login.sh 可验证初始化后 admin / Admin@123 真实登录
 ```
 
----
+***
 
 ### M0-BE-009：实现权限元数据和权限扫描
 
@@ -1022,7 +1023,7 @@ scripts/smoke-admin-login.sh 可验证初始化后 admin / Admin@123 真实登�
 业务 Endpoint 缺权限元数据 -> 测试失败
 ```
 
----
+***
 
 ### M0-BE-010：实现 OpenAPI 导出
 
@@ -1037,7 +1038,7 @@ dotnet run --project backend/src/WeCms.Api \
   -- --export-openapi artifacts/openapi/wecms-api-v1.json
 ```
 
----
+***
 
 ### M0-BE-011：实现 ThinkPHP 迁移 Spike
 
@@ -1054,7 +1055,7 @@ artifacts/reports/migration-spike-report.md 存在
 报告说明 token / 2FA secret / SMTP 密码不迁移
 ```
 
----
+***
 
 ### M0-BE-012：实现 backend-only quality gate
 
@@ -1068,26 +1069,26 @@ artifacts/reports/migration-spike-report.md 存在
 bash scripts/quality-gate-backend.sh
 ```
 
----
+***
 
 ## 15. M0-BE WBS
 
-| 顺序 | 任务包 | 主要产物 | 验收命令 |
-|---:|---|---|---|
-| 1 | M0-BE-001 | solution / projects | `dotnet build` |
-| 2 | M0-BE-002 | AOT csproj / Program | `dotnet publish /p:PublishAot=true` |
-| 3 | M0-BE-003 | Shared 契约 | `dotnet test` |
-| 4 | M0-BE-004 | Middleware | Integration tests |
-| 5 | M0-BE-005 | Infrastructure / SqlSugar ORM | SQL checks + AOT |
-| 6 | M0-BE-006 | migration / seed | DB reset + seed |
-| 7 | M0-BE-007 | System endpoints | curl smoke |
-| 8 | M0-BE-008 | Auth | Auth integration tests |
-| 9 | M0-BE-009 | Permission metadata | 401/403 tests |
-| 10 | M0-BE-010 | OpenAPI export | export-openapi |
-| 11 | M0-BE-011 | Migration Spike | report exists |
-| 12 | M0-BE-012 | backend gate | `quality-gate-backend.sh` |
+| 顺序 | 任务包       | 主要产物                          | 验收命令                                |
+| -: | --------- | ----------------------------- | ----------------------------------- |
+|  1 | M0-BE-001 | solution / projects           | `dotnet build`                      |
+|  2 | M0-BE-002 | AOT csproj / Program          | `dotnet publish /p:PublishAot=true` |
+|  3 | M0-BE-003 | Shared 契约                     | `dotnet test`                       |
+|  4 | M0-BE-004 | Middleware                    | Integration tests                   |
+|  5 | M0-BE-005 | Infrastructure / SqlSugar ORM | SQL checks + AOT                    |
+|  6 | M0-BE-006 | migration / seed              | DB reset + seed                     |
+|  7 | M0-BE-007 | System endpoints              | curl smoke                          |
+|  8 | M0-BE-008 | Auth                          | Auth integration tests              |
+|  9 | M0-BE-009 | Permission metadata           | 401/403 tests                       |
+| 10 | M0-BE-010 | OpenAPI export                | export-openapi                      |
+| 11 | M0-BE-011 | Migration Spike               | report exists                       |
+| 12 | M0-BE-012 | backend gate                  | `quality-gate-backend.sh`           |
 
----
+***
 
 ## 16. Backend-only Quality Gate
 
@@ -1124,11 +1125,11 @@ pnpm build
 pnpm openapi:generate
 ```
 
----
+***
 
 ## 17. Trae IDE 执行 Prompt
 
-```text
+````text
 你是 WeCMS Next 项目的资深 .NET 10 Native AOT 架构师、SqlSugar ORM 工程师、后端契约优先架构师和安全审计工程师。
 
 现在执行 WeCMS Next M0-BE：只重建后端工程底座，不操作 SoybeanAdmin 前端代码。
@@ -1137,6 +1138,7 @@ pnpm openapi:generate
 
 - AGENTS.md
 - code_review.md
+- .trae/rules/wecms-engineering-principles.md
 - docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md
 - docs/context/WeCMS_工程骨架验证文档.md
 - docs/context/WeCMS_工程落地执行计划与交付工件.md
@@ -1221,6 +1223,17 @@ M0-BE 开发顺序：
 - 风险点
 - 验证命令
 
+每次会话启动时必须读取，并在同一会话内共享上下文记忆：
+
+```text
+AGENTS.md
+code_review.md
+docs/context/*
+.trae/rules/wecms-engineering-principles.md
+````
+
+同一会话内不要求每个任务重复读取；只有在相关文档更新、删除、缺失、会话重启或用户明确要求时，才必须重新读取并刷新上下文记忆。
+
 每个任务完成后必须运行或说明以下验证：
 
 ```bash
@@ -1273,10 +1286,11 @@ M0-BE 完成标准：
 - OpenAPI JSON 可生成。
 - Endpoint 权限扫描通过。
 - JsonSerializerContext 覆盖扫描通过。
-- SQL 扫描无 SELECT *、无 dynamic 查询/返回。
+- SQL 扫描无 SELECT \*、无 dynamic 查询/返回。
 - ThinkPHP 迁移 Spike 输出报告。
 - frontend 目录无任何改动。
-```
+
+````
 
 ---
 
@@ -1309,9 +1323,9 @@ M0-BE 完成标准：
 [ ] migration-spike-report.md 输出
 [ ] scripts/quality-gate-backend.sh 通过
 [ ] frontend/soybean-admin 没有任何文件改动
-```
+````
 
----
+***
 
 ## 19. 阶段移交
 
@@ -1332,20 +1346,18 @@ Dashboard 当前用户展示
 
 ### M0-BE 不直接进入 M2
 
-M0-BE 完成后不能直接做完整 User / Role / Menu。  
+M0-BE 完成后不能直接做完整 User / Role / Menu。\
 必须先完成 M0.5-FE 或明确前端后移策略，然后再进入 M1 / M2。
 
----
+***
 
 ## 20. 最终结论
 
-WeCMS Next M0-BE 的目标不是做完整后台，而是交付一个 **后端工程底座可信、AOT 可信、SqlSugar ORM 可信、契约输出可信、认证权限最小闭环可信** 的基础版本。
+WeCMS Next M0-BE 的目标不是做完整后台，而是交付一个   后端工程底座可信、AOT 可信、SqlSugar ORM 可信、契约输出可信、认证权限最小闭环可信   的基础版本。
 
 一句话定版：
 
 ```text
 M0-BE 不操作 SoybeanAdmin 前端代码，只交付一个可 AOT 发布、可连接 MySQL、可生成 OpenAPI、具备最小 Auth 与权限元数据闭环的后端底座。
 ```
-
-
 

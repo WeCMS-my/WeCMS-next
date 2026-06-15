@@ -247,6 +247,8 @@ PR 打开评审前必须确认：
 [ ] AOT publish 已实际运行并通过
 [ ] 前端 typecheck / build 已实际运行并通过，如涉及前端
 [ ] 当前开发任务对应测试和质量门禁已实际运行并通过，未通过未进入下一项任务
+[ ] 会话启动时已读取 `AGENTS.md`、`code_review.md`、`docs/context/*` 和 `.trae/rules/wecms-engineering-principles.md`，同一会话内上下文记忆已共享
+[ ] 若相关文档更新、删除、缺失或会话重启，已重新读取并刷新上下文记忆
 [ ] 未实现一期禁止的 AI runtime 能力
 ```
 
@@ -765,6 +767,8 @@ Review 必须检查：
 [ ] 当前任务是否已运行对应质量门禁。
 [ ] 测试和门禁是否全部通过。
 [ ] 若测试或门禁失败，是否停留在当前任务修复而未推进下一项。
+[ ] 当前会话是否已读取 `AGENTS.md`、`code_review.md`、`docs/context/*` 和 `.trae/rules/wecms-engineering-principles.md`。
+[ ] 若相关文档更新、删除、缺失或会话重启，当前任务前是否已重新读取并刷新上下文记忆。
 ```
 
 阻断条件：

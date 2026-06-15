@@ -16,7 +16,7 @@
 - 运行目标为 **.NET 10**。
 - 发布方式为 **Native AOT Only**。
 - 必须使用 `CreateSlimBuilder()`。
-- 数据访问采用 **Dapper / Dapper.AOT**。
+- 数据访问采用 **SqlSugar ORM**。
 - 前端采用 **SoybeanAdmin**。
 - 前端一切数据格式以后端 DTO / OpenAPI 为准。
 - SoybeanAdmin 只是 UI 模板，不是 API 契约来源。
@@ -735,9 +735,9 @@ Repository 必须有数据库集成测试。
 
 当 AI 协作者，包括 Trae、Claude、Codex、Copilot、DeepSeek 等，处理本仓库时，必须遵守本节。
 
-### 6.1 动手前必须读取
+### 6.1 会话启动必须读取
 
-AI 动手前必须读取：
+AI 每次会话启动时必须读取：
 
 ```text
 AGENTS.md
@@ -748,6 +748,8 @@ docs/context/02-next-migration-plan.md
 docs/context/03-engineering-delivery.md
 docs/context/04-m0-skeleton-validation.md
 ```
+
+同一会话内，AI 协作者可复用已读取的 `AGENTS.md`、`code_review.md`、`docs/context/*` 和 `.trae/rules/wecms-engineering-principles.md` 上下文记忆。只有在会话重启、相关文档被更新、删除、缺失或用户明确要求重新读取时，才必须重新读取并刷新上下文记忆。
 
 ### 6.2 ≥ 200 行变更必须走 `/spec`
 
@@ -957,7 +959,7 @@ Trae / Codex 每次任务只允许处理一个明确目标：
 
 1. Native AOT Only。
 2. Minimal APIs Only。
-3. Dapper / Dapper.AOT Only。
+3. SqlSugar ORM Only。
 4. 后端契约优先。
 5. SoybeanAdmin 只作为 UI 模板。
 6. AI 二期独立项目。

@@ -49,7 +49,7 @@ WeCMS Next 是从现有 ThinkPHP CMS 系统完整迁移重构的新系统。
 
 ## 2. 必须优先阅读的项目文档
 
-开始任何任务前，应优先理解以下文档：
+每次会话启动时，应优先理解以下文档，并在同一会话内共享该上下文记忆：
 
 ```text
 docs/context/01-thinkphp-system.md
@@ -58,6 +58,7 @@ docs/context/03-engineering-delivery.md
 docs/context/04-m0-skeleton-validation.md
 AGENTS.md
 code_review.md
+.trae/rules/wecms-engineering-principles.md
 ```
 
 说明：
@@ -66,6 +67,8 @@ code_review.md
 - 当前真实正文仍维护在 `docs/context/` 下的中文命名文档中；`01-04` 入口文件会显式指向对应源文档。
 
 如果这些文件不存在，应提醒用户或创建占位目录，但不得自行臆造旧系统业务细节。
+
+同一会话中不要求每个任务重复读取上述文档；只有在会话重启、相关文档被更新、删除、缺失或用户明确要求重新读取时，才必须重新读取并刷新上下文记忆。
 
 ---
 
@@ -231,7 +234,7 @@ pnpm --dir frontend/soybean-admin build
 
 当 AI 协作者（Codex / Trae / Claude / Copilot / DeepSeek 辅助审查等）处理本仓库时，必须：
 
-1. 动手前读取 `AGENTS.md`、`code_review.md`、`docs/context/*`。
+1. 会话启动时读取 `AGENTS.md`、`code_review.md`、`.trae/rules/wecms-engineering-principles.md`、`docs/context/*`，并在同一会话内共享该上下文记忆。
 2. 对 ≥ 200 行变更或公共契约变更走 `docs/specs/<change-id>/` spec 流程，禁止跳过 spec 直接实现。
 3. 触碰 `.cs` 生产代码时先遵循 TDD：Red → Green → Refactor。
 4. 声称完成前必须实际运行质量门禁或等效命令并查看输出，禁止凭直觉断言成功。
@@ -239,6 +242,7 @@ pnpm --dir frontend/soybean-admin build
 6. 禁止以“兼容旧系统”为理由加入运行时 legacy 分支、静默默认值、吞异常或 `[Obsolete]` 转发。旧系统兼容只能在迁移工具中存在。
 7. 不确定需求、契约、权限、数据库迁移、安全边界时，必须先提出澄清问题或输出风险清单，等待人工确认。
 8. 每个开发任务执行完成后，必须先运行并通过该任务对应测试和质量门禁；未通过时必须停留在当前任务修复，禁止进入下一项任务。
+9. 同一会话内执行后续开发任务、修复任务、重构任务、文档规则更新任务或门禁调整任务时，可复用已读取的上下文记忆；只有相关文档更新、删除、缺失、会话重启或用户明确要求时，才必须重新读取。
 
 #### 3.0.8 DB-BOUNDARY 数据库边界硬约束
 
@@ -725,7 +729,8 @@ M0-00：Codex 项目文档熟悉与开发拆分报告
 
 每个编码任务必须遵守：
 
-1. 阅读 `AGENTS.md` 和相关 `docs/context`。
+1. 会话启动时阅读 `AGENTS.md`、`code_review.md`、`.trae/rules/wecms-engineering-principles.md` 和相关 `docs/context`，同一会话内共享上下文记忆。
+1.1. 若上述文档在会话中被更新、删除、缺失，或会话重启、用户明确要求重新读取，必须重新读取并刷新上下文记忆。
 2. 输出执行计划。
 3. 列出修改文件。
 4. 修改代码。
