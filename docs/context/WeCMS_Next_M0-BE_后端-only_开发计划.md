@@ -1229,6 +1229,15 @@ dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi
 bash scripts/checks/check-no-frontend-change.sh
 ```
 
+每个 M0-BE 开发任务完成后，必须先运行该任务对应测试和门禁，并确认全部通过后，才能请求或进入下一项任务。
+
+```text
+1. 当前任务测试未运行或未通过：不得进入下一项 M0-BE 任务。
+2. 当前任务门禁未运行或未通过：不得进入下一项 M0-BE 任务。
+3. `scripts/quality-gate-backend.sh` 尚未创建前，使用本任务验收命令和当前已存在的等效检查作为临时门禁。
+4. 门禁失败时，只允许修复当前任务相关问题，不得顺带推进后续任务。
+```
+
 最终只允许使用后端门禁：
 
 ```bash

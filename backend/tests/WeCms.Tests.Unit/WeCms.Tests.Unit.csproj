@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WeCms.Shared\WeCms.Shared.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
