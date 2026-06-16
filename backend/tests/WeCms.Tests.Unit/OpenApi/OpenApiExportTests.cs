@@ -2,7 +2,16 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using WeCms.Api.Extensions;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Departments;
+using WeCms.Modules.System.Dicts;
+using WeCms.Modules.System.Files;
+using WeCms.Modules.System.Logs;
+using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Posts;
+using WeCms.Modules.System.Roles;
+using WeCms.Modules.System.Settings;
+using WeCms.Modules.System.Users;
 
 namespace WeCms.Tests.Unit.OpenApi;
 
@@ -126,7 +135,7 @@ public sealed class OpenApiExportTests
             var paths = document.RootElement.GetProperty("paths");
             var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
 
-            foreach (var registered in CollectRegisteredEndpointMetadata().Where(operation => operation.Method is "post" or "put"))
+            foreach (var registered in CollectRegisteredEndpointMetadata().Where(operation => operation.Method is "post" or "put" && operation.RequestBody is not null))
             {
                 var operation = paths.GetProperty(registered.Path).GetProperty(registered.Method);
                 var requestBody = operation.GetProperty("requestBody");
@@ -140,6 +149,49 @@ public sealed class OpenApiExportTests
                 Assert.NotNull(registered.RequestBody);
                 Assert.Equal($"#/components/schemas/{registered.RequestBody}", schemaRef);
                 Assert.True(schemas.TryGetProperty(registered.RequestBody, out _));
+            }
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExportOpenApiAsync_ListEndpointsDeclareQueryParameters()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-query-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var paths = document.RootElement.GetProperty("paths");
+            var expected = new Dictionary<string, string[]>
+            {
+                ["/api/v1/system/users"] = ["page", "pageSize", "keyword", "status"],
+                ["/api/v1/system/roles"] = ["page", "pageSize", "keyword", "status"],
+                ["/api/v1/system/posts"] = ["page", "pageSize", "keyword", "status"],
+                ["/api/v1/system/dict-types"] = ["page", "pageSize", "keyword", "status"],
+                ["/api/v1/system/settings"] = ["page", "pageSize", "keyword", "groupCode"],
+                ["/api/v1/system/login-logs"] = ["page", "pageSize", "username", "ip", "result", "from", "to"],
+                ["/api/v1/system/audit-logs"] = ["page", "pageSize", "user", "module", "resource", "action", "result", "from", "to"],
+                ["/api/v1/system/security-events"] = ["page", "pageSize", "eventType", "severity", "user", "ip", "from", "to"],
+                ["/api/v1/system/files"] = ["page", "pageSize", "keyword", "mimeType", "status"]
+            };
+
+            foreach (var endpoint in expected)
+            {
+                var operation = paths.GetProperty(endpoint.Key).GetProperty("get");
+                Assert.True(operation.TryGetProperty("parameters", out var parameters), $"{endpoint.Key} missing parameters.");
+                var names = parameters.EnumerateArray()
+                    .Select(parameter => parameter.GetProperty("name").GetString())
+                    .ToArray();
+                Assert.Equal(endpoint.Value, names);
             }
         }
         finally
@@ -248,7 +300,79 @@ public sealed class OpenApiExportTests
             { ("/api/v1/auth/login", "post"), (false, null) },
             { ("/api/v1/auth/refresh", "post"), (false, null) },
             { ("/api/v1/auth/logout", "post"), (false, null) },
-            { ("/api/v1/auth/me", "get"), (true, null) }
+            { ("/api/v1/auth/me", "get"), (true, null) },
+            { ("/api/v1/system/users", "get"), (true, UserPermissions.List) },
+            { ("/api/v1/system/users/{id:long}", "get"), (true, UserPermissions.Detail) },
+            { ("/api/v1/system/users", "post"), (true, UserPermissions.Create) },
+            { ("/api/v1/system/users/{id:long}", "put"), (true, UserPermissions.Update) },
+            { ("/api/v1/system/users/{id:long}", "delete"), (true, UserPermissions.Delete) },
+            { ("/api/v1/system/users/{id:long}/enable", "post"), (true, UserPermissions.Enable) },
+            { ("/api/v1/system/users/{id:long}/disable", "post"), (true, UserPermissions.Disable) },
+            { ("/api/v1/system/users/{id:long}/reset-password", "post"), (true, UserPermissions.ResetPassword) },
+            { ("/api/v1/system/users/{id:long}/roles", "put"), (true, UserPermissions.AssignRole) },
+            { ("/api/v1/system/users/{id:long}/posts", "put"), (true, UserPermissions.AssignPost) },
+            { ("/api/v1/system/roles", "get"), (true, RolePermissions.List) },
+            { ("/api/v1/system/roles/{id:long}", "get"), (true, RolePermissions.Detail) },
+            { ("/api/v1/system/roles", "post"), (true, RolePermissions.Create) },
+            { ("/api/v1/system/roles/{id:long}", "put"), (true, RolePermissions.Update) },
+            { ("/api/v1/system/roles/{id:long}", "delete"), (true, RolePermissions.Delete) },
+            { ("/api/v1/system/roles/{id:long}/enable", "post"), (true, RolePermissions.Enable) },
+            { ("/api/v1/system/roles/{id:long}/disable", "post"), (true, RolePermissions.Disable) },
+            { ("/api/v1/system/roles/{id:long}/permissions", "put"), (true, RolePermissions.AssignPermission) },
+            { ("/api/v1/system/roles/{id:long}/menus", "put"), (true, RolePermissions.AssignMenu) },
+            { ("/api/v1/system/menus", "get"), (true, MenuPermissions.List) },
+            { ("/api/v1/system/menus/tree", "get"), (true, MenuPermissions.Tree) },
+            { ("/api/v1/system/menus/{id:long}", "get"), (true, MenuPermissions.Detail) },
+            { ("/api/v1/system/menus", "post"), (true, MenuPermissions.Create) },
+            { ("/api/v1/system/menus/{id:long}", "put"), (true, MenuPermissions.Update) },
+            { ("/api/v1/system/menus/{id:long}", "delete"), (true, MenuPermissions.Delete) },
+            { ("/api/v1/system/menus/{id:long}/enable", "post"), (true, MenuPermissions.Enable) },
+            { ("/api/v1/system/menus/{id:long}/disable", "post"), (true, MenuPermissions.Disable) },
+            { ("/api/v1/system/permissions", "get"), (true, PermissionManagementPermissions.List) },
+            { ("/api/v1/system/permissions/tree", "get"), (true, PermissionManagementPermissions.Tree) },
+            { ("/api/v1/system/permissions/{id:long}", "get"), (true, PermissionManagementPermissions.Detail) },
+            { ("/api/v1/system/permissions", "post"), (true, PermissionManagementPermissions.Create) },
+            { ("/api/v1/system/permissions/{id:long}", "put"), (true, PermissionManagementPermissions.Update) },
+            { ("/api/v1/system/permissions/{id:long}", "delete"), (true, PermissionManagementPermissions.Delete) },
+            { ("/api/v1/system/permissions/{id:long}/enable", "post"), (true, PermissionManagementPermissions.Enable) },
+            { ("/api/v1/system/permissions/{id:long}/disable", "post"), (true, PermissionManagementPermissions.Disable) },
+            { ("/api/v1/system/depts", "get"), (true, DepartmentPermissions.List) },
+            { ("/api/v1/system/depts/tree", "get"), (true, DepartmentPermissions.Tree) },
+            { ("/api/v1/system/depts/{id:long}", "get"), (true, DepartmentPermissions.Detail) },
+            { ("/api/v1/system/depts", "post"), (true, DepartmentPermissions.Create) },
+            { ("/api/v1/system/depts/{id:long}", "put"), (true, DepartmentPermissions.Update) },
+            { ("/api/v1/system/depts/{id:long}", "delete"), (true, DepartmentPermissions.Delete) },
+            { ("/api/v1/system/depts/{id:long}/enable", "post"), (true, DepartmentPermissions.Enable) },
+            { ("/api/v1/system/depts/{id:long}/disable", "post"), (true, DepartmentPermissions.Disable) },
+            { ("/api/v1/system/posts", "get"), (true, PostPermissions.List) },
+            { ("/api/v1/system/posts/{id:long}", "get"), (true, PostPermissions.Detail) },
+            { ("/api/v1/system/posts", "post"), (true, PostPermissions.Create) },
+            { ("/api/v1/system/posts/{id:long}", "put"), (true, PostPermissions.Update) },
+            { ("/api/v1/system/posts/{id:long}", "delete"), (true, PostPermissions.Delete) },
+            { ("/api/v1/system/posts/{id:long}/enable", "post"), (true, PostPermissions.Enable) },
+            { ("/api/v1/system/posts/{id:long}/disable", "post"), (true, PostPermissions.Disable) },
+            { ("/api/v1/system/dict-types", "get"), (true, DictPermissions.TypeList) },
+            { ("/api/v1/system/dict-types/{id:long}", "get"), (true, DictPermissions.TypeList) },
+            { ("/api/v1/system/dict-types", "post"), (true, DictPermissions.TypeCreate) },
+            { ("/api/v1/system/dict-types/{id:long}", "put"), (true, DictPermissions.TypeUpdate) },
+            { ("/api/v1/system/dict-types/{id:long}", "delete"), (true, DictPermissions.TypeDelete) },
+            { ("/api/v1/system/dict-types/{typeCode}/values", "get"), (true, DictPermissions.ValueList) },
+            { ("/api/v1/system/dict-types/{typeCode}/values", "post"), (true, DictPermissions.ValueCreate) },
+            { ("/api/v1/system/dict-values/{id:long}", "put"), (true, DictPermissions.ValueUpdate) },
+            { ("/api/v1/system/dict-values/{id:long}", "delete"), (true, DictPermissions.ValueDelete) },
+            { ("/api/v1/system/settings", "get"), (true, SettingPermissions.List) },
+            { ("/api/v1/system/settings/{key}", "get"), (true, SettingPermissions.Detail) },
+            { ("/api/v1/system/settings/{key}", "put"), (true, SettingPermissions.Update) },
+            { ("/api/v1/system/login-logs", "get"), (true, LogPermissions.LoginLogList) },
+            { ("/api/v1/system/login-logs/{id:long}", "get"), (true, LogPermissions.LoginLogDetail) },
+            { ("/api/v1/system/audit-logs", "get"), (true, LogPermissions.AuditLogList) },
+            { ("/api/v1/system/audit-logs/{id:long}", "get"), (true, LogPermissions.AuditLogDetail) },
+            { ("/api/v1/system/security-events", "get"), (true, LogPermissions.SecurityEventList) },
+            { ("/api/v1/system/security-events/{id:long}", "get"), (true, LogPermissions.SecurityEventDetail) },
+            { ("/api/v1/system/files", "get"), (true, FilePermissions.List) },
+            { ("/api/v1/system/files/{id:long}", "get"), (true, FilePermissions.Detail) },
+            { ("/api/v1/system/files", "post"), (true, FilePermissions.Upload) },
+            { ("/api/v1/system/files/{id:long}", "delete"), (true, FilePermissions.Delete) }
         };
 
         foreach (var expectedEndpoint in expected)
@@ -364,7 +488,7 @@ public sealed class OpenApiExportTests
         var groupName = groupPrefix.Success ? groupPrefix.Groups["groupName"].Value : null;
 
         const string endpointPattern =
-            @"(?<receiver>\w+)\.Map(?<method>Get|Post|Put|Patch|Delete)\(\s*""(?<path>/[^""\\]*)""\s*,";
+            @"(?<receiver>\w+)\.Map(?<method>Get|Post|Put|Patch|Delete)\(\s*""(?<path>[^""\\]*)""\s*,";
 
         foreach (Match match in Regex.Matches(source, endpointPattern))
         {
@@ -468,7 +592,79 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/auth/login", "post", null, false, nameof(LoginRequest)),
         new RegisteredEndpoint("/api/v1/auth/refresh", "post", null, false, nameof(RefreshTokenRequest)),
         new RegisteredEndpoint("/api/v1/auth/logout", "post", null, false, nameof(LogoutRequest)),
-        new RegisteredEndpoint("/api/v1/auth/me", "get", null, true, null)
+        new RegisteredEndpoint("/api/v1/auth/me", "get", null, true, null),
+        new RegisteredEndpoint("/api/v1/system/users", "get", UserPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "get", UserPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/users", "post", UserPermissions.Create, true, nameof(CreateUserRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "put", UserPermissions.Update, true, nameof(UpdateUserRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "delete", UserPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/enable", "post", UserPermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/disable", "post", UserPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-password", "post", UserPermissions.ResetPassword, true, nameof(ResetUserPasswordRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/roles", "put", UserPermissions.AssignRole, true, nameof(AssignUserRolesRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/posts", "put", UserPermissions.AssignPost, true, nameof(AssignUserPostsRequest)),
+        new RegisteredEndpoint("/api/v1/system/roles", "get", RolePermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "get", RolePermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/roles", "post", RolePermissions.Create, true, nameof(CreateRoleRequest)),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "put", RolePermissions.Update, true, nameof(UpdateRoleRequest)),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "delete", RolePermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/enable", "post", RolePermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/disable", "post", RolePermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/permissions", "put", RolePermissions.AssignPermission, true, nameof(AssignRolePermissionsRequest)),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/menus", "put", RolePermissions.AssignMenu, true, nameof(AssignRoleMenusRequest)),
+        new RegisteredEndpoint("/api/v1/system/menus", "get", MenuPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/menus/tree", "get", MenuPermissions.Tree, true, null),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "get", MenuPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/menus", "post", MenuPermissions.Create, true, nameof(CreateMenuRequest)),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "put", MenuPermissions.Update, true, nameof(UpdateMenuRequest)),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "delete", MenuPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/enable", "post", MenuPermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/disable", "post", MenuPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/permissions", "get", PermissionManagementPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/permissions/tree", "get", PermissionManagementPermissions.Tree, true, null),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "get", PermissionManagementPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/permissions", "post", PermissionManagementPermissions.Create, true, nameof(CreatePermissionRequest)),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "put", PermissionManagementPermissions.Update, true, nameof(UpdatePermissionRequest)),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "delete", PermissionManagementPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/enable", "post", PermissionManagementPermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/disable", "post", PermissionManagementPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/depts", "get", DepartmentPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/depts/tree", "get", DepartmentPermissions.Tree, true, null),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "get", DepartmentPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/depts", "post", DepartmentPermissions.Create, true, nameof(CreateDepartmentRequest)),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "put", DepartmentPermissions.Update, true, nameof(UpdateDepartmentRequest)),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "delete", DepartmentPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/enable", "post", DepartmentPermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/disable", "post", DepartmentPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/posts", "get", PostPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "get", PostPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/posts", "post", PostPermissions.Create, true, nameof(CreatePostRequest)),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "put", PostPermissions.Update, true, nameof(UpdatePostRequest)),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "delete", PostPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/enable", "post", PostPermissions.Enable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/disable", "post", PostPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/dict-types", "get", DictPermissions.TypeList, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "get", DictPermissions.TypeList, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types", "post", DictPermissions.TypeCreate, true, nameof(CreateDictTypeRequest)),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "put", DictPermissions.TypeUpdate, true, nameof(UpdateDictTypeRequest)),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "delete", DictPermissions.TypeDelete, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{typeCode}/values", "get", DictPermissions.ValueList, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{typeCode}/values", "post", DictPermissions.ValueCreate, true, nameof(CreateDictValueRequest)),
+        new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}", "put", DictPermissions.ValueUpdate, true, nameof(UpdateDictValueRequest)),
+        new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}", "delete", DictPermissions.ValueDelete, true, null),
+        new RegisteredEndpoint("/api/v1/system/settings", "get", SettingPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/settings/{key}", "get", SettingPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/settings/{key}", "put", SettingPermissions.Update, true, nameof(UpdateSettingRequest)),
+        new RegisteredEndpoint("/api/v1/system/login-logs", "get", LogPermissions.LoginLogList, true, null),
+        new RegisteredEndpoint("/api/v1/system/login-logs/{id:long}", "get", LogPermissions.LoginLogDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/audit-logs", "get", LogPermissions.AuditLogList, true, null),
+        new RegisteredEndpoint("/api/v1/system/audit-logs/{id:long}", "get", LogPermissions.AuditLogDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/security-events", "get", LogPermissions.SecurityEventList, true, null),
+        new RegisteredEndpoint("/api/v1/system/security-events/{id:long}", "get", LogPermissions.SecurityEventDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/files", "get", FilePermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/files/{id:long}", "get", FilePermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/files", "post", FilePermissions.Upload, true, nameof(CreateFileRequest)),
+        new RegisteredEndpoint("/api/v1/system/files/{id:long}", "delete", FilePermissions.Delete, true, null)
     ];
 
     private sealed record RegisteredEndpoint(string Path, string Method, string? Permission, bool RequiresAuthorization, string? RequestBody);

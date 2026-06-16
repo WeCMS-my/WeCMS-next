@@ -27,16 +27,36 @@ public sealed class MigrationAndSeedSmokeTests
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
-            Assert.Equal(5, firstMigrationRun.Count);
+            Assert.Equal(12, firstMigrationRun.Count);
             Assert.Empty(secondMigrationRun);
-            Assert.Equal(5, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
+            Assert.Equal(12, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin'"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND must_change_password = TRUE"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_role WHERE code = 'super_admin'"));
-            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code = 'sys:system:secure-ping'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_role WHERE code = 'super_admin' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_role_menu'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code = 'sys:system:secure-ping' AND status = 'enabled' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(83, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND code <> 'sys:system:secure-ping'"));
+            Assert.Equal(84, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND status = 'enabled' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(13, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%'"));
+            Assert.Equal(13, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_dict_type'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_dict_value'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_setting'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_setting WHERE `key` = 'security.passwordPepper' AND is_sensitive = TRUE"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_file'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user_role"));
-            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_role_permission"));
+            Assert.Equal(
+                Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission"),
+                Scalar<int>(
+                    db,
+                    """
+                    SELECT COUNT(1)
+                    FROM sys_role_permission rp
+                    JOIN sys_role r ON r.id = rp.role_id
+                    WHERE r.code = 'super_admin'
+                    """));
         }
         finally
         {

@@ -7,6 +7,7 @@ public static class SystemPermissionsServiceCollectionExtensions
     public static IServiceCollection AddWeCmsSystemPermissions(this IServiceCollection services)
     {
         services.AddScoped<IPermissionChecker, PermissionChecker>();
+        services.AddScoped<IPermissionManagementService, PermissionManagementService>();
 
         return services;
     }

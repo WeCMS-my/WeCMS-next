@@ -1,0 +1,109 @@
+using WeCms.Shared;
+
+namespace WeCms.Modules.System.Posts;
+
+public sealed class PostService : IPostService
+{
+    private const int MaxPageSize = 100;
+    private readonly IPostRepository _repository;
+
+    public PostService(IPostRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<PagedResult<PostSummaryDto>> ListAsync(PostListQuery query, CancellationToken cancellationToken)
+    {
+        var page = query.Page <= 0 ? throw Validation("page must be greater than or equal to 1.") : query.Page;
+        var pageSize = query.PageSize is <= 0 or > MaxPageSize ? throw Validation($"pageSize must be between 1 and {MaxPageSize}.") : query.PageSize;
+        var status = NormalizeOptional(query.Status, 32);
+        if (status is not null && status is not "enabled" and not "disabled")
+        {
+            throw Validation("status must be enabled or disabled.");
+        }
+
+        return _repository.ListAsync(new PostListCriteria(page, pageSize, NormalizeOptional(query.Keyword, 80), status), cancellationToken);
+    }
+
+    public async Task<PostDetailDto> GetAsync(long id, CancellationToken cancellationToken)
+    {
+        return await _repository.GetAsync(id, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "Post was not found.");
+    }
+
+    public async Task<PostMutationResponse> CreateAsync(CreatePostRequest request, PostRequestContext context, CancellationToken cancellationToken)
+    {
+        var code = NormalizeRequired(request.Code, "code", 80);
+        var name = NormalizeRequired(request.Name, "name", 120);
+        var status = NormalizeStatus(request.Status);
+        if (await _repository.CodeExistsAsync(code, null, cancellationToken))
+        {
+            throw new DomainException(ApiCodes.Conflict, "post code already exists.");
+        }
+
+        var id = await _repository.CreateAsync(new PostCreateRecord(code, name, request.SortOrder, status, context.Now), cancellationToken);
+        await AuditAsync(context, "create", id, "success", "Post created.", cancellationToken);
+        return new PostMutationResponse(id);
+    }
+
+    public async Task<PostMutationResponse> UpdateAsync(long id, UpdatePostRequest request, PostRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await GetAsync(id, cancellationToken);
+        var name = NormalizeRequired(request.Name, "name", 120);
+        var status = NormalizeStatus(request.Status);
+        await _repository.UpdateAsync(new PostUpdateRecord(id, name, request.SortOrder, status, context.Now), cancellationToken);
+        await AuditAsync(context, "update", id, "success", "Post updated.", cancellationToken);
+        return new PostMutationResponse(id);
+    }
+
+    public async Task DeleteAsync(long id, PostRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await GetAsync(id, cancellationToken);
+        if (await _repository.HasUsersAsync(id, cancellationToken))
+        {
+            throw new DomainException(ApiCodes.BusinessError, "Post assigned to users cannot be deleted.");
+        }
+
+        await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
+        await AuditAsync(context, "delete", id, "success", "Post deleted.", cancellationToken);
+    }
+
+    public async Task EnableAsync(long id, PostRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await GetAsync(id, cancellationToken);
+        await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
+        await AuditAsync(context, "enable", id, "success", "Post enabled.", cancellationToken);
+    }
+
+    public async Task DisableAsync(long id, PostRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await GetAsync(id, cancellationToken);
+        await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
+        await AuditAsync(context, "disable", id, "success", "Post disabled.", cancellationToken);
+    }
+
+    private Task AuditAsync(PostRequestContext context, string action, long targetPostId, string result, string detail, CancellationToken cancellationToken)
+    {
+        return _repository.RecordAuditAsync(new PostAuditRecord(context.ActorUserId, context.ActorUsername, action, targetPostId, context.Ip, context.UserAgent, context.TraceId, result, detail, context.Now), cancellationToken);
+    }
+
+    private static string NormalizeStatus(string value)
+    {
+        var normalized = NormalizeRequired(value, "status", 32);
+        return normalized is "enabled" or "disabled" ? normalized : throw Validation("status must be enabled or disabled.");
+    }
+
+    private static string NormalizeRequired(string? value, string name, int maxLength) => NormalizeOptional(value, maxLength) ?? throw Validation($"{name} is required.");
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= maxLength ? normalized : throw Validation($"value must be {maxLength} characters or fewer.");
+    }
+
+    private static DomainException Validation(string message) => new(ApiCodes.ValidationError, message);
+}

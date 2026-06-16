@@ -348,7 +348,47 @@ CI publish 验证
 ThinkPHP migration spike
 ```
 
-说明：M0-BE 当前为 backend-only 阶段，SoybeanAdmin request 封装属于后续前端阶段，不是本阶段交付项。
+说明：M1-BE 当前为 backend-only 系统管理 API 阶段，SoybeanAdmin request 封装属于后续前端阶段，不是本阶段交付项。
+
+### M1-BE：系统管理 API
+
+目标：在 M0-BE 后端底座之上完成系统管理核心 API。
+
+交付：
+
+```text
+用户管理
+角色管理
+菜单管理
+权限管理
+部门管理
+岗位管理
+字典管理
+系统设置
+登录日志
+操作审计日志
+安全事件
+文件基础能力
+系统管理权限码 seed
+系统管理菜单 seed
+OpenAPI 契约增强
+M1-BE quality gate
+```
+
+边界：
+
+```text
+不做 frontend/**
+不运行 pnpm
+不生成前端 TypeScript generated
+不做 CMS 内容 API
+不做旧系统数据迁移
+不做旧系统兼容模式
+不做 AI runtime
+所有数据库操作只能在 WeCms.Persistence
+所有业务 Endpoint 必须有权限码或显式内部访问策略
+所有写操作必须记录审计
+```
 
 ### M1：认证安全闭环
 

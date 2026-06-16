@@ -6,6 +6,8 @@ namespace WeCms.Modules.System.Auth;
 
 public interface IPasswordHasher
 {
+    string Hash(string password);
+
     bool Verify(string password, string passwordHash);
 }
 
@@ -39,6 +41,20 @@ public sealed class PasswordHasher : IPasswordHasher
 {
     private const int ExpectedSaltSizeBytes = 16;
     private const int ExpectedHashSizeBytes = 32;
+    private const int PasswordIterations = 600_000;
+
+    public string Hash(string password)
+    {
+        var salt = RandomNumberGenerator.GetBytes(ExpectedSaltSizeBytes);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            password,
+            salt,
+            PasswordIterations,
+            HashAlgorithmName.SHA256,
+            ExpectedHashSizeBytes);
+
+        return $"wecms.pbkdf2-sha256.v1.{PasswordIterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
+    }
 
     public bool Verify(string password, string passwordHash)
     {

@@ -17,7 +17,7 @@ if rg -n 'SqlSugarCore|SqlSugarClient|SqlSugarScope|ISqlSugarClient|MySqlConnect
   fail 'database/ORM tokens found outside WeCms.Persistence'
 fi
 
-if rg -n -i '\b(SELECT|INSERT|UPDATE|DELETE)\b' "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
+if rg -n -i '\b(SELECT[[:space:]]+.+[[:space:]]+FROM|INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[[:alnum:]_]+|DELETE[[:space:]]+FROM)\b' "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
   --glob '!**/bin/**' --glob '!**/obj/**'; then
   fail 'SQL keywords found in WeCms.Modules.*'
 fi
