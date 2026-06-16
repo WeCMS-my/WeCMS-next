@@ -14,6 +14,7 @@ Add `.github/workflows/backend-quality-gate.yml` for backend-only M0-BE validati
 
 - checkout repository
 - setup .NET 10
+- install ripgrep for shell quality-gate scanners
 - start MySQL 8
 - create a test connection string in `WECMS_TEST_MYSQL_CONNECTION_STRING`
 - run `bash scripts/quality-gate-backend.sh`

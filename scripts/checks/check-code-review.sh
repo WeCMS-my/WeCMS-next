@@ -8,6 +8,8 @@ fail() {
   exit 1
 }
 
+command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
+
 scan() {
   local pattern="$1"
   local message="$2"

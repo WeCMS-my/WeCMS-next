@@ -6,6 +6,7 @@
 - [x] Add `check-code-review.sh`.
 - [x] Add migration/seed smoke step using existing integration tests.
 - [x] Verify gate fails fast when `WECMS_TEST_MYSQL_CONNECTION_STRING` is missing.
+- [x] Verify gate fails fast when `rg` is missing.
 - [x] Run full backend quality gate.
 - [x] Audit scripts for excluded AOT/Dapper checks.
 - [x] Run sub agent final review.

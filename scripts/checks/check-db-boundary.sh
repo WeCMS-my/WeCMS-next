@@ -9,6 +9,8 @@ fail() {
   exit 1
 }
 
+command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
+
 if rg -n 'SqlSugarCore|SqlSugarClient|SqlSugarScope|ISqlSugarClient|MySqlConnector|MySqlConnection|DbConnection|DbTransaction' \
   "$src_root/WeCms.Api" "$src_root/WeCms.Infrastructure" "$src_root/WeCms.Shared" "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
   --glob '!**/bin/**' --glob '!**/obj/**'; then

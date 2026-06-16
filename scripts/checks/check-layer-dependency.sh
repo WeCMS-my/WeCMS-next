@@ -9,6 +9,8 @@ fail() {
   exit 1
 }
 
+command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
+
 project_refs() {
   local project="$1"
   local refs

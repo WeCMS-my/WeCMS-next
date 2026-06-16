@@ -27,4 +27,7 @@ The gate must not run AOT publish, `/p:PublishAot=true`, Dapper baseline checks,
 
 ## Environment
 
-The gate requires `WECMS_TEST_MYSQL_CONNECTION_STRING` for MySQL integration and migration/seed smoke tests.
+The gate requires:
+
+- `rg` from ripgrep for shell scanner checks.
+- `WECMS_TEST_MYSQL_CONNECTION_STRING` for MySQL integration and migration/seed smoke tests.

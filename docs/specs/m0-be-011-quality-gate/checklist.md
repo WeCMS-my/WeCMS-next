@@ -13,3 +13,4 @@
 - [x] Gate runs code-review rule check.
 - [x] Gate runs migration/seed smoke test.
 - [x] Gate excludes AOT/Dapper/IL trim checks.
+- [x] Gate fails fast when ripgrep `rg` is unavailable.

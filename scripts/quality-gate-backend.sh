@@ -7,6 +7,12 @@ if [[ -z "${WECMS_TEST_MYSQL_CONNECTION_STRING:-}" ]]; then
   printf 'quality-gate-backend: WECMS_TEST_MYSQL_CONNECTION_STRING is required for MySQL integration tests.\n' >&2
   exit 1
 fi
+
+command -v rg >/dev/null 2>&1 || {
+  printf 'quality-gate-backend: rg is required. Install ripgrep before running the backend gate.\n' >&2
+  exit 1
+}
+
 mysql_connection_string="$WECMS_TEST_MYSQL_CONNECTION_STRING"
 unset WECMS_TEST_MYSQL_CONNECTION_STRING
 

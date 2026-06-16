@@ -5,6 +5,7 @@
 - [x] Workflow triggers on pull requests to `main`.
 - [x] Workflow supports `workflow_dispatch`.
 - [x] Workflow sets up .NET 10.
+- [x] Workflow installs ripgrep for quality-gate shell scanners.
 - [x] Workflow starts MySQL 8.
 - [x] Workflow runs `bash scripts/quality-gate-backend.sh`.
 - [x] Workflow can generate OpenAPI through the backend gate.
