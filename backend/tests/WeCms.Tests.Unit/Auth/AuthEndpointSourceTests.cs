@@ -11,6 +11,14 @@ public sealed class AuthEndpointSourceTests
         Assert.Contains(".AllowAnonymous();", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/refresh\"", source, StringComparison.Ordinal);
         Assert.Contains("authService.RefreshAsync(request, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/logout\"", source, StringComparison.Ordinal);
+        Assert.Contains("authService.LogoutAsync(request, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+
+        var logoutRouteIndex = source.IndexOf("group.MapPost(\"/logout\"", StringComparison.Ordinal);
+        Assert.True(logoutRouteIndex >= 0);
+        var logoutAuthorizationIndex = source.IndexOf(".RequireAuthorization();", logoutRouteIndex, StringComparison.Ordinal);
+        Assert.True(logoutAuthorizationIndex > logoutRouteIndex);
+
         Assert.Contains("group.MapGet(\"/me\"", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization();", source, StringComparison.Ordinal);
     }

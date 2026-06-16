@@ -37,28 +37,48 @@ public interface IAuthTokenEntropy
 
 public sealed class PasswordHasher : IPasswordHasher
 {
+    private const int ExpectedSaltSizeBytes = 16;
+    private const int ExpectedHashSizeBytes = 32;
+
     public bool Verify(string password, string passwordHash)
     {
-        var parts = passwordHash.Split('.');
-        if (parts.Length != 6
-            || parts[0] != "wecms"
-            || parts[1] != "pbkdf2-sha256"
-            || parts[2] != "v1"
-            || !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out var iterations))
+        try
+        {
+            var parts = passwordHash.Split('.');
+            if (parts.Length != 6
+                || parts[0] != "wecms"
+                || parts[1] != "pbkdf2-sha256"
+                || parts[2] != "v1"
+                || !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out var iterations)
+                || iterations <= 0)
+            {
+                return false;
+            }
+
+            var salt = Convert.FromBase64String(parts[4]);
+            var expectedHash = Convert.FromBase64String(parts[5]);
+            if (salt.Length != ExpectedSaltSizeBytes || expectedHash.Length != ExpectedHashSizeBytes)
+            {
+                return false;
+            }
+
+            var actualHash = Rfc2898DeriveBytes.Pbkdf2(
+                password,
+                salt,
+                iterations,
+                HashAlgorithmName.SHA256,
+                expectedHash.Length);
+
+            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        }
+        catch (FormatException)
         {
             return false;
         }
-
-        var salt = Convert.FromBase64String(parts[4]);
-        var expectedHash = Convert.FromBase64String(parts[5]);
-        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
-            password,
-            salt,
-            iterations,
-            HashAlgorithmName.SHA256,
-            expectedHash.Length);
-
-        return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     public static string HashForTest(string password)
@@ -109,36 +129,48 @@ public sealed class AccessTokenService : IAccessTokenService
 
     public AccessTokenPrincipal? Validate(string token, DateTimeOffset now)
     {
-        var parts = token.Split('.');
-        if (parts.Length != 4 || parts[0] != "wecms" || parts[1] != "at")
+        if (string.IsNullOrWhiteSpace(token))
         {
             return null;
         }
 
-        if (!FixedTimeEquals(Sign(parts[2]), parts[3]))
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length != 4 || parts[0] != "wecms" || parts[1] != "at")
+            {
+                return null;
+            }
+
+            if (!FixedTimeEquals(Sign(parts[2]), parts[3]))
+            {
+                return null;
+            }
+
+            var payload = Encoding.UTF8.GetString(Base64UrlDecode(parts[2]));
+            var fields = payload.Split(':');
+            if (fields.Length != 4
+                || fields[0] != _options.Issuer
+                || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out var userId)
+                || !long.TryParse(fields[3], NumberStyles.None, CultureInfo.InvariantCulture, out var expiresUnix))
+            {
+                return null;
+            }
+
+            var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expiresUnix);
+            if (expiresAt <= now)
+            {
+                return null;
+            }
+
+            var username = Encoding.UTF8.GetString(Base64UrlDecode(fields[2]));
+
+            return new AccessTokenPrincipal(userId, username, expiresAt);
+        }
+        catch (FormatException)
         {
             return null;
         }
-
-        var payload = Encoding.UTF8.GetString(Base64UrlDecode(parts[2]));
-        var fields = payload.Split(':');
-        if (fields.Length != 4
-            || fields[0] != _options.Issuer
-            || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out var userId)
-            || !long.TryParse(fields[3], NumberStyles.None, CultureInfo.InvariantCulture, out var expiresUnix))
-        {
-            return null;
-        }
-
-        var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expiresUnix);
-        if (expiresAt <= now)
-        {
-            return null;
-        }
-
-        var username = Encoding.UTF8.GetString(Base64UrlDecode(fields[2]));
-
-        return new AccessTokenPrincipal(userId, username, expiresAt);
     }
 
     private string Sign(string encodedPayload)

@@ -23,7 +23,8 @@ public sealed class AuthRepository : IAuthRepository
                    display_name AS DisplayName,
                    password_hash AS PasswordHash,
                    status AS Status,
-                   is_super_admin AS IsSuperAdmin
+                   is_super_admin AS IsSuperAdmin,
+                   must_change_password AS MustChangePassword
             FROM sys_user
             WHERE username = @username
             LIMIT 1
@@ -44,7 +45,8 @@ public sealed class AuthRepository : IAuthRepository
                    display_name AS DisplayName,
                    password_hash AS PasswordHash,
                    status AS Status,
-                   is_super_admin AS IsSuperAdmin
+                   is_super_admin AS IsSuperAdmin,
+                   must_change_password AS MustChangePassword
             FROM sys_user
             WHERE id = @userId
             LIMIT 1
@@ -66,6 +68,7 @@ public sealed class AuthRepository : IAuthRepository
                    u.display_name,
                    u.status,
                    u.is_super_admin,
+                   u.must_change_password AS MustChangePassword,
                    rt.token_hash,
                    rt.family_id,
                    rt.expires_at,
@@ -101,7 +104,8 @@ public sealed class AuthRepository : IAuthRepository
             revokedAt,
             row["replaced_by_token_hash"] == DBNull.Value
                 ? null
-                : Convert.ToString(row["replaced_by_token_hash"], global::System.Globalization.CultureInfo.InvariantCulture));
+                : Convert.ToString(row["replaced_by_token_hash"], global::System.Globalization.CultureInfo.InvariantCulture),
+            Convert.ToBoolean(row["MustChangePassword"], global::System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public async Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
@@ -183,6 +187,36 @@ public sealed class AuthRepository : IAuthRepository
         if (insertedRows != 1)
         {
             throw new InvalidOperationException($"Expected to insert one security event row, inserted {insertedRows}.");
+        }
+    }
+
+    public async Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var insertedRows = await _db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO sys_audit_log (user_id, username, module, resource, action, target_id, request_method, request_path, ip_address, user_agent, trace_id, result, detail, created_at)
+            VALUES (@userId, @username, @module, @resource, @action, @targetId, @requestMethod, @requestPath, @ipAddress, @userAgent, @traceId, @result, @detail, @createdAt)
+            """,
+            new SugarParameter("@userId", record.UserId),
+            new SugarParameter("@username", record.Username),
+            new SugarParameter("@module", record.Module),
+            new SugarParameter("@resource", record.Resource),
+            new SugarParameter("@action", record.Action),
+            new SugarParameter("@targetId", record.TargetId),
+            new SugarParameter("@requestMethod", record.RequestMethod),
+            new SugarParameter("@requestPath", record.RequestPath),
+            new SugarParameter("@ipAddress", record.Ip),
+            new SugarParameter("@userAgent", record.UserAgent),
+            new SugarParameter("@traceId", record.TraceId),
+            new SugarParameter("@result", record.Result),
+            new SugarParameter("@detail", record.Detail),
+            new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
+
+        if (insertedRows != 1)
+        {
+            throw new InvalidOperationException($"Expected to insert one audit log row, inserted {insertedRows}.");
         }
     }
 
@@ -292,9 +326,11 @@ public sealed class AuthRepository : IAuthRepository
 
         public bool IsSuperAdmin { get; set; }
 
+        public bool MustChangePassword { get; set; }
+
         public AuthUserRecord ToRecord()
         {
-            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin);
+            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword);
         }
     }
 }

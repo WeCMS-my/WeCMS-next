@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Auth;
@@ -15,7 +16,7 @@ public static class AuthEndpoints
         group.MapPost("/login", async (
                 LoginRequest request,
                 HttpContext context,
-                IAuthService authService,
+                [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
                 var response = await authService.LoginAsync(request, CreateRequestContext(context), cancellationToken);
@@ -28,7 +29,7 @@ public static class AuthEndpoints
         group.MapPost("/refresh", async (
                 RefreshTokenRequest request,
                 HttpContext context,
-                IAuthService authService,
+                [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
                 var response = await authService.RefreshAsync(request, CreateRequestContext(context), cancellationToken);
@@ -41,7 +42,7 @@ public static class AuthEndpoints
         group.MapPost("/logout", async (
                 LogoutRequest request,
                 HttpContext context,
-                IAuthService authService,
+                [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
                 await authService.LogoutAsync(request, CreateRequestContext(context), cancellationToken);
@@ -53,7 +54,7 @@ public static class AuthEndpoints
 
         group.MapGet("/me", async (
                 ClaimsPrincipal principal,
-                IAuthService authService,
+                [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
                 var userIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -75,7 +76,8 @@ public static class AuthEndpoints
     {
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty;
         var userAgent = context.Request.Headers.UserAgent.ToString();
+        var traceId = context.TraceIdentifier;
 
-        return new AuthRequestContext(ip, userAgent);
+        return new AuthRequestContext(ip, userAgent, traceId);
     }
 }

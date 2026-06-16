@@ -19,6 +19,19 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_RejectsOverlongUsernameBeforeRepositoryLookup()
+    {
+        var repository = new FakeAuthRepository();
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.LoginAsync(new LoginRequest(new string('a', 65), "password"), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal(0, repository.FindUserCalls);
+    }
+
+    [Fact]
     public async Task LoginAsync_FailedPasswordWritesAuditWithoutUserDisclosure()
     {
         var repository = new FakeAuthRepository
@@ -34,6 +47,37 @@ public sealed class AuthServiceTests
         Assert.Equal("Invalid username or password.", exception.Message);
         Assert.Equal(1, repository.FailedLoginCount);
         Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("login", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task LoginAsync_MustChangePasswordWritesSecurityEventAndRejectsLogin()
+    {
+        var repository = new FakeAuthRepository
+        {
+            User = new AuthUserRecord(
+                1,
+                "admin",
+                "Administrator",
+                PasswordHasher.HashForTest("correct"),
+                "enabled",
+                false,
+                true)
+        };
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.LoginAsync(new LoginRequest("admin", "correct"), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("Password change required.", exception.Message);
+        Assert.Equal("auth.password_change_required", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("login", repository.LastAuditAction);
+        Assert.Equal("blocked", repository.LastAuditResult);
     }
 
     [Fact]
@@ -60,6 +104,9 @@ public sealed class AuthServiceTests
         Assert.Equal(["super_admin"], response.Roles);
         Assert.Equal(["sys:system:secure-ping"], response.Permissions);
         Assert.Empty(response.Menus);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("login", repository.LastAuditAction);
+        Assert.Equal("success", repository.LastAuditResult);
     }
 
     [Fact]
@@ -101,6 +148,56 @@ public sealed class AuthServiceTests
         Assert.NotEqual(response.RefreshToken, repository.RotatedNewRefreshTokenHash);
         Assert.Equal(64, repository.RotatedNewRefreshTokenHash.Length);
         Assert.Equal("family-1", repository.RotatedFamilyId);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("success", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RejectsOverlongRefreshTokenBeforeRepositoryLookup()
+    {
+        var repository = new FakeAuthRepository();
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshTokenRequest(new string('a', 129)), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal(0, repository.FindRefreshTokenCalls);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_MustChangePasswordWritesSecurityEventAndRejectsRefresh()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(
+                10,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-1",
+                new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+                null,
+                null,
+                true)
+        };
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("Password change required.", exception.Message);
+        Assert.Equal("auth.password_change_required", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("blocked", repository.LastAuditResult);
     }
 
     [Fact]
@@ -119,6 +216,9 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -150,6 +250,9 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -181,6 +284,9 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -212,6 +318,9 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -242,6 +351,71 @@ public sealed class AuthServiceTests
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
         Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ConcurrentReplayWithinWindowDoesNotRevokeFamily()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
+        var repository = new ConcurrentReplayAuthRepository(new RefreshTokenRecord(
+            10,
+            1,
+            "admin",
+            "Administrator",
+            "enabled",
+            true,
+            issued.Hash,
+            "family-1",
+            new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+            null,
+            null));
+
+        var firstService = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero)));
+        var secondService = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 1, TimeSpan.Zero)));
+
+        var results = await Task.WhenAll(
+            TryRefreshAsync(firstService, issued.Token),
+            TryRefreshAsync(secondService, issued.Token));
+
+        Assert.Equal(1, results.Count(response => response is not null));
+        Assert.Equal(string.Empty, repository.RevokedFamilyId);
+        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_InitialReadRevokedWithinConcurrentWindow_DoesNotRevokeFamily()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(
+                10,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-1",
+                new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
+                "rotated-token")
+        };
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.Unauthorized, exception.Code);
+        Assert.Equal(string.Empty, repository.RevokedFamilyId);
+        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -260,6 +434,8 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -277,6 +453,8 @@ public sealed class AuthServiceTests
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("auth.refresh_expired", repository.LastSecurityEventType);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     [Fact]
@@ -294,6 +472,86 @@ public sealed class AuthServiceTests
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("auth.refresh_user_disabled", repository.LastSecurityEventType);
+        Assert.Equal("refresh", repository.LastAuditAction);
+        Assert.Equal("blocked", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_SuccessRevokesFamilyAndWritesSecurityEvent()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(
+                12,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-logout",
+                new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
+                null,
+                null)
+        };
+        var service = CreateService(repository);
+
+        await service.LogoutAsync(new LogoutRequest(issued.Token), RequestContext(), CancellationToken.None);
+
+        Assert.Equal("family-logout", repository.RevokedFamilyId);
+        Assert.Equal("auth.logout", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("logout", repository.LastAuditAction);
+        Assert.Equal("success", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_UnknownTokenWritesSecurityEventWithoutRevocation()
+    {
+        var repository = new FakeAuthRepository();
+        var service = CreateService(repository);
+
+        await service.LogoutAsync(new LogoutRequest("missing-refresh-token"), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(string.Empty, repository.RevokedFamilyId);
+        Assert.Equal("auth.logout_unknown_token", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("logout", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_RevokedTokenWritesSecurityEventWithoutRevocation()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(
+                12,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-logout",
+                new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero),
+                null)
+        };
+        var service = CreateService(repository);
+
+        await service.LogoutAsync(new LogoutRequest(issued.Token), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(string.Empty, repository.RevokedFamilyId);
+        Assert.Equal("auth.logout_replay_attempt", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Equal(1, repository.AuditLogCount);
+        Assert.Equal("logout", repository.LastAuditAction);
+        Assert.Equal("failed", repository.LastAuditResult);
     }
 
     private static AuthService CreateService(FakeAuthRepository repository)
@@ -350,11 +608,19 @@ public sealed class AuthServiceTests
 
         public int FindUserCalls { get; private set; }
 
+        public int FindRefreshTokenCalls { get; private set; }
+
         public int FailedLoginCount { get; private set; }
 
         public int SecurityEventCount { get; private set; }
 
         public int SuccessfulLoginCount { get; private set; }
+
+        public int AuditLogCount { get; private set; }
+
+        public string LastAuditAction { get; private set; } = string.Empty;
+
+        public string LastAuditResult { get; private set; } = string.Empty;
 
         public string StoredRefreshTokenHash { get; private set; } = string.Empty;
 
@@ -385,6 +651,7 @@ public sealed class AuthServiceTests
 
         public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
         {
+            FindRefreshTokenCalls++;
             return Task.FromResult(RefreshToken?.TokenHash == tokenHash ? RefreshToken : null);
         }
 
@@ -408,6 +675,14 @@ public sealed class AuthServiceTests
         {
             SecurityEventCount++;
             LastSecurityEventType = record.EventType;
+            return Task.CompletedTask;
+        }
+
+        public Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
+        {
+            AuditLogCount++;
+            LastAuditAction = record.Action;
+            LastAuditResult = record.Result;
             return Task.CompletedTask;
         }
 
@@ -466,6 +741,12 @@ public sealed class AuthServiceTests
 
         public int SecurityEventCount { get; private set; }
 
+        public int AuditLogCount { get; private set; }
+
+        public string LastAuditAction { get; private set; } = string.Empty;
+
+        public string LastAuditResult { get; private set; } = string.Empty;
+
         public string RevokedFamilyId { get; private set; } = string.Empty;
 
         public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
@@ -507,6 +788,14 @@ public sealed class AuthServiceTests
         {
             SecurityEventCount++;
             LastSecurityEventType = record.EventType;
+            return Task.CompletedTask;
+        }
+
+        public Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
+        {
+            AuditLogCount++;
+            LastAuditAction = record.Action;
+            LastAuditResult = record.Result;
             return Task.CompletedTask;
         }
 

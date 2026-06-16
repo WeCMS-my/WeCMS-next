@@ -33,7 +33,8 @@ public sealed class SeedRunner : ISeedRunner
         var adminPassword = ResolveAdminPassword(options);
         var replacements = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["{{ADMIN_PASSWORD_HASH}}"] = SqlLiteral(HashPassword(adminPassword))
+            ["{{ADMIN_PASSWORD_HASH}}"] = SqlLiteral(HashPassword(adminPassword)),
+            ["{{ADMIN_MUST_CHANGE_PASSWORD}}"] = ResolveAdminMustChangePassword(options)
         };
         var executed = new List<string>();
 
@@ -68,6 +69,13 @@ public sealed class SeedRunner : ISeedRunner
         }
 
         return Task.FromResult<IReadOnlyList<string>>(executed);
+    }
+
+    private static string ResolveAdminMustChangePassword(SeedRunnerOptions options)
+    {
+        return string.Equals(options.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase)
+            ? "FALSE"
+            : "TRUE";
     }
 
     private static string ResolveAdminPassword(SeedRunnerOptions options)

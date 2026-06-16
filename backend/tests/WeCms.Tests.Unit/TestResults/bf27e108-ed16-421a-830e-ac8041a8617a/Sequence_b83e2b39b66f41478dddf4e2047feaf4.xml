@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<TestSequence>
+  <Test Name="WeCms.Tests.Unit.OpenApi.OpenApiExportTests.ExportOpenApiAsync_WritesExpectedContract" DisplayName="WeCms.Tests.Unit.OpenApi.OpenApiExportTests.ExportOpenApiAsync_WritesExpectedContract" Source="/Users/ali/mydev/Git/Github/WeCMS-next/backend/tests/WeCms.Tests.Unit/bin/Release/net10.0/WeCms.Tests.Unit.dll" Completed="False" />
+</TestSequence>

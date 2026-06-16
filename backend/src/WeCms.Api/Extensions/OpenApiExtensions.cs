@@ -1,16 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http.Metadata;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.System;
-using WeCms.Persistence.Data;
-using WeCms.Shared;
 
 namespace WeCms.Api.Extensions;
 
@@ -105,72 +97,55 @@ public static class OpenApiExtensions
 
     private static List<OpenApiEndpointDescriptor> DiscoverEndpoints()
     {
-        using var app = CreateDiscoveryApp();
-
-        var endpoints = ((IEndpointRouteBuilder)app).DataSources
-            .SelectMany(dataSource => dataSource.Endpoints)
-            .OfType<RouteEndpoint>();
-        return endpoints
-            .Where(endpoint => endpoint.RoutePattern.RawText is not null)
-            .SelectMany(
-                endpoint => endpoint.Metadata.OfType<HttpMethodMetadata>()
-                    .SelectMany(metadata => metadata.HttpMethods)
-                    .Where(method => !string.IsNullOrWhiteSpace(method))
-                    .Select(method =>
-                    {
-                        var requestBodyType = endpoint.Metadata
-                            .OfType<OpenApiRequestBodyMetadata>()
-                            .Select(metadata => metadata.RequestType.Name)
-                            .FirstOrDefault();
-
-                        var responseBodyType = endpoint.Metadata
-                            .OfType<OpenApiResponseMetadata>()
-                            .Select(metadata => metadata.ResponseType.Name)
-                            .FirstOrDefault() ?? "Object";
-
-                        var permission = endpoint.Metadata
-                            .OfType<PermissionMetadata>()
-                            .Select(metadata => metadata.Code)
-                            .FirstOrDefault();
-
-                        var security = endpoint.Metadata.OfType<IAllowAnonymous>().Any() is false
-                                       && endpoint.Metadata.OfType<IAuthorizeData>().Any();
-
-                        return new OpenApiEndpointDescriptor(
-                            method.ToLowerInvariant(),
-                            endpoint.RoutePattern!.RawText!,
-                            security,
-                            permission,
-                            requestBodyType,
-                            responseBodyType);
-                    }))
-            .Distinct()
+        return RegisteredDiscoveryEndpoints
             .OrderBy(endpoint => endpoint.Path, StringComparer.Ordinal)
             .ThenBy(endpoint => endpoint.Method, StringComparer.Ordinal)
             .ToList();
     }
 
-    private static WebApplication CreateDiscoveryApp()
-    {
-        var builder = WebApplication.CreateSlimBuilder(Array.Empty<string>());
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:Default"] = "Server=127.0.0.1;Database=wecms_openapi;Uid=dummy;Pwd=dummy;",
-            ["Auth:AccessTokenSecret"] = "openapi-secret-openapi-secret-openapi-secret-openapi-secret"
-        });
-
-        builder.Services.AddWeCmsPersistence(builder.Configuration);
-        builder.Services.AddWeCmsSystemAuth(builder.Configuration);
-        builder.Services.AddWeCmsSystemPermissions();
-
-        var app = builder.Build();
-
-        app.MapSystemEndpoints();
-        app.MapAuthEndpoints();
-        app.MapSystemPermissionEndpoints();
-
-        return app;
-    }
+    private static readonly IReadOnlyList<OpenApiEndpointDescriptor> RegisteredDiscoveryEndpoints =
+    [
+        new OpenApiEndpointDescriptor("get", "/health/live", false, null, null, nameof(SystemLiveResponse)),
+        new OpenApiEndpointDescriptor("get", "/health/ready", false, null, null, nameof(SystemReadyResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/db-check", false, null, null, nameof(SystemDbCheckResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/ping", false, null, null, nameof(SystemPingResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/version", false, null, null, nameof(SystemVersionResponse)),
+        new OpenApiEndpointDescriptor(
+            "get",
+            "/api/v1/system/secure-ping",
+            true,
+            SystemPermissions.SecurePing,
+            null,
+            nameof(SecurePingResponse)),
+        new OpenApiEndpointDescriptor(
+            "post",
+            "/api/v1/auth/login",
+            false,
+            null,
+            nameof(LoginRequest),
+            nameof(LoginResponse)),
+        new OpenApiEndpointDescriptor(
+            "post",
+            "/api/v1/auth/refresh",
+            false,
+            null,
+            nameof(RefreshTokenRequest),
+            nameof(LoginResponse)),
+        new OpenApiEndpointDescriptor(
+            "post",
+            "/api/v1/auth/logout",
+            true,
+            null,
+            nameof(LogoutRequest),
+            "Object"),
+        new OpenApiEndpointDescriptor(
+            "get",
+            "/api/v1/auth/me",
+            true,
+            null,
+            null,
+            nameof(AuthMeResponse)),
+    ];
 
     private static JsonObject Paths(IEnumerable<OpenApiEndpointDescriptor> endpoints)
     {
@@ -194,6 +169,7 @@ public static class OpenApiExtensions
 
         return paths;
     }
+
 
     private static string TagForPath(string path)
     {

@@ -34,4 +34,25 @@ public sealed class OpenApiExportScanTests
         Assert.DoesNotContain("Newtonsoft", source, StringComparison.Ordinal);
         Assert.Contains("System.Text.Json", source, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task OpenApiExport_DiscoveryRegistration_DoesNotTouchPersistence()
+    {
+        var source = await File.ReadAllTextAsync(Path.Combine(
+            TestPaths.RepoRoot,
+            "backend",
+            "src",
+            "WeCms.Api",
+            "Extensions",
+            "OpenApiExtensions.cs"));
+
+        Assert.DoesNotContain("AddWeCmsPersistence", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddWeCmsSystemAuth", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddWeCmsSystemPermissions", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddInMemoryCollection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConnectionStrings:Default", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DbMigrationRunner", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IAuthTokenEntropy", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Auth:AccessTokenSecret", source, StringComparison.Ordinal);
+    }
 }

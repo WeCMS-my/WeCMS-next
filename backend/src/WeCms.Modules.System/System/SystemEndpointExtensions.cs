@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.System;
@@ -39,7 +40,7 @@ public static class SystemEndpointExtensions
 
     private static async Task<IResult> CheckReadyAsync(
         HttpContext context,
-        ISystemDatabaseProbe databaseProbe,
+        [FromServices] ISystemDatabaseProbe databaseProbe,
         CancellationToken cancellationToken)
     {
         var result = await databaseProbe.CheckAsync(cancellationToken);
@@ -58,7 +59,7 @@ public static class SystemEndpointExtensions
 
     private static async Task<IResult> CheckDatabaseAsync(
         HttpContext context,
-        ISystemDatabaseProbe databaseProbe,
+        [FromServices] ISystemDatabaseProbe databaseProbe,
         CancellationToken cancellationToken)
     {
         var result = await databaseProbe.CheckAsync(cancellationToken);

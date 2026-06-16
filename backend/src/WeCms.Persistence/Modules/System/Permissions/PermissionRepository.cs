@@ -12,10 +12,10 @@ public sealed class PermissionRepository : IPermissionRepository
         _db = db;
     }
 
-    public Task<PermissionUserRecord?> FindUserAsync(long userId, CancellationToken cancellationToken)
+    public async Task<PermissionUserRecord?> FindUserAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var row = _db.Ado.SqlQuerySingle<PermissionUserRow>(
+        var row = await _db.Ado.SqlQuerySingleAsync<PermissionUserRow>(
             """
             SELECT id AS Id,
                    status AS Status
@@ -25,13 +25,13 @@ public sealed class PermissionRepository : IPermissionRepository
             """,
             new SugarParameter("@userId", userId));
 
-        return Task.FromResult(row is null ? null : new PermissionUserRecord(row.Id, row.Status));
+        return row is null ? null : new PermissionUserRecord(row.Id, row.Status);
     }
 
-    public Task<bool> UserHasPermissionAsync(long userId, string permissionCode, CancellationToken cancellationToken)
+    public async Task<bool> UserHasPermissionAsync(long userId, string permissionCode, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var count = _db.Ado.GetScalar(
+        var count = await _db.Ado.SqlQuerySingleAsync<int>(
             """
             SELECT COUNT(1)
             FROM sys_permission p
@@ -45,7 +45,7 @@ public sealed class PermissionRepository : IPermissionRepository
             new SugarParameter("@userId", userId),
             new SugarParameter("@permissionCode", permissionCode));
 
-        return Task.FromResult(Convert.ToInt32(count, global::System.Globalization.CultureInfo.InvariantCulture) > 0);
+        return count > 0;
     }
 
     private sealed class PermissionUserRow

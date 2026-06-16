@@ -26,3 +26,5 @@ artifacts/*
 !artifacts/openapi/wecms-api-v1.json
 !artifacts/reports/
 !artifacts/reports/legacy-reference-report.md
+vstest.diag.host.26-06-16_15-50-03_06492_5.log
+vstest.diag.log

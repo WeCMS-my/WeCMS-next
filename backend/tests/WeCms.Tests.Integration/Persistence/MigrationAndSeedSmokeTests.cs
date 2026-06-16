@@ -27,10 +27,12 @@ public sealed class MigrationAndSeedSmokeTests
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
-            Assert.Equal(3, firstMigrationRun.Count);
+            Assert.Equal(5, firstMigrationRun.Count);
             Assert.Empty(secondMigrationRun);
-            Assert.Equal(3, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
+            Assert.Equal(5, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
+            Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin'"));
+            Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND must_change_password = TRUE"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_role WHERE code = 'super_admin'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code = 'sys:system:secure-ping'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user_role"));

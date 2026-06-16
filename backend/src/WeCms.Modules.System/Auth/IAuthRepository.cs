@@ -16,6 +16,8 @@ public interface IAuthRepository
 
     Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken);
 
+    Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken);
+
     Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken);
 
     Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken);
