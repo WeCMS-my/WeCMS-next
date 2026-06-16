@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Permissions;
@@ -16,7 +17,9 @@ public sealed class PermissionEndpointFilterTests
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
-        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), await ExecuteResultAsync(result, httpContext));
+        var response = await ExecuteResultAsync(result, httpContext);
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), response.StatusCode);
+        Assert.Equal("Authentication is required.", response.Message);
     }
 
     [Fact]
@@ -27,7 +30,9 @@ public sealed class PermissionEndpointFilterTests
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
-        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), await ExecuteResultAsync(result, httpContext));
+        var response = await ExecuteResultAsync(result, httpContext);
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), response.StatusCode);
+        Assert.Equal("User account is disabled.", response.Message);
     }
 
     [Fact]
@@ -38,7 +43,7 @@ public sealed class PermissionEndpointFilterTests
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
-        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), await ExecuteResultAsync(result, httpContext));
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), await ExecuteStatusCodeAsync(result, httpContext));
     }
 
     [Fact]
@@ -93,12 +98,24 @@ public sealed class PermissionEndpointFilterTests
         return (httpContext, new TestEndpointFilterInvocationContext(httpContext));
     }
 
-    private static async Task<int> ExecuteResultAsync(object? result, DefaultHttpContext httpContext)
+    private static async Task<int> ExecuteStatusCodeAsync(object? result, DefaultHttpContext httpContext)
+    {
+        var response = await ExecuteResultAsync(result, httpContext);
+
+        return response.StatusCode;
+    }
+
+    private static async Task<(int StatusCode, string? Message)> ExecuteResultAsync(
+        object? result,
+        DefaultHttpContext httpContext)
     {
         var typedResult = Assert.IsAssignableFrom<IResult>(result);
         await typedResult.ExecuteAsync(httpContext);
+        httpContext.Response.Body.Position = 0;
+        using var document = await JsonDocument.ParseAsync(httpContext.Response.Body);
+        var message = document.RootElement.GetProperty("msg").GetString();
 
-        return httpContext.Response.StatusCode;
+        return (httpContext.Response.StatusCode, message);
     }
 
     private sealed class TestEndpointFilterInvocationContext : EndpointFilterInvocationContext
