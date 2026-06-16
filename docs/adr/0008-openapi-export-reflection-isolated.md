@@ -1,20 +1,20 @@
-﻿# ADR-0008: OpenAPI Export Reflection Isolated to CLI Path
+﻿# ADR-0008: OpenAPI Export Isolated to CLI Path
 
 ## Status
 
-Accepted with historical AOT background.
+Accepted with historical AOT background. Updated for M0-BE JIT static export.
 
 ## Context
 
 This ADR was created when WeCMS still used Native AOT as the runtime baseline.
 The current repository runtime baseline is JIT, but the decision to isolate the
-OpenAPI export reflection path to a bounded CLI-only flow remains valid.
+OpenAPI export path to a bounded CLI-only flow remains valid.
 
 The .NET 10 `Microsoft.AspNetCore.OpenApi` package exposes the runtime OpenAPI
-endpoint through `MapOpenApi()`, but the build-time document provider used by
-`dotnet getdocument` is not available as a public compile-time API. The provider
-type is `Microsoft.Extensions.ApiDescriptions.OpenApiDocumentProvider` and is
-resolved by tooling through a known type name.
+endpoint through `MapOpenApi()`, but the current local runtime environment hangs
+before host construction when creating `WebApplication.CreateSlimBuilder` or
+`WebApplication.CreateBuilder`. M0-BE therefore cannot make the OpenAPI export
+depend on runtime host startup.
 
 WeCMS still needs a deterministic local/CI command:
 
@@ -24,27 +24,28 @@ dotnet run --project backend/src/WeCms.Api -- --export-openapi artifacts/openapi
 
 ## Decision
 
-Keep reflection only inside `OpenApiExtensions.ExportOpenApiAsync`, which is
-reachable solely when the process is launched with `--export-openapi`.
+Keep OpenAPI export isolated inside `OpenApiExtensions.ExportOpenApiAsync`,
+which is reachable solely when the process is launched with `--export-openapi`.
+For M0-BE, the export path is a deterministic static contract generator that
+runs before `WebApplication.CreateSlimBuilder(args)`.
 
 The normal runtime path remains:
 
-- `Program.cs` maps OpenAPI only in development.
 - Production startup does not expose OpenAPI by default.
 - Business endpoints do not call the export helper.
 
 The export path must stay covered by:
 
-- architecture tests documenting the reflection boundary;
-- package-version checks that reject preview/stable ASP.NET Core package mixing;
+- architecture tests documenting the CLI-only export boundary;
 - backend quality gate execution of `--export-openapi`;
-- published-binary execution with `--export-openapi`.
+- OpenAPI contract scripts that verify auth request bodies, endpoint coverage,
+  security metadata, and `$ref` resolution.
 
 ## Consequences
 
-Reflection in `OpenApiExtensions` is an accepted exception, not a general pattern.
-Any new reflection outside this file must be reviewed independently.
+The static export must stay synchronized with explicit Minimal API endpoint
+registration and DTOs. Drift is controlled by contract tests and check scripts.
 
-If .NET later exposes a stable public build-time OpenAPI export API, this ADR
-must be revisited and the reflection path removed.
-
+If the local .NET runtime issue is resolved or .NET exposes a stable public
+build-time OpenAPI export API, this ADR must be revisited and the static
+contract generator should be replaced.

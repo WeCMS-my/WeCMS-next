@@ -27,14 +27,15 @@ M0-BE 需要完成：
 4. 接入 SqlSugarCore + MySQL。
 5. 建立 Migration / Seed 机制。
 6. 建立统一响应、异常、TraceId。
-7. 实现最小 Auth 闭环。
-8. 实现 Refresh Token rotation。
-9. 实现权限元数据与 secure-ping 权限检查。
-10. 实现基础 System API。
-11. 实现 OpenAPI export。
-12. 实现 backend-only quality gate。
-13. 实现 GitHub Actions 后端质量门禁。
-14. 输出旧系统 reference report，确认不迁移旧数据。
+7. 建立 JsonSerializerContext 与 DTO source generation 注册。
+8. 实现最小 Auth 闭环。
+9. 实现 Refresh Token rotation。
+10. 实现权限元数据与 secure-ping 权限检查。
+11. 实现基础 System API。
+12. 实现 OpenAPI export。
+13. 实现 backend-only quality gate。
+14. 实现 GitHub Actions 后端质量门禁。
+15. 输出旧系统 reference report，确认不迁移旧数据。
 ```
 
 M0-BE 不做：
@@ -63,9 +64,11 @@ M0-BE 不做：
 ```text id="5h4oub"
 .NET 10
 ASP.NET Core Minimal APIs
+WebApplication.CreateSlimBuilder(args)
 SqlSugarCore
 MySQL
 System.Text.Json
+System.Text.Json Source Generator
 OpenAPI
 JWT Bearer
 PBKDF2 password hashing
@@ -320,7 +323,7 @@ new 局部无副作用对象
 
 # 7. M0-BE 里程碑拆分
 
-M0-BE 拆分为 13 个子任务：
+M0-BE 拆分为 14 个交付任务：
 
 ```text id="cmy3ly"
 M0-BE-000：清理旧实现与重建准备
@@ -373,9 +376,9 @@ database/legacy-reference/
 ## 交付物
 
 ```text id="3rh1pj"
-docs/adr/0008-rebuild-from-zero.md
-docs/adr/0009-jit-sqlsugar-persistence.md
-docs/adr/0010-frontend-deferred.md
+docs/adr/0010-rebuild-from-zero.md
+docs/adr/0011-jit-sqlsugar-persistence.md
+docs/adr/0012-m0-be-frontend-deferred.md
 ```
 
 ## 验收标准
@@ -387,6 +390,7 @@ docs/adr/0010-frontend-deferred.md
 [ ] 明确记录 SqlSugar 只能在 Persistence
 [ ] 明确记录前端后移
 [ ] 明确记录旧系统不迁移
+[ ] 未复用已存在的历史 ADR 编号造成编号冲突
 ```
 
 ## Codex 任务提示
@@ -434,6 +438,7 @@ API 项目：
 ```text id="lqi34r"
 Microsoft.NET.Sdk.Web
 ASP.NET Core Minimal APIs
+WebApplication.CreateSlimBuilder(args)
 不启用 PublishAot
 不启用 Native AOT
 ```
@@ -585,6 +590,7 @@ password: Admin@123
 
 ```text id="tyr40t"
 默认密码只用于开发和初始化
+非 Development 环境必须通过配置显式提供初始管理员密码，否则 seed fail-fast
 生产部署前必须强制修改
 ```
 
@@ -626,6 +632,7 @@ WeCms.Shared/ApiCodes.cs
 WeCms.Shared/DomainException.cs
 WeCms.Api/Middleware/RequestIdMiddleware.cs
 WeCms.Api/Middleware/ExceptionMiddleware.cs
+WeCms.Api/Json/WeCmsJsonSerializerContext.cs
 ```
 
 ## ApiResult
@@ -660,6 +667,7 @@ SystemError -> 500
 [ ] 未处理异常不返回 ex.Message
 [ ] DomainException 按 code 映射 HTTP status
 [ ] RequestIdMiddleware 写入 X-Trace-Id
+[ ] 所有 M0-BE 请求/响应 DTO 已加入 JsonSerializerContext
 ```
 
 ---
@@ -1125,7 +1133,36 @@ scripts/**
 
 ---
 
-## Codex-012：最终只读审计
+## Codex-012：GitHub Actions CI
+
+允许修改：
+
+```text id="ci4m0be"
+.github/workflows/**
+```
+
+---
+
+## Codex-013：Legacy Reference Report
+
+允许修改：
+
+```text id="legacyref"
+artifacts/reports/**
+database/legacy-reference/**
+```
+
+禁止修改：
+
+```text id="legacyref-ban"
+backend/src/**
+backend/tests/**
+frontend/**
+```
+
+---
+
+## Codex-014：最终只读审计
 
 不修改文件，只输出报告。
 
@@ -1135,6 +1172,7 @@ scripts/**
 
 ```text id="9uq4hy"
 [ ] backend solution 从 0 build 成功
+[ ] API Host 使用 WebApplication.CreateSlimBuilder(args)
 [ ] 所有项目依赖矩阵正确
 [ ] SqlSugarCore 只存在于 WeCms.Persistence
 [ ] 全仓无 Dapper
@@ -1154,6 +1192,7 @@ scripts/**
 [ ] db-check 不泄露异常
 [ ] OpenAPI export 成功
 [ ] Auth requestBody schema 存在
+[ ] M0-BE DTO 已纳入 JsonSerializerContext
 [ ] quality gate 本地通过
 [ ] GitHub Actions 通过
 [ ] frontend/** 无修改

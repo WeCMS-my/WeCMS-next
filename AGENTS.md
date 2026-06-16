@@ -301,8 +301,8 @@ M0-00：Codex 项目文档熟悉与开发拆分报告
 ### 9.3 每次后端变更必须说明
 
 ```text
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 
@@ -344,10 +344,11 @@ JsonSerializerContext
 Health endpoint
 SqlSugar ORM db-check
 OpenAPI 生成
-SoybeanAdmin request 封装
 CI publish 验证
 ThinkPHP migration spike
 ```
+
+说明：M0-BE 当前为 backend-only 阶段，SoybeanAdmin request 封装属于后续前端阶段，不是本阶段交付项。
 
 ### M1：认证安全闭环
 

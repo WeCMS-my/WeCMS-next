@@ -249,15 +249,15 @@ WHERE u.username = 'admin' AND r.code = 'super_admin';
 
 ```bash
 # 1. 构建
-dotnet build backend/WeCms.sln -warnaserror
+dotnet build backend/WeCms.slnx -warnaserror
 
 # 2. 单元测试
-dotnet test backend/WeCms.sln
+dotnet test backend/WeCms.slnx
 
-# 3. Native AOT publish
-dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 /p:PublishAot=true
+# 3. JIT publish
+dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 
-# 4. 前端 check
+# 4. 前端 check（仅在前端阶段或修改 frontend/** 时执行）
 pnpm --dir frontend/soybean-admin typecheck
 pnpm --dir frontend/soybean-admin build
 ```
@@ -286,5 +286,3 @@ pnpm --dir frontend/soybean-admin build
 | 8 | `000001_base_seed.sql` | 新增 ~10 行 | +10 |
 
 **估计总 diff: ~30 行**，远低于 200 行阈值，无需 spec 三件套。
-
-

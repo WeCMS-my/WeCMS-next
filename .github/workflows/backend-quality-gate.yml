@@ -1,0 +1,57 @@
+name: Backend Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-quality-gate:
+    name: Backend quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: mysql
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot --silent"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=30
+
+    env:
+      WECMS_TEST_MYSQL_CONNECTION_STRING: server=127.0.0.1;port=3306;database=mysql;uid=root;pwd=;
+      WECMS_FRONTEND_BASE_REF: ${{ github.base_ref || 'main' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Fetch frontend diff base
+        run: git fetch --no-tags origin "${WECMS_FRONTEND_BASE_REF}:${WECMS_FRONTEND_BASE_REF}" || true
+
+      - name: Restore backend
+        run: dotnet restore backend/WeCms.slnx
+
+      - name: Run backend quality gate
+        run: bash scripts/quality-gate-backend.sh

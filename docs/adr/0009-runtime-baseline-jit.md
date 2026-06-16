@@ -57,8 +57,8 @@ WeCMS Next 现阶段继续采用：
 ## 新的后端验收命令
 
 ```bash
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 

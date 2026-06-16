@@ -23,7 +23,7 @@
 
 ### 2.1 后端工件
 
-- `backend/WeCms.sln`
+- `backend/WeCms.slnx`
 - `WeCms.Api`
 - `WeCms.Shared`
 - `WeCms.Infrastructure`
@@ -109,8 +109,8 @@
 后端：
 
 ```bash
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 
