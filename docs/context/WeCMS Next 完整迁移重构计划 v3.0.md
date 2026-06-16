@@ -105,7 +105,7 @@ username: admin
 password: Admin@123
 ```
 
-生产前必须强制修改默认密码。
+默认密码只允许用于 Development 初始化。非 Development 环境必须通过配置显式提供初始管理员密码，否则 seed 必须 fail-fast；生产前必须强制修改默认密码。
 
 ---
 
@@ -116,9 +116,11 @@ password: Admin@123
 ```text
 .NET 10
 ASP.NET Core Minimal APIs
+WebApplication.CreateSlimBuilder(args)
 SqlSugarCore
 MySQL
 System.Text.Json
+System.Text.Json Source Generator
 OpenAPI
 JWT Bearer
 模块化单体

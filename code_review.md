@@ -219,12 +219,12 @@
 后端必须通过：
 
 ```bash
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 
-前端必须通过：
+前端如涉及前端阶段或修改 `frontend/**`，必须通过：
 
 ```bash
 pnpm --dir frontend/soybean-admin typecheck

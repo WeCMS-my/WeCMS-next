@@ -20,6 +20,8 @@
 
 本文档重点服务于“重构迁移设计”，不是单纯的 UI 或代码审计。
 
+> 当前事实源说明：`WeCMS Next 完整迁移重构计划 v3.0` 已定版为从 0 重建、旧系统只做业务和 Schema 参考、不迁移旧数据、不做旧密码 / Token / 2FA 兼容。本文中“迁移建议”段落仅保留为历史分析和业务参考，不得覆盖 v3.0 与 M0-BE 后端-only 开发计划。
+
 ---
 
 ## 2. 系统定位
@@ -455,14 +457,9 @@ $2b$...
 wecms.v1.pbkdf2.sha256.<iterations>.<salt>.<hash>
 ```
 
-迁移策略：
+历史迁移策略已被 v3.0 / M0-BE 当前计划废弃，仅保留“旧密码 hash 形态”作为旧系统分析参考。
 
-```text
-旧用户第一次登录：
-  1. 用 LegacyPhpBcryptVerifier 验证旧 hash。
-  2. 验证成功后立即改写为新 .NET AOT 友好的 PBKDF2 格式。
-  3. 记录 password_migrated_at。
-```
+当前 M0-BE 决策是不迁移旧用户、不兼容旧密码 hash、不实现旧密码登录升级流程；新系统从空库 seed 初始化。
 
 ### 7.3 Token 模型
 
@@ -1542,5 +1539,3 @@ CSV 权限字段
 Session token 认证模型
 未脱敏 SQL dump
 ```
-
-

@@ -1,0 +1,145 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using WeCms.Modules.System.Permissions;
+using WeCms.Shared;
+
+namespace WeCms.Tests.Unit.Permissions;
+
+public sealed class PermissionEndpointFilterTests
+{
+    [Fact]
+    public async Task InvokeAsync_ReturnsUnauthorizedWhenUserIsMissing()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, userId: null);
+        var filter = new PermissionEndpointFilter();
+
+        var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
+
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), await ExecuteResultAsync(result, httpContext));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ReturnsUnauthorizedWhenUserIsDisabled()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.UserDisabled, userId: 42);
+        var filter = new PermissionEndpointFilter();
+
+        var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
+
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), await ExecuteResultAsync(result, httpContext));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ReturnsForbiddenWhenPermissionIsMissing()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, userId: 42);
+        var filter = new PermissionEndpointFilter();
+
+        var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
+
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), await ExecuteResultAsync(result, httpContext));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CallsNextWhenPermissionIsAllowed()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, userId: 42);
+        var filter = new PermissionEndpointFilter();
+        var called = false;
+
+        var result = await filter.InvokeAsync(filterContext, _ =>
+        {
+            called = true;
+
+            return ValueTask.FromResult<object?>("allowed");
+        });
+
+        Assert.True(called);
+        Assert.Equal("allowed", result);
+        var checker = Assert.IsType<FakePermissionChecker>(
+            httpContext.RequestServices.GetRequiredService<IPermissionChecker>());
+        Assert.Equal(42, checker.LastUserId);
+        Assert.Equal(SystemPermissions.SecurePing, checker.LastPermissionCode);
+    }
+
+    private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContext(
+        PermissionCheckResult result,
+        long? userId)
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<IPermissionChecker>(new FakePermissionChecker(result))
+            .BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services,
+            TraceIdentifier = "trace-test"
+        };
+        httpContext.Response.Body = new MemoryStream();
+        httpContext.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new PermissionMetadata(SystemPermissions.SecurePing)),
+            "secure-ping-test"));
+
+        if (userId is not null)
+        {
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))],
+                authenticationType: "unit-test"));
+        }
+
+        return (httpContext, new TestEndpointFilterInvocationContext(httpContext));
+    }
+
+    private static async Task<int> ExecuteResultAsync(object? result, DefaultHttpContext httpContext)
+    {
+        var typedResult = Assert.IsAssignableFrom<IResult>(result);
+        await typedResult.ExecuteAsync(httpContext);
+
+        return httpContext.Response.StatusCode;
+    }
+
+    private sealed class TestEndpointFilterInvocationContext : EndpointFilterInvocationContext
+    {
+        public TestEndpointFilterInvocationContext(HttpContext httpContext)
+        {
+            HttpContext = httpContext;
+        }
+
+        public override HttpContext HttpContext { get; }
+
+        public override IList<object?> Arguments { get; } = [];
+
+        public override T GetArgument<T>(int index)
+        {
+            return (T)Arguments[index]!;
+        }
+    }
+
+    private sealed class FakePermissionChecker : IPermissionChecker
+    {
+        private readonly PermissionCheckResult _result;
+
+        public FakePermissionChecker(PermissionCheckResult result)
+        {
+            _result = result;
+        }
+
+        public long? LastUserId { get; private set; }
+
+        public string? LastPermissionCode { get; private set; }
+
+        public Task<PermissionCheckResult> CheckAsync(
+            long userId,
+            string permissionCode,
+            CancellationToken cancellationToken)
+        {
+            LastUserId = userId;
+            LastPermissionCode = permissionCode;
+
+            return Task.FromResult(_result);
+        }
+    }
+}

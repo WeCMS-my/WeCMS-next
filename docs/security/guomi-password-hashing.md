@@ -22,7 +22,7 @@
  格式：wecms.pbkdf2.v1.<iterations>.<salt-base64>.<hash-base64>
  ```
  
- 实现方式：.NET 内置 `System.Security.Cryptography.Rfc2898DeriveBytes`，Native AOT 零依赖，零风险。
+ 实现方式：.NET 内置 `System.Security.Cryptography.Rfc2898DeriveBytes`，JIT 运行时零额外依赖，M0 风险低。
  
  ## 3. 国密落地方案分析
  
@@ -33,7 +33,7 @@
  | 原理 | 用 SM3 替换 SHA-256 作为 PBKDF2 的底层伪随机函数 |
  | .NET 10 内置 | 否 |
  | 需要第三方库 | 是（BouncyCastle / GM.SmCrypto / 自实现） |
- | AOT 兼容性 | 未知，需在 M0 阶段实际验证 `dotnet publish /p:PublishAot=true` |
+| JIT 运行时兼容性 | 需验证目标库在 .NET 10 JIT publish/runtime 下可用 |
  | License | BouncyCastle: MIT；GM.SmCrypto: 需确认 |
  | 维护状态 | BouncyCastle 活跃；国产库需评估 |
  
@@ -62,7 +62,7 @@
  
  在决定引入国密之前，必须先完成以下验证：
  
- 1. **AOT publish 实际通过** — 候选第三方库在 `PublishAot=true` + `linux-x64` 下无阻断警告
+ 1. **JIT publish 实际通过** — 候选第三方库在 `.NET 10` + `linux-x64 --self-contained false` 下无阻断错误
  2. **性能基准** — SM3 实现与 SHA-256 的哈希速度对比，确保不影响登录体验
  3. **合规确认** — 确认是否为硬性合规要求，还是技术偏好
  4. **License 审查** — 第三方国密库的 License 是否允许商业使用
@@ -72,23 +72,22 @@
  | 阶段 | 动作 |
  |---|---|
  | M0 | 仅实现 PBKDF2-SHA256，预留 `IPasswordHasher` 接口 |
- | M1 启动前 | 完成国密第三方库的 AOT 兼容性验证 |
+| M1 启动前 | 完成国密第三方库的 .NET 10 JIT publish/runtime 兼容性验证 |
  | M1 | 若验证通过且合规要求明确，实现 `Pbkdf2Sm3PasswordHasher` 作为可插拔实现 |
  
  ## 6. 风险评估
  
  | 风险 | 等级 | 说明 |
  |---|---|---|
- | AOT 不兼容 | 中 | 国产密码库大多未针对 Native AOT 优化 |
+| 第三方库兼容性 | 中 | 国产密码库需验证 .NET 10、License、维护状态和发布路径 |
  | 维护依赖 | 中 | 第三方国密库的长期维护不确定 |
  | 合规必要性 | 待确认 | 非金融/政务场景可能不强制要求 |
  | 新旧格式共存 | 低 | 通过算法版本前缀天然隔离 |
  
  ## 7. 结论
  
- - M0 **不阻塞**：PBKDF2-SHA256 直接可用，AOT 零风险
+ - M0 **不阻塞**：PBKDF2-SHA256 直接可用，JIT 运行时零额外依赖
  - `IPasswordHasher` 接口设计预留算法扩展能力
  - 国密作为 **独立安全需求** 跟踪，在 M1 启动前完成技术验证
  - 如果合规不是硬性要求，建议保持 PBKDF2-SHA256 不变
-
 

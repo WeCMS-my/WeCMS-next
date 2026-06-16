@@ -138,9 +138,14 @@ WeCms.Shared
 等效命令：
 
 ```bash
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
+```
+
+前端阶段或修改 `frontend/**` 时，额外执行：
+
+```bash
 pnpm --dir frontend/soybean-admin typecheck
 pnpm --dir frontend/soybean-admin lint
 pnpm --dir frontend/soybean-admin build

@@ -24,3 +24,5 @@
 artifacts/*
 !artifacts/openapi/
 !artifacts/openapi/wecms-api-v1.json
+!artifacts/reports/
+!artifacts/reports/legacy-reference-report.md

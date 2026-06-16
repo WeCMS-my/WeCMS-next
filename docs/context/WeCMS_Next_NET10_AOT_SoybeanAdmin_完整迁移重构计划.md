@@ -1,7 +1,7 @@
 ﻿# WeCMS Next .NET 10 JIT + SoybeanAdmin 完整迁移重构计划
 
 > 说明：文件名保留历史路径以避免引用漂移，但当前正文已经切换为 **JIT 运行时基线**。  
-> 说明：本文件是历史命名路径下的总览文档，**不是** M0-BE 当前执行入口；当前 backend-only 主计划请优先阅读 `docs/context/WeCMS Next M0-BE 后端-only 开发计划 v2.0.md`。  
+> 说明：本文件是历史命名路径下的总览文档，**不是** M0-BE 当前执行入口；当前主计划请优先阅读 `docs/context/WeCMS Next 完整迁移重构计划 v3.0.md` 和 `docs/context/WeCMS Next M0-BE 后端-only 开发计划.md`。
 > 目标技术栈：ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime / SqlSugar ORM / SoybeanAdmin
 
 ---
@@ -100,8 +100,8 @@
 当前发布基线：
 
 ```bash
-dotnet build backend/WeCms.sln -warnaserror
-dotnet test backend/WeCms.sln
+dotnet build backend/WeCms.slnx -warnaserror
+dotnet test backend/WeCms.slnx
 dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false
 ```
 
