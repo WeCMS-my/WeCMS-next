@@ -44,7 +44,8 @@ public sealed record RefreshTokenRecord(
     string TokenHash,
     string FamilyId,
     DateTimeOffset ExpiresAt,
-    DateTimeOffset? RevokedAt);
+    DateTimeOffset? RevokedAt,
+    string? ReplacedByTokenHash);
 
 public sealed record RefreshRotationRecord(
     long OldRefreshTokenId,

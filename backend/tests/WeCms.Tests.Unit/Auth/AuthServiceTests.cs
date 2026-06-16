@@ -87,7 +87,7 @@ public sealed class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null),
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
             Roles = ["super_admin"],
             Permissions = ["sys:system:secure-ping"]
         };
@@ -109,7 +109,7 @@ public sealed class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero))
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
         };
         var service = CreateService(repository);
 
@@ -122,13 +122,87 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
-    public async Task RefreshAsync_ConcurrentAlreadyRevokedFailureRevokesFamilyAndWritesSecurityEvent()
+    public async Task RefreshAsync_ConcurrentAlreadyRevokedFailureReturns401WithoutRevokingFamily()
     {
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null),
-            ThrowAlreadyRevokedOnRotation = true
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
+            ThrowAlreadyRevokedOnRotation = true,
+            RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
+                10,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-1",
+                new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
+                "rotated-token")
+        };
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.Unauthorized, exception.Code);
+        Assert.Equal(string.Empty, repository.RevokedFamilyId);
+        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ConcurrentAlreadyRevokedFailureWithoutReplacedTokenStillRevokesFamily()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero), null, null),
+            ThrowAlreadyRevokedOnRotation = true,
+            RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
+                10,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-1",
+                new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 16, 0, 0, 1, TimeSpan.Zero),
+                null)
+        };
+        var service = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 2, TimeSpan.Zero)));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.Unauthorized, exception.Code);
+        Assert.Equal("family-1", repository.RevokedFamilyId);
+        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ConcurrentAlreadyRevokedFailureLongAfterWindowStillRevokesFamily()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
+        var repository = new FakeAuthRepository
+        {
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
+            ThrowAlreadyRevokedOnRotation = true,
+            RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
+                10,
+                1,
+                "admin",
+                "Administrator",
+                "enabled",
+                true,
+                issued.Hash,
+                "family-1",
+                new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 15, 23, 59, 0, TimeSpan.Zero),
+                "rotated-token")
         };
         var service = CreateService(repository);
 
@@ -138,6 +212,36 @@ public sealed class AuthServiceTests
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
         Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ConcurrentRefreshLongAfterWindowStillRevokesFamily()
+    {
+        var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
+        var repository = new ConcurrentReplayAuthRepository(new RefreshTokenRecord(
+            10,
+            1,
+            "admin",
+            "Administrator",
+            "enabled",
+            true,
+            issued.Hash,
+            "family-1",
+            new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
+            null,
+            null));
+
+        var firstService = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero)));
+        var secondService = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 10, 0, TimeSpan.Zero)));
+
+        var results = await Task.WhenAll(
+            TryRefreshAsync(firstService, issued.Token),
+            TryRefreshAsync(secondService, issued.Token));
+
+        Assert.Equal(1, results.Count(response => response is not null));
+        Assert.Equal("family-1", repository.RevokedFamilyId);
+        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal(1, repository.SecurityEventCount);
     }
 
     [Fact]
@@ -146,7 +250,7 @@ public sealed class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero))
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
         };
         var service = CreateService(repository);
 
@@ -164,7 +268,7 @@ public sealed class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null, null)
         };
         var service = CreateService(repository);
 
@@ -181,7 +285,7 @@ public sealed class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "disabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "disabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null)
         };
         var service = CreateService(repository);
 
@@ -203,16 +307,42 @@ public sealed class AuthServiceTests
             new FakeUnitOfWork());
     }
 
+    private static AuthService CreateService(IAuthRepository repository, IAuthClock clock)
+    {
+        return new AuthService(
+            repository,
+            new PasswordHasher(),
+            new AccessTokenService(new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7))),
+            new RefreshTokenService(new FixedAuthTokenEntropy()),
+            clock,
+            new FakeUnitOfWork());
+    }
+
     private static AuthRequestContext RequestContext()
     {
         return new AuthRequestContext("127.0.0.1", "unit-test");
+    }
+
+    private static async Task<LoginResponse?> TryRefreshAsync(AuthService service, string refreshToken)
+    {
+        try
+        {
+            return await service.RefreshAsync(
+                new RefreshTokenRequest(refreshToken),
+                RequestContext(),
+                CancellationToken.None);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private sealed class FakeAuthRepository : IAuthRepository
     {
         public AuthUserRecord? User { get; init; }
 
-        public RefreshTokenRecord? RefreshToken { get; init; }
+        public RefreshTokenRecord? RefreshToken { get; set; }
 
         public IReadOnlyList<string> Roles { get; init; } = [];
 
@@ -237,6 +367,8 @@ public sealed class AuthServiceTests
         public string RevokedFamilyId { get; private set; } = string.Empty;
 
         public string LastSecurityEventType { get; private set; } = string.Empty;
+
+        public RefreshTokenRecord? RefreshTokenAfterRotationFailure { get; init; }
 
         public bool ThrowAlreadyRevokedOnRotation { get; init; }
 
@@ -290,6 +422,11 @@ public sealed class AuthServiceTests
         {
             if (ThrowAlreadyRevokedOnRotation)
             {
+                if (RefreshTokenAfterRotationFailure is not null)
+                {
+                    RefreshToken = RefreshTokenAfterRotationFailure;
+                }
+
                 throw new RefreshTokenAlreadyRevokedException(record.FamilyId);
             }
 
@@ -297,6 +434,105 @@ public sealed class AuthServiceTests
             RotatedNewRefreshTokenHash = record.NewRefreshTokenHash;
             RotatedFamilyId = record.FamilyId;
             return Task.CompletedTask;
+        }
+
+        public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
+        {
+            RevokedFamilyId = familyId;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ConcurrentReplayAuthRepository : IAuthRepository
+    {
+        private readonly object _lock = new();
+        private readonly AuthUserRecord? _user;
+        private RefreshTokenRecord _refreshToken;
+        private int _rotationAttempts;
+
+        public ConcurrentReplayAuthRepository(RefreshTokenRecord refreshToken)
+        {
+            _refreshToken = refreshToken;
+            _user = new AuthUserRecord(
+                refreshToken.UserId,
+                refreshToken.Username,
+                refreshToken.DisplayName,
+                string.Empty,
+                refreshToken.UserStatus,
+                refreshToken.IsSuperAdmin);
+        }
+
+        public string LastSecurityEventType { get; private set; } = string.Empty;
+
+        public int SecurityEventCount { get; private set; }
+
+        public string RevokedFamilyId { get; private set; } = string.Empty;
+
+        public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_user?.Username == username ? _user : null);
+        }
+
+        public Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_user?.Id == userId ? _user : null);
+        }
+
+        public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            lock (_lock)
+            {
+                return Task.FromResult(_refreshToken.TokenHash == tokenHash ? _refreshToken : null);
+            }
+        }
+
+        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
+        {
+            SecurityEventCount++;
+            LastSecurityEventType = record.EventType;
+            return Task.CompletedTask;
+        }
+
+        public Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
+        {
+            var attempt = Interlocked.Increment(ref _rotationAttempts);
+            if (attempt == 1)
+            {
+                lock (_lock)
+                {
+                    _refreshToken = _refreshToken with
+                    {
+                        RevokedAt = record.RotatedAt,
+                        ReplacedByTokenHash = record.NewRefreshTokenHash
+                    };
+                }
+
+                return Task.CompletedTask;
+            }
+
+            throw new RefreshTokenAlreadyRevokedException(record.FamilyId);
         }
 
         public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)

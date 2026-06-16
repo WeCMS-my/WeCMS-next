@@ -1,6 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.System;
+using WeCms.Persistence.Data;
+using WeCms.Shared;
 
 namespace WeCms.Api.Extensions;
 
@@ -79,6 +89,7 @@ public static class OpenApiExtensions
 
     private static JsonObject CreateDocument()
     {
+        var endpoints = DiscoverEndpoints();
         return new JsonObject
         {
             ["openapi"] = "3.1.0",
@@ -87,61 +98,113 @@ public static class OpenApiExtensions
                 ["title"] = "WeCMS API",
                 ["version"] = "v1"
             },
-            ["paths"] = Paths(),
+            ["paths"] = Paths(endpoints),
             ["components"] = Components()
         };
     }
 
-    private static JsonObject Paths()
+    private static List<OpenApiEndpointDescriptor> DiscoverEndpoints()
     {
-        return new JsonObject
+        using var app = CreateDiscoveryApp();
+
+        var endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(dataSource => dataSource.Endpoints)
+            .OfType<RouteEndpoint>();
+        return endpoints
+            .Where(endpoint => endpoint.RoutePattern.RawText is not null)
+            .SelectMany(
+                endpoint => endpoint.Metadata.OfType<HttpMethodMetadata>()
+                    .SelectMany(metadata => metadata.HttpMethods)
+                    .Where(method => !string.IsNullOrWhiteSpace(method))
+                    .Select(method =>
+                    {
+                        var requestBodyType = endpoint.Metadata
+                            .OfType<OpenApiRequestBodyMetadata>()
+                            .Select(metadata => metadata.RequestType.Name)
+                            .FirstOrDefault();
+
+                        var responseBodyType = endpoint.Metadata
+                            .OfType<OpenApiResponseMetadata>()
+                            .Select(metadata => metadata.ResponseType.Name)
+                            .FirstOrDefault() ?? "Object";
+
+                        var permission = endpoint.Metadata
+                            .OfType<PermissionMetadata>()
+                            .Select(metadata => metadata.Code)
+                            .FirstOrDefault();
+
+                        var security = endpoint.Metadata.OfType<IAllowAnonymous>().Any() is false
+                                       && endpoint.Metadata.OfType<IAuthorizeData>().Any();
+
+                        return new OpenApiEndpointDescriptor(
+                            method.ToLowerInvariant(),
+                            endpoint.RoutePattern!.RawText!,
+                            security,
+                            permission,
+                            requestBodyType,
+                            responseBodyType);
+                    }))
+            .Distinct()
+            .OrderBy(endpoint => endpoint.Path, StringComparer.Ordinal)
+            .ThenBy(endpoint => endpoint.Method, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static WebApplication CreateDiscoveryApp()
+    {
+        var builder = WebApplication.CreateSlimBuilder(Array.Empty<string>());
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["/health/live"] = new JsonObject
+            ["ConnectionStrings:Default"] = "Server=127.0.0.1;Database=wecms_openapi;Uid=dummy;Pwd=dummy;",
+            ["Auth:AccessTokenSecret"] = "openapi-secret-openapi-secret-openapi-secret-openapi-secret"
+        });
+
+        builder.Services.AddWeCmsPersistence(builder.Configuration);
+        builder.Services.AddWeCmsSystemAuth(builder.Configuration);
+        builder.Services.AddWeCmsSystemPermissions();
+
+        var app = builder.Build();
+
+        app.MapSystemEndpoints();
+        app.MapAuthEndpoints();
+        app.MapSystemPermissionEndpoints();
+
+        return app;
+    }
+
+    private static JsonObject Paths(IEnumerable<OpenApiEndpointDescriptor> endpoints)
+    {
+        var paths = new JsonObject();
+        foreach (var endpoint in endpoints)
+        {
+            if (paths[endpoint.Path] is not JsonObject pathObject)
             {
-                ["get"] = Operation("System", "Live", responseRef: "SystemLiveResponse")
-            },
-            ["/health/ready"] = new JsonObject
-            {
-                ["get"] = Operation("System", "Ready", responseRef: "SystemReadyResponse", failureStatus: "503")
-            },
-            ["/api/v1/system/ping"] = new JsonObject
-            {
-                ["get"] = Operation("System", "Ping", responseRef: "SystemPingResponse")
-            },
-            ["/api/v1/system/version"] = new JsonObject
-            {
-                ["get"] = Operation("System", "Version", responseRef: "SystemVersionResponse")
-            },
-            ["/api/v1/system/db-check"] = new JsonObject
-            {
-                ["get"] = Operation("System", "Database check", responseRef: "SystemDbCheckResponse", failureStatus: "503")
-            },
-            ["/api/v1/system/secure-ping"] = new JsonObject
-            {
-                ["get"] = Operation(
-                    "System",
-                    "Secure ping",
-                    responseRef: "SecurePingResponse",
-                    security: true,
-                    permission: SystemPermissions.SecurePing)
-            },
-            ["/api/v1/auth/login"] = new JsonObject
-            {
-                ["post"] = Operation("Auth", "Login", responseRef: "LoginResponse", requestRef: "LoginRequest")
-            },
-            ["/api/v1/auth/refresh"] = new JsonObject
-            {
-                ["post"] = Operation("Auth", "Refresh token", responseRef: "LoginResponse", requestRef: "RefreshTokenRequest")
-            },
-            ["/api/v1/auth/logout"] = new JsonObject
-            {
-                ["post"] = Operation("Auth", "Logout", responseRef: "Object", requestRef: "LogoutRequest", failureStatus: "400")
-            },
-            ["/api/v1/auth/me"] = new JsonObject
-            {
-                ["get"] = Operation("Auth", "Current user", responseRef: "AuthMeResponse", security: true)
+                pathObject = new JsonObject();
+                paths[endpoint.Path] = pathObject;
             }
-        };
+
+            pathObject[endpoint.Method] = Operation(
+                tag: TagForPath(endpoint.Path),
+                summary: SummaryForPath(endpoint.Path, endpoint.Method),
+                responseRef: endpoint.ResponseType,
+                requestRef: endpoint.RequestBodyType,
+                security: endpoint.Security,
+                permission: endpoint.Permission);
+        }
+
+        return paths;
+    }
+
+    private static string TagForPath(string path)
+    {
+        return path.StartsWith("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
+            ? "Auth"
+            : "System";
+    }
+
+    private static string SummaryForPath(string path, string method)
+    {
+        return $"{method.ToUpperInvariant()} {path}";
     }
 
     private static JsonObject Operation(
@@ -426,4 +489,12 @@ public static class OpenApiExtensions
 
         return required;
     }
+
+    private sealed record OpenApiEndpointDescriptor(
+        string Method,
+        string Path,
+        bool Security,
+        string? Permission,
+        string? RequestBodyType,
+        string ResponseType);
 }

@@ -1,5 +1,15 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using WeCms.Api.Extensions;
+using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.System;
+using WeCms.Persistence.Data;
+using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.OpenApi;
 
@@ -36,6 +46,71 @@ public sealed class OpenApiExportTests
             Assert.Equal("sys:system:secure-ping", securePing.GetProperty("x-wecms-permission").GetString());
             Assert.True(securePing.TryGetProperty("security", out _));
             AssertAllRefsResolve(root);
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExportOpenApiAsync_CoverageMatchesRegisteredEndpoints()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-coverage-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var root = document.RootElement;
+
+            var contractOperations = CollectRegisteredEndpointMetadata();
+            var openApiOperations = CollectOpenApiOperations(root.GetProperty("paths"));
+
+            Assert.Equal(contractOperations.Count, openApiOperations.Count);
+            AssertOpenApiOperationsMatch(contractOperations, openApiOperations);
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExportOpenApiAsync_RequestBodyRefsMatchOpenApiMetadata()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-requestbody-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var paths = document.RootElement.GetProperty("paths");
+            var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+
+            foreach (var registered in CollectRegisteredEndpointMetadata().Where(operation => operation.Method is "post" or "put"))
+            {
+                var operation = paths.GetProperty(registered.Path).GetProperty(registered.Method);
+                var requestBody = operation.GetProperty("requestBody");
+                var schemaRef = requestBody
+                    .GetProperty("content")
+                    .GetProperty("application/json")
+                    .GetProperty("schema")
+                    .GetProperty("$ref")
+                    .GetString();
+
+                Assert.NotNull(registered.RequestBody);
+                Assert.Equal($"#/components/schemas/{registered.RequestBody}", schemaRef);
+                Assert.True(schemas.TryGetProperty(registered.RequestBody, out _));
+            }
         }
         finally
         {
@@ -89,6 +164,82 @@ public sealed class OpenApiExportTests
                 }
             }
         }
+    }
+
+    private static HashSet<(string Path, string Method)> CollectOpenApiOperations(JsonElement paths)
+    {
+        var operations = new HashSet<(string Path, string Method)>();
+
+        foreach (var path in paths.EnumerateObject())
+        {
+            foreach (var method in path.Value.EnumerateObject())
+            {
+                operations.Add((path.Name, method.Name.ToLowerInvariant()));
+            }
+        }
+
+        return operations;
+    }
+
+    private static HashSet<RegisteredEndpoint> CollectRegisteredEndpointMetadata()
+    {
+        using var app = CreateDiscoveryApp();
+
+        return ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(dataSource => dataSource.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText is not null)
+            .SelectMany(
+                endpoint => endpoint.Metadata.OfType<HttpMethodMetadata>()
+                    .SelectMany(metadata => metadata.HttpMethods)
+                    .Where(method => !string.IsNullOrWhiteSpace(method))
+            .Select(method => new RegisteredEndpoint(
+                        endpoint.RoutePattern!.RawText!,
+                        Method: method.ToLowerInvariant(),
+                        Permission: endpoint.Metadata.OfType<PermissionMetadata>().Select(metadata => metadata.Code).FirstOrDefault(),
+                        RequestBody: endpoint.Metadata.OfType<OpenApiRequestBodyMetadata>().Select(metadata => metadata.RequestType.Name).FirstOrDefault())))
+            .ToHashSet();
+    }
+
+    private static WebApplication CreateDiscoveryApp()
+    {
+        var builder = WebApplication.CreateSlimBuilder(Array.Empty<string>());
+        builder.Configuration.AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>( "ConnectionStrings:Default", "Server=127.0.0.1;Database=wecms_openapi;Uid=dummy;Pwd=dummy;"),
+            new KeyValuePair<string, string?>( "Auth:AccessTokenSecret", "openapi-secret-openapi-secret-openapi-secret-openapi-secret")
+        ]);
+        builder.Services.AddWeCmsPersistence(builder.Configuration);
+        builder.Services.AddWeCmsSystemAuth(builder.Configuration);
+        builder.Services.AddWeCmsSystemPermissions();
+
+        var app = builder.Build();
+        app.MapSystemEndpoints();
+        app.MapAuthEndpoints();
+        app.MapSystemPermissionEndpoints();
+
+        return app;
+    }
+
+    private sealed record RegisteredEndpoint(string Path, string Method, string? Permission, string? RequestBody);
+    
+    private static void AssertOpenApiOperationsMatch(
+        IEnumerable<RegisteredEndpoint> registered,
+        HashSet<(string Path, string Method)> openApiOperations)
+    {
+        var registeredSet = registered.Select(endpoint => (endpoint.Path, endpoint.Method)).ToHashSet();
+
+        Assert.All(registeredSet, operation =>
+        {
+            Assert.True(openApiOperations.Contains(operation), $"OpenAPI missing {operation.Method.ToUpperInvariant()} {operation.Path}");
+        });
+
+        Assert.All(openApiOperations, operation =>
+        {
+            Assert.True(
+                registeredSet.Contains(operation),
+                $"OpenAPI contains unregistered endpoint {operation.Method.ToUpperInvariant()} {operation.Path}");
+        });
     }
 
     [Fact]

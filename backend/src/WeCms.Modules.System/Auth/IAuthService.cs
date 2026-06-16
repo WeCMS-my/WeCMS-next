@@ -12,5 +12,10 @@ public interface IAuthService
         AuthRequestContext requestContext,
         CancellationToken cancellationToken);
 
+    Task LogoutAsync(
+        LogoutRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken);
+
     Task<AuthMeResponse> MeAsync(long userId, CancellationToken cancellationToken);
 }

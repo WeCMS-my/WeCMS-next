@@ -21,6 +21,8 @@ public static class AuthEndpoints
                 var response = await authService.LoginAsync(request, CreateRequestContext(context), cancellationToken);
                 return Results.Ok(ApiResult<LoginResponse>.Ok(response));
             })
+            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LoginRequest)))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
             .AllowAnonymous();
 
         group.MapPost("/refresh", async (
@@ -32,11 +34,22 @@ public static class AuthEndpoints
                 var response = await authService.RefreshAsync(request, CreateRequestContext(context), cancellationToken);
                 return Results.Ok(ApiResult<LoginResponse>.Ok(response));
             })
+            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(RefreshTokenRequest)))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
             .AllowAnonymous();
 
-        group.MapPost("/logout", (LogoutRequest _) =>
-            Task.FromException<IResult>(new DomainException(ApiCodes.BusinessError, "Logout token revocation is not part of this refresh token rotation task.")))
-            .AllowAnonymous();
+        group.MapPost("/logout", async (
+                LogoutRequest request,
+                HttpContext context,
+                IAuthService authService,
+                CancellationToken cancellationToken) =>
+            {
+                await authService.LogoutAsync(request, CreateRequestContext(context), cancellationToken);
+                return Results.Ok(ApiResult<object?>.Ok(null));
+            })
+            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LogoutRequest)))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(object)))
+            .RequireAuthorization();
 
         group.MapGet("/me", async (
                 ClaimsPrincipal principal,
@@ -52,6 +65,7 @@ public static class AuthEndpoints
                 var response = await authService.MeAsync(userId, cancellationToken);
                 return Results.Ok(ApiResult<AuthMeResponse>.Ok(response));
             })
+            .WithMetadata(new OpenApiResponseMetadata(typeof(AuthMeResponse)))
             .RequireAuthorization();
 
         return endpoints;

@@ -20,6 +20,7 @@ public static class PermissionEndpointExtensions
     {
         endpoints.MapGet("/api/v1/system/secure-ping", () =>
                 Results.Ok(ApiResult<SecurePingResponse>.Ok(new SecurePingResponse("ok"))))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SecurePingResponse)))
             .RequireAuthorization()
             .RequirePermission(SystemPermissions.SecurePing);
 

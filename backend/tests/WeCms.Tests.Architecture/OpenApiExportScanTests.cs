@@ -20,7 +20,7 @@ public sealed class OpenApiExportScanTests
     }
 
     [Fact]
-    public async Task OpenApiExport_DoesNotUseRuntimeHostBuilderOrNewtonsoft()
+    public async Task OpenApiExport_DoesNotStartRuntimeHostOrUseNewtonsoft()
     {
         var source = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
@@ -30,8 +30,7 @@ public sealed class OpenApiExportScanTests
             "Extensions",
             "OpenApiExtensions.cs"));
 
-        Assert.DoesNotContain("CreateBuilder", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateSlimBuilder", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("app.Run()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Newtonsoft", source, StringComparison.Ordinal);
         Assert.Contains("System.Text.Json", source, StringComparison.Ordinal);
     }

@@ -12,11 +12,11 @@ public sealed class AuthRepository : IAuthRepository
         _db = db;
     }
 
-    public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
+    public async Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var record = _db.Ado.SqlQuerySingle<AuthUserRow>(
+        var record = await _db.Ado.SqlQuerySingleAsync<AuthUserRow>(
             """
             SELECT id AS Id,
                    username AS Username,
@@ -30,14 +30,14 @@ public sealed class AuthRepository : IAuthRepository
             """,
             new SugarParameter("@username", username));
 
-        return Task.FromResult(record?.ToRecord());
+        return record?.ToRecord();
     }
 
-    public Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
+    public async Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var record = _db.Ado.SqlQuerySingle<AuthUserRow>(
+        var record = await _db.Ado.SqlQuerySingleAsync<AuthUserRow>(
             """
             SELECT id AS Id,
                    username AS Username,
@@ -51,14 +51,14 @@ public sealed class AuthRepository : IAuthRepository
             """,
             new SugarParameter("@userId", userId));
 
-        return Task.FromResult(record?.ToRecord());
+        return record?.ToRecord();
     }
 
-    public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
+    public async Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var table = _db.Ado.GetDataTable(
+        var table = await _db.Ado.GetDataTableAsync(
             """
             SELECT rt.id,
                    rt.user_id,
@@ -69,7 +69,8 @@ public sealed class AuthRepository : IAuthRepository
                    rt.token_hash,
                    rt.family_id,
                    rt.expires_at,
-                   rt.revoked_at
+                   rt.revoked_at,
+                   rt.replaced_by_token_hash
             FROM sys_refresh_token rt
             INNER JOIN sys_user u ON u.id = rt.user_id
             WHERE rt.token_hash = @tokenHash
@@ -79,7 +80,7 @@ public sealed class AuthRepository : IAuthRepository
 
         if (table.Rows.Count == 0)
         {
-            return Task.FromResult<RefreshTokenRecord?>(null);
+            return null;
         }
 
         var row = table.Rows[0];
@@ -87,7 +88,7 @@ public sealed class AuthRepository : IAuthRepository
             ? (DateTimeOffset?)null
             : new DateTimeOffset(DateTime.SpecifyKind((DateTime)row["revoked_at"], DateTimeKind.Utc));
 
-        return Task.FromResult<RefreshTokenRecord?>(new RefreshTokenRecord(
+        return new RefreshTokenRecord(
             Convert.ToInt64(row["id"], global::System.Globalization.CultureInfo.InvariantCulture),
             Convert.ToInt64(row["user_id"], global::System.Globalization.CultureInfo.InvariantCulture),
             Convert.ToString(row["username"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
@@ -97,14 +98,17 @@ public sealed class AuthRepository : IAuthRepository
             Convert.ToString(row["token_hash"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             Convert.ToString(row["family_id"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             new DateTimeOffset(DateTime.SpecifyKind((DateTime)row["expires_at"], DateTimeKind.Utc)),
-            revokedAt));
+            revokedAt,
+            row["replaced_by_token_hash"] == DBNull.Value
+                ? null
+                : Convert.ToString(row["replaced_by_token_hash"], global::System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var rows = _db.Ado.SqlQuery<string>(
+        var rows = await _db.Ado.SqlQueryAsync<string>(
             """
             SELECT r.code
             FROM sys_role r
@@ -115,14 +119,14 @@ public sealed class AuthRepository : IAuthRepository
             """,
             new SugarParameter("@userId", userId));
 
-        return Task.FromResult<IReadOnlyList<string>>(rows);
+        return rows;
     }
 
-    public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var rows = _db.Ado.SqlQuery<string>(
+        var rows = await _db.Ado.SqlQueryAsync<string>(
             """
             SELECT DISTINCT p.code
             FROM sys_permission p
@@ -135,14 +139,14 @@ public sealed class AuthRepository : IAuthRepository
             """,
             new SugarParameter("@userId", userId));
 
-        return Task.FromResult<IReadOnlyList<string>>(rows);
+        return rows;
     }
 
-    public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
+    public async Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var insertedRows = _db.Ado.ExecuteCommand(
+        var insertedRows = await _db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO sys_login_log (username, user_id, ip, user_agent, result, reason, created_at)
             VALUES (@username, NULL, @ip, @userAgent, 'failed', @reason, @createdAt)
@@ -157,15 +161,13 @@ public sealed class AuthRepository : IAuthRepository
         {
             throw new InvalidOperationException($"Expected to insert one failed login row, inserted {insertedRows}.");
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
+    public async Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var insertedRows = _db.Ado.ExecuteCommand(
+        var insertedRows = await _db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, message, created_at)
             VALUES (@eventType, @userId, @username, @ip, @severity, @message, @createdAt)
@@ -182,15 +184,13 @@ public sealed class AuthRepository : IAuthRepository
         {
             throw new InvalidOperationException($"Expected to insert one security event row, inserted {insertedRows}.");
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
+    public async Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var updatedRows = _db.Ado.ExecuteCommand(
+        var updatedRows = await _db.Ado.ExecuteCommandAsync(
             """
             UPDATE sys_user
             SET last_login_at = @lastLoginAt,
@@ -208,7 +208,7 @@ public sealed class AuthRepository : IAuthRepository
             throw new InvalidOperationException($"Expected to update one user login row, updated {updatedRows}.");
         }
 
-        var insertedRows = _db.Ado.ExecuteCommand(
+        var insertedRows = await _db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO sys_refresh_token (user_id, token_hash, family_id, expires_at, revoked_at, replaced_by_token_hash, created_at)
             VALUES (@userId, @tokenHash, @familyId, @expiresAt, NULL, NULL, @createdAt)
@@ -223,15 +223,13 @@ public sealed class AuthRepository : IAuthRepository
         {
             throw new InvalidOperationException($"Expected to insert one refresh token row, inserted {insertedRows}.");
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
+    public async Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var revokedRows = _db.Ado.ExecuteCommand(
+        var revokedRows = await _db.Ado.ExecuteCommandAsync(
             """
             UPDATE sys_refresh_token
             SET revoked_at = @revokedAt,
@@ -248,7 +246,7 @@ public sealed class AuthRepository : IAuthRepository
             throw new RefreshTokenAlreadyRevokedException(record.FamilyId);
         }
 
-        var insertedRows = _db.Ado.ExecuteCommand(
+        var insertedRows = await _db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO sys_refresh_token (user_id, token_hash, family_id, expires_at, revoked_at, replaced_by_token_hash, created_at)
             VALUES (@userId, @tokenHash, @familyId, @expiresAt, NULL, NULL, @createdAt)
@@ -263,15 +261,13 @@ public sealed class AuthRepository : IAuthRepository
         {
             throw new InvalidOperationException($"Expected to insert one rotated refresh token row, inserted {insertedRows}.");
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
+    public async Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var revokedRows = _db.Ado.ExecuteCommand(
+        await _db.Ado.ExecuteCommandAsync(
             """
             UPDATE sys_refresh_token
             SET revoked_at = @revokedAt
@@ -280,8 +276,6 @@ public sealed class AuthRepository : IAuthRepository
             """,
             new SugarParameter("@revokedAt", revokedAt.UtcDateTime),
             new SugarParameter("@familyId", familyId));
-
-        return Task.CompletedTask;
     }
 
     private sealed class AuthUserRow
@@ -303,5 +297,4 @@ public sealed class AuthRepository : IAuthRepository
             return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin);
         }
     }
-
 }

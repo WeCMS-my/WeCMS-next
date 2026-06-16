@@ -13,20 +13,25 @@ public static class SystemEndpointExtensions
     {
         endpoints.MapGet("/health/live", () =>
                 Results.Ok(ApiResult<SystemLiveResponse>.Ok(new SystemLiveResponse("live"))))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemLiveResponse)))
             .AllowAnonymous();
 
         endpoints.MapGet("/health/ready", CheckReadyAsync)
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemReadyResponse)))
             .AllowAnonymous();
 
         endpoints.MapGet("/api/v1/system/ping", () =>
                 Results.Ok(ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("ok"))))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemPingResponse)))
             .AllowAnonymous();
 
         endpoints.MapGet("/api/v1/system/version", () =>
                 Results.Ok(ApiResult<SystemVersionResponse>.Ok(new SystemVersionResponse(Version()))))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemVersionResponse)))
             .AllowAnonymous();
 
         endpoints.MapGet("/api/v1/system/db-check", CheckDatabaseAsync)
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemDbCheckResponse)))
             .AllowAnonymous();
 
         return endpoints;

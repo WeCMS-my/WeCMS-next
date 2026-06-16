@@ -7,6 +7,7 @@ public sealed class AuthService : IAuthService
 {
     private const string InvalidCredentialsMessage = "Invalid username or password.";
     private const string EnabledStatus = "enabled";
+    private static readonly TimeSpan RefreshTokenConcurrentReuseWindow = TimeSpan.FromSeconds(2);
 
     private readonly IAuthRepository _repository;
     private readonly IPasswordHasher _passwordHasher;
@@ -149,7 +150,9 @@ public sealed class AuthService : IAuthService
         catch (RefreshTokenAlreadyRevokedException)
         {
             await transaction.RollbackAsync(cancellationToken);
-            await RecordRefreshReuseAsync(existingToken, requestContext, now, cancellationToken);
+            var latestToken = await _repository.FindRefreshTokenByHashAsync(refreshTokenHash, cancellationToken)
+                ?? existingToken;
+            await RecordRefreshReuseOrConcurrentAsync(latestToken, requestContext, now, cancellationToken);
             throw new DomainException(ApiCodes.Unauthorized, "Invalid refresh token.");
         }
         catch
@@ -169,6 +172,25 @@ public sealed class AuthService : IAuthService
             roles,
             permissions,
             []);
+    }
+
+    public async Task LogoutAsync(
+        LogoutRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(requestContext);
+
+        var refreshTokenValue = NormalizeRequired(request.RefreshToken, nameof(request.RefreshToken));
+        var refreshTokenHash = _refreshTokenService.Hash(refreshTokenValue);
+        var existingToken = await _repository.FindRefreshTokenByHashAsync(refreshTokenHash, cancellationToken);
+        if (existingToken is null || existingToken.RevokedAt is not null)
+        {
+            return;
+        }
+
+        await _repository.RevokeRefreshTokenFamilyAsync(existingToken.FamilyId, _clock.UtcNow, cancellationToken);
     }
 
     public async Task<AuthMeResponse> MeAsync(long userId, CancellationToken cancellationToken)
@@ -225,6 +247,36 @@ public sealed class AuthService : IAuthService
                 message,
                 now),
             cancellationToken);
+    }
+
+    private async Task RecordRefreshReuseOrConcurrentAsync(
+        RefreshTokenRecord token,
+        AuthRequestContext requestContext,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (ShouldTreatAsConcurrentReplay(token, now))
+        {
+            await RecordRefreshSecurityEventAsync(token, requestContext, "auth.refresh_reuse", "Refresh token concurrent rotation replay detected.", now, cancellationToken);
+            return;
+        }
+
+        await RecordRefreshReuseAsync(token, requestContext, now, cancellationToken);
+    }
+
+    private static bool ShouldTreatAsConcurrentReplay(RefreshTokenRecord token, DateTimeOffset now)
+    {
+        if (token.ReplacedByTokenHash is null)
+        {
+            return false;
+        }
+
+        if (token.RevokedAt is null)
+        {
+            return false;
+        }
+
+        return now >= token.RevokedAt && now - token.RevokedAt <= RefreshTokenConcurrentReuseWindow;
     }
 
     private async Task RecordRefreshReuseAsync(

@@ -172,6 +172,62 @@ public sealed class AuthIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task RefreshAsync_ConcurrentRefreshLongAfterWindowRevokesFamily()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_refresh_revoke_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            var connectionString = WithDatabase(baseConnectionString, databaseName);
+            using var setupDb = new SqlSugarClientFactory(connectionString).Create();
+            await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var tokenOptions = TokenOptions();
+            var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
+            var login = await CreateService(
+                    setupDb,
+                    tokenOptions,
+                    new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero))
+                .LoginAsync(
+                    new LoginRequest("admin", "Admin@123"),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None);
+
+            var oldRefreshHash = tokenService.Hash(login.RefreshToken);
+            var familyId = Scalar<string>(
+                setupDb,
+                "SELECT family_id FROM sys_refresh_token WHERE token_hash = @tokenHash",
+                new SugarParameter("@tokenHash", oldRefreshHash));
+
+            using var firstDb = new SqlSugarClientFactory(connectionString).Create();
+            using var secondDb = new SqlSugarClientFactory(connectionString).Create();
+            var firstService = CreateService(firstDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
+            var secondService = CreateService(secondDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 10, 0, TimeSpan.Zero));
+
+            var results = await Task.WhenAll(
+                TryRefreshAsync(firstService, login.RefreshToken),
+                TryRefreshAsync(secondService, login.RefreshToken));
+
+            Assert.Equal(1, results.Count(success => success));
+            Assert.Equal(0, Scalar<int>(
+                setupDb,
+                "SELECT COUNT(1) FROM sys_refresh_token WHERE family_id = @familyId AND revoked_at IS NULL",
+                new SugarParameter("@familyId", familyId)));
+            Assert.Equal(1, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
     private static T Scalar<T>(SqlSugar.ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {
         var scalar = db.Ado.GetScalar(sql, parameters);
