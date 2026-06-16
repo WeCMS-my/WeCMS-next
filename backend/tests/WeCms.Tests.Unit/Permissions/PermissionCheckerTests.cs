@@ -76,5 +76,14 @@ public sealed class PermissionCheckerTests
 
             return Task.FromResult(_hasPermission);
         }
+
+        public Task<IReadOnlyList<PermissionSummaryDto>> ListManagementAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<PermissionSummaryDto>>([]);
+        public Task<PermissionDetailDto?> GetManagementAsync(long id, CancellationToken cancellationToken) => Task.FromResult<PermissionDetailDto?>(null);
+        public Task<bool> CodeExistsAsync(string code, long? exceptPermissionId, CancellationToken cancellationToken) => Task.FromResult(false);
+        public Task<long> CreateManagementAsync(PermissionCreateRecord record, CancellationToken cancellationToken) => Task.FromResult(1L);
+        public Task UpdateManagementAsync(PermissionUpdateRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SoftDeleteManagementAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SetManagementStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task RecordManagementAuditAsync(PermissionAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

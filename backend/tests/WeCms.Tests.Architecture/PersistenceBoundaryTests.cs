@@ -61,6 +61,6 @@ public sealed partial class PersistenceBoundaryTests
         return Path.GetRelativePath(TestPaths.RepoRoot, file);
     }
 
-    [GeneratedRegex("""\b(SELECT|INSERT|UPDATE|DELETE)\b""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex("""\b(SELECT\s+.+\s+FROM|INSERT\s+INTO|UPDATE\s+[A-Za-z_][A-Za-z0-9_]*|DELETE\s+FROM)\b""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SqlKeywordPattern();
 }

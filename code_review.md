@@ -61,6 +61,17 @@
 [ ] 为通过门禁而降低阈值、删除测试或绕过检查
 ```
 
+M1-BE 额外阻断项：
+
+```text
+[ ] 修改 frontend/**、运行 pnpm 或生成前端 generated 类型
+[ ] 在 M1-BE 中实现 CMS 内容 API、旧系统数据迁移、旧系统兼容模式、多租户或插件系统
+[ ] M1-BE 业务 Endpoint 缺少权限码或 PermissionMetadata
+[ ] M1-BE 写操作缺少审计记录
+[ ] M1-BE 新增权限码、菜单、公共 API、数据库表、migration 或安全策略变更没有 spec 三件套
+[ ] super_admin 未覆盖全部 M1-BE 系统管理权限 seed
+```
+
 ---
 
 ## 2. 架构 Review
@@ -238,6 +249,10 @@ pnpm --dir frontend/soybean-admin build
 [ ] publish 是否作为阻断门禁
 [ ] warning 是否作为 error
 [ ] OpenAPI 生成是否验证
+[ ] M1-BE 系统管理 API paths 是否全部进入 OpenAPI
+[ ] M1-BE POST / PUT 是否都有 requestBody schema
+[ ] M1-BE 业务 Endpoint 是否全部有权限元数据覆盖
+[ ] M1-BE 系统权限 seed / 菜单 seed 是否可幂等执行
 [ ] SQL 规范扫描是否计划/已实现
 [ ] generated 类型是否检查未手写
 [ ] 是否没有把 secret 写入 CI

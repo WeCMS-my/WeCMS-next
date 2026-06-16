@@ -50,7 +50,11 @@ public sealed class AuthIntegrationTests
             Assert.NotEmpty(login.AccessToken);
             Assert.NotEmpty(login.RefreshToken);
             Assert.Equal(["super_admin"], login.Roles);
-            Assert.Equal(["sys:system:secure-ping"], login.Permissions);
+            Assert.Equal(
+                Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission"),
+                login.Permissions.Count);
+            Assert.Contains("sys:system:secure-ping", login.Permissions);
+            Assert.Contains("sys:user:list", login.Permissions);
             Assert.NotEqual(login.RefreshToken, Scalar<string>(db, "SELECT token_hash FROM sys_refresh_token LIMIT 1"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND last_login_at IS NOT NULL AND last_login_ip = '127.0.0.1'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'login' AND result = 'success'"));
@@ -61,7 +65,7 @@ public sealed class AuthIntegrationTests
             var me = await service.MeAsync(principal.UserId, CancellationToken.None);
             Assert.Equal("admin", me.User.Username);
             Assert.Equal(["super_admin"], me.Roles);
-            Assert.Equal(["sys:system:secure-ping"], me.Permissions);
+            Assert.Equal(login.Permissions, me.Permissions);
             Assert.Empty(me.Menus);
 
             var refreshed = await service.RefreshAsync(

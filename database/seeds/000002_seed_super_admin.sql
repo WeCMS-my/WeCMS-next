@@ -1,5 +1,5 @@
-INSERT INTO sys_role (code, name, status, created_at, updated_at)
-SELECT 'super_admin', 'Super Administrator', 'enabled', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)
+INSERT INTO sys_role (code, name, status, is_builtin, created_at, updated_at, deleted_at)
+SELECT 'super_admin', 'Super Administrator', 'enabled', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM sys_role WHERE code = 'super_admin'
 );

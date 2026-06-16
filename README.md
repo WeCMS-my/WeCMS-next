@@ -6,9 +6,9 @@
 
 ## 项目状态
 
-**当前阶段：M0-BE（后端-only 工程底座重建）**
+**当前阶段：M1-BE（后端-only 系统管理 API）**
 
-M0-BE 只交付一个可信后端底座，不操作 SoybeanAdmin 前端代码。
+M1-BE 基于 M0-BE 后端底座继续交付系统管理 API，不操作 SoybeanAdmin 前端代码，不生成前端类型，不进入 CMS 内容 API。
 
 ## 技术栈
 
@@ -16,7 +16,7 @@ M0-BE 只交付一个可信后端底座，不操作 SoybeanAdmin 前端代码。
 |---|---|
 | 后端 | ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime |
 | 数据访问实现 | WeCms.Persistence / SqlSugar ORM / MySQL |
-| 前端 | SoybeanAdmin（后移，M0-BE 不开发） |
+| 前端 | SoybeanAdmin（后移，M1-BE 不开发） |
 | CI/CD | GitHub Actions |
 
 ## 快速开始
@@ -64,7 +64,7 @@ curl http://localhost:5207/api/v1/system/db-check
 bash scripts/smoke-admin-login.sh
 ```
 
-## M0-BE 质量门禁
+## Backend 质量门禁
 
 ```bash
 bash scripts/quality-gate-backend.sh
@@ -77,7 +77,7 @@ bash scripts/quality-gate-backend.sh
 
 CI（`backend-quality-gate.yml`）直接运行默认 strict gate。
 
-当前文档基线下，backend quality gate 以 JIT + Persistence 边界治理为准，重点覆盖以下检查面：
+当前文档基线下，backend quality gate 以 JIT + Persistence 边界治理为准；M1-BE 会继续扩展系统管理 API 的权限码、OpenAPI 和 seed 覆盖检查。当前重点覆盖以下检查面：
 
 1. `dotnet build -warnaserror`
 2. `dotnet test`
@@ -133,6 +133,7 @@ artifacts/
 | [ADR-0010](docs/adr/0010-rebuild-from-zero.md) | M0-BE 从 0 重建后端工程 | Accepted |
 | [ADR-0011](docs/adr/0011-jit-sqlsugar-persistence.md) | M0-BE JIT + SqlSugar Persistence 边界 | Accepted |
 | [ADR-0012](docs/adr/0012-m0-be-frontend-deferred.md) | M0-BE 前端后移与 backend-only 边界 | Accepted |
+| [ADR-0013](docs/adr/0013-m1-system-management-api-scope.md) | M1-BE 系统管理 API backend-only 边界 | Accepted |
 
 ## 核心原则
 
@@ -141,7 +142,9 @@ artifacts/
 - WeCms.Persistence 是 SqlSugar ORM / MySQL 的唯一数据访问实现适配器层，不是传统 DAL；业务模块只依赖抽象。
 - 所有数据库访问只能发生在 WeCms.Persistence；WeCms.Modules.* 不得持有 SQL、ORM Client、连接器或持久化实现依赖。
 - 业务代码中的 Repository、UnitOfWork、时钟、Token、密码、随机数等有副作用依赖必须通过接口 + DI 获取。
-- 前端 SoybeanAdmin 不参与 M0-BE。
+- 前端 SoybeanAdmin 不参与 M1-BE。
+- M1-BE 只做系统管理 API，不做 CMS 内容 API、旧系统迁移或 AI runtime。
+- M1-BE 所有业务 Endpoint 必须绑定权限码，所有写操作必须记录审计。
 - 旧系统不做数据迁移，不做兼容模式。
 - AI 接入是二期独立项目，一期不实现运行时 AI 功能。
 
@@ -151,6 +154,8 @@ artifacts/
 - [code_review.md](code_review.md) — 代码审查基线
 - [完整迁移重构计划 v3.0](docs/context/WeCMS%20Next%20%E5%AE%8C%E6%95%B4%E8%BF%81%E7%A7%BB%E9%87%8D%E6%9E%84%E8%AE%A1%E5%88%92%20v3.0.md)
 - [M0-BE 后端-only 开发计划](docs/context/WeCMS%20Next%20M0-BE%20%E5%90%8E%E7%AB%AF-only%20%E5%BC%80%E5%8F%91%E8%AE%A1%E5%88%92.md)
+- [M1-BE 后端-only 开发计划](docs/context/WeCMS%20Next%20M1-BE%20%E5%90%8E%E7%AB%AF-only%20%E5%BC%80%E5%8F%91%E8%AE%A1%E5%88%92%E4%B9%A6%20v1.0.md)
+- [M1-BE 稳定入口](docs/context/WeCMS_Next_M1-BE_系统管理API开发计划.md)
 - [工程骨架验证文档](docs/context/WeCMS_工程骨架验证文档.md)
 - [完整迁移重构计划（历史命名路径）](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
 

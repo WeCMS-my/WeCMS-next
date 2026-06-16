@@ -348,9 +348,10 @@ sys_user_post
 sys_dict_type
 sys_dict_value
 sys_setting
-sys_audit_log
 sys_file
 ```
+
+说明：`sys_audit_log` 已在 M0-BE 审计闭环中建立，M1-BE 继续复用并扩展其写入与查询能力，不重复新增 migration。
 
 ---
 
@@ -960,7 +961,7 @@ deleted_at
 
 # 10. M1-BE 任务拆分
 
-M1-BE 拆分为 16 个开发任务：
+M1-BE 拆分为 17 个开发任务：
 
 ```text
 M1-BE-000：M1 规则与 ADR 更新
@@ -993,7 +994,7 @@ M1-BE-016：M1-BE 最终只读审计
 ## 交付物
 
 ```text
-docs/adr/0011-m1-system-management-api-scope.md
+docs/adr/0013-m1-system-management-api-scope.md
 docs/context/WeCMS_Next_M1-BE_系统管理API开发计划.md
 README.md
 AGENTS.md

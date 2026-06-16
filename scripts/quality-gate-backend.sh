@@ -51,47 +51,56 @@ run_dotnet_gate_command() {
   dotnet "$@"
 }
 
-printf '[1/13] dotnet restore\n'
+printf '[1/16] dotnet restore\n'
 run_dotnet_gate_command restore backend/WeCms.slnx
 
-printf '[2/13] dotnet build -warnaserror\n'
+printf '[2/16] dotnet build -warnaserror\n'
 run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-restore
 
-printf '[3/13] dotnet test\n'
+printf '[3/16] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
 export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --no-build --no-restore
 
-printf '[4/13] dotnet publish JIT\n'
+printf '[4/16] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
 
-printf '[5/13] OpenAPI export\n'
+printf '[5/16] OpenAPI export\n'
 dotnet run --project backend/src/WeCms.Api --no-build --no-restore -- --export-openapi "$openapi_path"
 
-printf '[6/13] OpenAPI auth request body check\n'
+printf '[6/16] OpenAPI auth request body check\n'
 bash scripts/checks/check-openapi-auth-request-body.sh "$openapi_path"
 bash scripts/checks/check-openapi-endpoint-coverage.sh "$openapi_path"
 
-printf '[7/13] check-db-boundary\n'
+printf '[7/16] check-system-openapi-coverage\n'
+bash scripts/checks/check-system-openapi-coverage.sh "$openapi_path"
+
+printf '[8/16] check-system-permission-coverage\n'
+bash scripts/checks/check-system-permission-coverage.sh
+
+printf '[9/16] check-no-sql-in-modules\n'
+bash scripts/checks/check-no-sql-in-modules.sh
+
+printf '[10/16] check-db-boundary\n'
 bash scripts/checks/check-db-boundary.sh
 
-printf '[8/13] check-layer-dependency\n'
+printf '[11/16] check-layer-dependency\n'
 bash scripts/checks/check-layer-dependency.sh
 
-printf '[9/13] check-di-boundary\n'
+printf '[12/16] check-di-boundary\n'
 bash scripts/checks/check-di-boundary.sh
 
-printf '[10/13] check-no-frontend-change\n'
+printf '[13/16] check-no-frontend-change\n'
 bash scripts/checks/check-no-frontend-change.sh
 
-printf '[11/13] check-generated-test-artifacts\n'
+printf '[14/16] check-generated-test-artifacts\n'
 bash scripts/checks/check-generated-test-artifacts.sh
 
-printf '[12/13] check-code-review\n'
+printf '[15/16] check-code-review\n'
 bash scripts/checks/check-code-review.sh
 
-printf '[13/13] migration/seed smoke test\n'
+printf '[16/16] migration/seed smoke test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
 
 printf 'quality-gate-backend: ok\n'
