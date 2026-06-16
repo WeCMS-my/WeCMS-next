@@ -18,8 +18,9 @@ The gate must run:
 8. layer dependency check
 9. DI boundary check
 10. no frontend change check
-11. code-review rule check
-12. migration/seed smoke test
+11. generated test artifact check
+12. code-review rule check
+13. migration/seed smoke test
 
 ## Exclusions
 
@@ -32,3 +33,4 @@ The gate requires:
 - `rg` from ripgrep for shell scanner checks.
 - `WECMS_TEST_MYSQL_CONNECTION_STRING` for MySQL integration and migration/seed smoke tests.
 - Default mode stays strict. `WECMS_NUGET_AUDIT_MODE=fallback` is an explicit local-only fallback that runs gate `dotnet` steps with `-p:NuGetAudit=false` and a writable `NUGET_HTTP_CACHE_PATH` when NuGet vulnerability-index access is known environment noise.
+- `fallback` must be rejected in CI / GitHub Actions contexts and cannot be used as release-gate evidence.

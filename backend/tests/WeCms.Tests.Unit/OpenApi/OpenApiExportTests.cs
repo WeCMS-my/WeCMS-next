@@ -28,18 +28,7 @@ public sealed class OpenApiExportTests
             Assert.True(refreshPath.GetProperty("post").TryGetProperty("requestBody", out _));
             Assert.True(paths.TryGetProperty("/api/v1/auth/logout", out var logoutPath));
             Assert.True(logoutPath.GetProperty("post").TryGetProperty("requestBody", out _));
-            Assert.True(logoutPath.GetProperty("post").TryGetProperty("security", out var logoutSecurity));
-            Assert.NotEqual(0, logoutSecurity.GetArrayLength());
-            var logoutUsesBearerAuth = false;
-            foreach (var securityEntry in logoutSecurity.EnumerateArray())
-            {
-                if (securityEntry.TryGetProperty("bearerAuth", out _))
-                {
-                    logoutUsesBearerAuth = true;
-                }
-            }
-
-            Assert.True(logoutUsesBearerAuth);
+            Assert.False(logoutPath.GetProperty("post").TryGetProperty("security", out _));
             Assert.True(schemas.TryGetProperty("ApiResult", out _));
             Assert.True(schemas.TryGetProperty("LoginResponse", out _));
 
@@ -183,7 +172,7 @@ public sealed class OpenApiExportTests
             Assert.Null(refresh.Permission);
 
             Assert.True(metadata.TryGetValue(("/api/v1/auth/logout", "post"), out var logout));
-            Assert.True(logout.RequiresAuthorization);
+            Assert.False(logout.RequiresAuthorization);
             Assert.Null(logout.Permission);
 
             Assert.True(metadata.TryGetValue(("/api/v1/auth/me", "get"), out var me));
@@ -258,7 +247,7 @@ public sealed class OpenApiExportTests
             { ("/api/v1/system/secure-ping", "get"), (true, "sys:system:secure-ping") },
             { ("/api/v1/auth/login", "post"), (false, null) },
             { ("/api/v1/auth/refresh", "post"), (false, null) },
-            { ("/api/v1/auth/logout", "post"), (true, null) },
+            { ("/api/v1/auth/logout", "post"), (false, null) },
             { ("/api/v1/auth/me", "get"), (true, null) }
         };
 
@@ -335,12 +324,11 @@ public sealed class OpenApiExportTests
     private static HashSet<(string Path, string Method)> CollectSourceMappedEndpoints()
     {
         var mappedEndpoints = new HashSet<(string Path, string Method)>();
-        mappedEndpoints.UnionWith(CollectSourceMappedEndpointsFromFile(
-            Path.Combine(SourceRoot, "WeCms.Modules.System", "Auth", "AuthEndpoints.cs")));
-        mappedEndpoints.UnionWith(CollectSourceMappedEndpointsFromFile(
-            Path.Combine(SourceRoot, "WeCms.Modules.System", "System", "SystemEndpointExtensions.cs")));
-        mappedEndpoints.UnionWith(CollectSourceMappedEndpointsFromFile(
-            Path.Combine(SourceRoot, "WeCms.Modules.System", "Permissions", "PermissionEndpointExtensions.cs")));
+
+        foreach (var filePath in EnumerateEndpointSourceFiles())
+        {
+            mappedEndpoints.UnionWith(CollectSourceMappedEndpointsFromFile(filePath));
+        }
 
         return mappedEndpoints;
     }
@@ -391,6 +379,16 @@ public sealed class OpenApiExportTests
         }
 
         return result;
+    }
+
+    private static IEnumerable<string> EnumerateEndpointSourceFiles()
+    {
+        return Directory
+            .EnumerateFiles(Path.Combine(SourceRoot, "WeCms.Modules.System"), "*.cs", SearchOption.AllDirectories)
+            .Where(filePath =>
+                filePath.EndsWith("Endpoints.cs", StringComparison.Ordinal)
+                || filePath.EndsWith("EndpointExtensions.cs", StringComparison.Ordinal))
+            .OrderBy(filePath => filePath, StringComparer.Ordinal);
     }
 
     private static HashSet<(string Path, string Method)> CollectOpenApiOperations(JsonElement paths)
@@ -469,7 +467,7 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/secure-ping", "get", SystemPermissions.SecurePing, true, null),
         new RegisteredEndpoint("/api/v1/auth/login", "post", null, false, nameof(LoginRequest)),
         new RegisteredEndpoint("/api/v1/auth/refresh", "post", null, false, nameof(RefreshTokenRequest)),
-        new RegisteredEndpoint("/api/v1/auth/logout", "post", null, true, nameof(LogoutRequest)),
+        new RegisteredEndpoint("/api/v1/auth/logout", "post", null, false, nameof(LogoutRequest)),
         new RegisteredEndpoint("/api/v1/auth/me", "get", null, true, null)
     ];
 

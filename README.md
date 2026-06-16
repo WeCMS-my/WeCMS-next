@@ -68,15 +68,14 @@ bash scripts/smoke-admin-login.sh
 
 ```bash
 bash scripts/quality-gate-backend.sh
-bash scripts/quality-gate-backend.sh di
-bash scripts/quality-gate-backend.sh all
 ```
 
-`quality-gate-backend.sh` 统一入口，默认执行 backend 质量门禁；
-`di` 仅执行 DI 边界扫描；
-`all` 执行 backend+DI。
+`quality-gate-backend.sh` 是当前唯一的 backend 质量门禁入口。
 
-CI（`backend-quality-gate.yml`）已对齐为 `all`。
+默认运行 strict 模式。
+如遇 NuGet 漏洞索引/缓存权限噪音，可在本地显式设置 `WECMS_NUGET_AUDIT_MODE=fallback` 做诊断；该模式会输出 warning，并且禁止在 CI / GitHub Actions 中使用。
+
+CI（`backend-quality-gate.yml`）直接运行默认 strict gate。
 
 当前文档基线下，backend quality gate 以 JIT + Persistence 边界治理为准，重点覆盖以下检查面：
 

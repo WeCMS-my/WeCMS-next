@@ -7,6 +7,7 @@ fake_bin="$tmp_dir/bin"
 dotnet_log="$tmp_dir/dotnet.log"
 strict_output="$tmp_dir/strict.out"
 fallback_output="$tmp_dir/fallback.out"
+ci_fallback_output="$tmp_dir/ci-fallback.out"
 
 cleanup() {
   rm -rf "$tmp_dir"
@@ -70,6 +71,8 @@ run_gate() {
   local mode="$1"
   local output_file="$2"
   local expected_status="$3"
+  local ci_value="${4:-}"
+  local gha_value="${5:-}"
 
   : >"$dotnet_log"
 
@@ -82,6 +85,18 @@ run_gate() {
     export WECMS_NUGET_AUDIT_MODE="$mode"
   else
     unset WECMS_NUGET_AUDIT_MODE
+  fi
+
+  if [[ -n "$ci_value" ]]; then
+    export CI="$ci_value"
+  else
+    unset CI
+  fi
+
+  if [[ -n "$gha_value" ]]; then
+    export GITHUB_ACTIONS="$gha_value"
+  else
+    unset GITHUB_ACTIONS
   fi
 
   set +e
@@ -101,11 +116,14 @@ assert_contains "$dotnet_log" "restore backend/WeCms.slnx"
 assert_not_contains "$dotnet_log" "-p:NuGetAudit=false"
 
 run_gate "fallback" "$fallback_output" 0
-assert_contains "$fallback_output" "quality-gate-backend: using fallback dotnet mode with -p:NuGetAudit=false and NUGET_HTTP_CACHE_PATH="
+assert_contains "$fallback_output" "quality-gate-backend: WARNING local-only fallback dotnet mode enabled with -p:NuGetAudit=false and NUGET_HTTP_CACHE_PATH="
 assert_contains "$dotnet_log" "restore backend/WeCms.slnx -p:NuGetAudit=false"
 assert_contains "$dotnet_log" "CACHE="
 assert_contains "$dotnet_log" "build backend/WeCms.slnx -warnaserror --nologo --no-restore"
 assert_contains "$dotnet_log" "publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo"
 assert_contains "$fallback_output" "quality-gate-backend: ok"
+
+run_gate "fallback" "$ci_fallback_output" 1 "true" "true"
+assert_contains "$ci_fallback_output" "quality-gate-backend: WECMS_NUGET_AUDIT_MODE=fallback is local-only and must not be used in CI or release gates."
 
 printf 'test-quality-gate-backend: ok\n'

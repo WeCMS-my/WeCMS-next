@@ -50,7 +50,7 @@ public static class AuthEndpoints
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LogoutRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(object)))
-            .RequireAuthorization();
+            .AllowAnonymous();
 
         group.MapGet("/me", async (
                 ClaimsPrincipal principal,

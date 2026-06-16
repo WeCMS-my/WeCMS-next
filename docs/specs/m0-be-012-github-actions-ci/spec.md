@@ -24,3 +24,4 @@ Add `.github/workflows/backend-quality-gate.yml` for backend-only M0-BE validati
 - CI must not run frontend `pnpm` commands.
 - CI must not run AOT publish, `/p:PublishAot=true`, Dapper baseline, Dapper.AOT, IL2026, or IL3050 gates.
 - CI must fetch enough history for backend-only frontend diff checks.
+- CI must keep `WECMS_NUGET_AUDIT_MODE` unset so the backend gate stays in strict mode.

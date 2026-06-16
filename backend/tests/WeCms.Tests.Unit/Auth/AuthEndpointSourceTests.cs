@@ -3,7 +3,7 @@ namespace WeCms.Tests.Unit.Auth;
 public sealed class AuthEndpointSourceTests
 {
     [Fact]
-    public async Task AuthEndpoints_ExplicitlyRequireAuthorizationForMeAndAllowAnonymousForLogin()
+    public async Task AuthEndpoints_ExplicitlyAllowAnonymousForLoginRefreshAndLogoutWhileMeRequiresAuthorization()
     {
         var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"));
 
@@ -16,11 +16,15 @@ public sealed class AuthEndpointSourceTests
 
         var logoutRouteIndex = source.IndexOf("group.MapPost(\"/logout\"", StringComparison.Ordinal);
         Assert.True(logoutRouteIndex >= 0);
-        var logoutAuthorizationIndex = source.IndexOf(".RequireAuthorization();", logoutRouteIndex, StringComparison.Ordinal);
-        Assert.True(logoutAuthorizationIndex > logoutRouteIndex);
+        var logoutAnonymousIndex = source.IndexOf(".AllowAnonymous();", logoutRouteIndex, StringComparison.Ordinal);
+        Assert.True(logoutAnonymousIndex > logoutRouteIndex);
 
-        Assert.Contains("group.MapGet(\"/me\"", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireAuthorization();", source, StringComparison.Ordinal);
+        var meRouteIndex = source.IndexOf("group.MapGet(\"/me\"", StringComparison.Ordinal);
+        Assert.True(meRouteIndex >= 0);
+        var meAuthorizationIndex = source.IndexOf(".RequireAuthorization();", meRouteIndex, StringComparison.Ordinal);
+        Assert.True(meAuthorizationIndex > meRouteIndex);
+
+        Assert.DoesNotContain(".RequireAuthorization();", source[logoutRouteIndex..meRouteIndex], StringComparison.Ordinal);
     }
 
     private static string RepoPath(params string[] segments)

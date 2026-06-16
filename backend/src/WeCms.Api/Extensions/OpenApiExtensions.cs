@@ -134,7 +134,7 @@ public static class OpenApiExtensions
         new OpenApiEndpointDescriptor(
             "post",
             "/api/v1/auth/logout",
-            true,
+            false,
             null,
             nameof(LogoutRequest),
             "Object"),

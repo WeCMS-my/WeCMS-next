@@ -21,13 +21,18 @@ if [[ "$nuget_audit_mode" != "strict" && "$nuget_audit_mode" != "fallback" ]]; t
 fi
 
 if [[ "$nuget_audit_mode" == "fallback" ]]; then
+  if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    printf 'quality-gate-backend: WECMS_NUGET_AUDIT_MODE=fallback is local-only and must not be used in CI or release gates.\n' >&2
+    exit 1
+  fi
+
   if [[ -z "$nuget_http_cache_path" ]]; then
     nuget_http_cache_path="${TMPDIR:-/tmp}/wecms-nuget-http-cache"
   fi
 
   mkdir -p "$nuget_http_cache_path"
   export NUGET_HTTP_CACHE_PATH="$nuget_http_cache_path"
-  printf 'quality-gate-backend: using fallback dotnet mode with -p:NuGetAudit=false and NUGET_HTTP_CACHE_PATH=%s.\n' "$NUGET_HTTP_CACHE_PATH"
+  printf 'quality-gate-backend: WARNING local-only fallback dotnet mode enabled with -p:NuGetAudit=false and NUGET_HTTP_CACHE_PATH=%s.\n' "$NUGET_HTTP_CACHE_PATH"
 fi
 
 mysql_connection_string="$WECMS_TEST_MYSQL_CONNECTION_STRING"
@@ -46,44 +51,47 @@ run_dotnet_gate_command() {
   dotnet "$@"
 }
 
-printf '[1/12] dotnet restore\n'
+printf '[1/13] dotnet restore\n'
 run_dotnet_gate_command restore backend/WeCms.slnx
 
-printf '[2/12] dotnet build -warnaserror\n'
+printf '[2/13] dotnet build -warnaserror\n'
 run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-restore
 
-printf '[3/12] dotnet test\n'
+printf '[3/13] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
 export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --no-build --no-restore
 
-printf '[4/12] dotnet publish JIT\n'
+printf '[4/13] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
 
-printf '[5/12] OpenAPI export\n'
+printf '[5/13] OpenAPI export\n'
 dotnet run --project backend/src/WeCms.Api --no-build --no-restore -- --export-openapi "$openapi_path"
 
-printf '[6/12] OpenAPI auth request body check\n'
+printf '[6/13] OpenAPI auth request body check\n'
 bash scripts/checks/check-openapi-auth-request-body.sh "$openapi_path"
 bash scripts/checks/check-openapi-endpoint-coverage.sh "$openapi_path"
 
-printf '[7/12] check-db-boundary\n'
+printf '[7/13] check-db-boundary\n'
 bash scripts/checks/check-db-boundary.sh
 
-printf '[8/12] check-layer-dependency\n'
+printf '[8/13] check-layer-dependency\n'
 bash scripts/checks/check-layer-dependency.sh
 
-printf '[9/12] check-di-boundary\n'
+printf '[9/13] check-di-boundary\n'
 bash scripts/checks/check-di-boundary.sh
 
-printf '[10/12] check-no-frontend-change\n'
+printf '[10/13] check-no-frontend-change\n'
 bash scripts/checks/check-no-frontend-change.sh
 
-printf '[11/12] check-code-review\n'
+printf '[11/13] check-generated-test-artifacts\n'
+bash scripts/checks/check-generated-test-artifacts.sh
+
+printf '[12/13] check-code-review\n'
 bash scripts/checks/check-code-review.sh
 
-printf '[12/12] migration/seed smoke test\n'
+printf '[13/13] migration/seed smoke test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
 
 printf 'quality-gate-backend: ok\n'
