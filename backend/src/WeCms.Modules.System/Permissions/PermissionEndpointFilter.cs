@@ -26,7 +26,7 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
         if (result == PermissionCheckResult.UserDisabled)
         {
             return Results.Json(
-                ApiResult<object>.Error(ApiCodes.Unauthorized, "Authentication is required.", context.HttpContext.TraceIdentifier),
+                ApiResult<object>.Error(ApiCodes.Unauthorized, "User account is disabled.", context.HttpContext.TraceIdentifier),
                 statusCode: ApiCodes.ToHttpStatus(ApiCodes.Unauthorized));
         }
 
