@@ -28,6 +28,30 @@ public sealed class MenuServiceTests
     }
 
     [Fact]
+    public async Task EnableAsync_RejectsBuiltinMenu()
+    {
+        var service = new MenuService(new FakeMenuRepository());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.EnableAsync(1, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("System built-in menus cannot be enabled.", exception.Message);
+    }
+
+    [Fact]
+    public async Task DisableAsync_RejectsBuiltinMenu()
+    {
+        var service = new MenuService(new FakeMenuRepository());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DisableAsync(1, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("System built-in menus cannot be disabled.", exception.Message);
+    }
+
+    [Fact]
     public async Task UpdateAsync_RejectsDescendantParent()
     {
         var service = new MenuService(new FakeMenuRepository { IsBuiltin = false, ParentIsDescendant = true });

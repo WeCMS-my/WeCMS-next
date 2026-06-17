@@ -746,8 +746,63 @@ public static class OpenApiExtensions
             [nameof(MenuSummaryDto)] = MenuSchema(includeChildren: false, includeTimestamps: false),
             [nameof(MenuTreeDto)] = MenuSchema(includeChildren: true, includeTimestamps: false),
             [nameof(MenuDetailDto)] = MenuSchema(includeChildren: false, includeTimestamps: true),
-            [nameof(CreateMenuRequest)] = ObjectSchema(("type", "string"), ("code", "string"), ("path", "string"), ("title", "string"), ("status", "string")),
-            [nameof(UpdateMenuRequest)] = ObjectSchema(("type", "string"), ("path", "string"), ("title", "string"), ("status", "string")),
+            [nameof(CreateMenuRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required(
+                    "type",
+                    "code",
+                    "path",
+                    "title",
+                    "sort",
+                    "hidden",
+                    "keepAlive",
+                    "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["parentId"] = IntegerSchema(nullable: true),
+                    ["type"] = StringSchema(),
+                    ["code"] = StringSchema(),
+                    ["path"] = StringSchema(),
+                    ["component"] = NullableStringSchema(),
+                    ["title"] = StringSchema(),
+                    ["i18nKey"] = NullableStringSchema(),
+                    ["icon"] = NullableStringSchema(),
+                    ["sort"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["hidden"] = BooleanSchema(),
+                    ["keepAlive"] = BooleanSchema(),
+                    ["externalUrl"] = NullableStringSchema(),
+                    ["permissionCode"] = NullableStringSchema(),
+                    ["status"] = StringSchema()
+                }
+            },
+            [nameof(UpdateMenuRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required(
+                    "type",
+                    "path",
+                    "title",
+                    "sort",
+                    "hidden",
+                    "keepAlive",
+                    "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["parentId"] = IntegerSchema(nullable: true),
+                    ["type"] = StringSchema(),
+                    ["path"] = StringSchema(),
+                    ["component"] = NullableStringSchema(),
+                    ["title"] = StringSchema(),
+                    ["i18nKey"] = NullableStringSchema(),
+                    ["icon"] = NullableStringSchema(),
+                    ["sort"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["hidden"] = BooleanSchema(),
+                    ["keepAlive"] = BooleanSchema(),
+                    ["externalUrl"] = NullableStringSchema(),
+                    ["status"] = StringSchema()
+                }
+            },
             [nameof(MenuMutationResponse)] = ObjectSchema(("id", "integer"))
             ,
             ["PermissionSummaryList"] = ArrayOf(SchemaRef(nameof(PermissionSummaryDto))),
@@ -764,8 +819,29 @@ public static class OpenApiExtensions
                 }
             },
             [nameof(PermissionDetailDto)] = PermissionSchema(includeTimestamps: true),
-            [nameof(CreatePermissionRequest)] = ObjectSchema(("code", "string"), ("name", "string"), ("module", "string")),
-            [nameof(UpdatePermissionRequest)] = ObjectSchema(("name", "string"), ("module", "string")),
+            [nameof(CreatePermissionRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("code", "name", "module"),
+                ["properties"] = new JsonObject
+                {
+                    ["code"] = StringSchema(),
+                    ["name"] = StringSchema(),
+                    ["module"] = StringSchema(),
+                    ["description"] = NullableStringSchema()
+                }
+            },
+            [nameof(UpdatePermissionRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("name", "module"),
+                ["properties"] = new JsonObject
+                {
+                    ["name"] = StringSchema(),
+                    ["module"] = StringSchema(),
+                    ["description"] = NullableStringSchema()
+                }
+            },
             [nameof(PermissionMutationResponse)] = ObjectSchema(("id", "integer"))
             ,
             ["DepartmentSummaryList"] = ArrayOf(SchemaRef(nameof(DepartmentSummaryDto))),
@@ -773,8 +849,31 @@ public static class OpenApiExtensions
             [nameof(DepartmentSummaryDto)] = DepartmentSchema(includeChildren: false, includeTimestamps: false),
             [nameof(DepartmentTreeDto)] = DepartmentSchema(includeChildren: true, includeTimestamps: false),
             [nameof(DepartmentDetailDto)] = DepartmentSchema(includeChildren: false, includeTimestamps: true),
-            [nameof(CreateDepartmentRequest)] = ObjectSchema(("code", "string"), ("name", "string"), ("status", "string")),
-            [nameof(UpdateDepartmentRequest)] = ObjectSchema(("name", "string"), ("status", "string")),
+            [nameof(CreateDepartmentRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("code", "name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["parentId"] = IntegerSchema(nullable: true),
+                    ["code"] = StringSchema(),
+                    ["name"] = StringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
+            [nameof(UpdateDepartmentRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["parentId"] = IntegerSchema(nullable: true),
+                    ["name"] = StringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
             [nameof(DepartmentMutationResponse)] = ObjectSchema(("id", "integer"))
             ,
             ["PagedPostSummary"] = new JsonObject
@@ -791,8 +890,29 @@ public static class OpenApiExtensions
             },
             [nameof(PostSummaryDto)] = PostSchema(includeTimestamps: false),
             [nameof(PostDetailDto)] = PostSchema(includeTimestamps: true),
-            [nameof(CreatePostRequest)] = ObjectSchema(("code", "string"), ("name", "string"), ("status", "string")),
-            [nameof(UpdatePostRequest)] = ObjectSchema(("name", "string"), ("status", "string")),
+            [nameof(CreatePostRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("code", "name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["code"] = StringSchema(),
+                    ["name"] = StringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
+            [nameof(UpdatePostRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["name"] = StringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
             [nameof(PostMutationResponse)] = ObjectSchema(("id", "integer"))
             ,
             ["PagedDictTypeSummary"] = new JsonObject
@@ -809,8 +929,31 @@ public static class OpenApiExtensions
             },
             [nameof(DictTypeSummaryDto)] = DictTypeSchema(includeTimestamps: false),
             [nameof(DictTypeDetailDto)] = DictTypeSchema(includeTimestamps: true),
-            [nameof(CreateDictTypeRequest)] = ObjectSchema(("code", "string"), ("name", "string"), ("status", "string")),
-            [nameof(UpdateDictTypeRequest)] = ObjectSchema(("name", "string"), ("status", "string")),
+            [nameof(CreateDictTypeRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("code", "name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["code"] = StringSchema(),
+                    ["name"] = StringSchema(),
+                    ["description"] = NullableStringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
+            [nameof(UpdateDictTypeRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("name", "sortOrder", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["name"] = StringSchema(),
+                    ["description"] = NullableStringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["status"] = StringSchema()
+                }
+            },
             ["DictValueList"] = ArrayOf(SchemaRef(nameof(DictValueDto))),
             [nameof(DictValueDto)] = new JsonObject
             {
@@ -829,8 +972,34 @@ public static class OpenApiExtensions
                     ["status"] = StringSchema()
                 }
             },
-            [nameof(CreateDictValueRequest)] = ObjectSchema(("label", "string"), ("value", "string"), ("status", "string")),
-            [nameof(UpdateDictValueRequest)] = ObjectSchema(("label", "string"), ("value", "string"), ("status", "string")),
+            [nameof(CreateDictValueRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("label", "value", "sortOrder", "isDefault", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["label"] = StringSchema(),
+                    ["value"] = StringSchema(),
+                    ["description"] = NullableStringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["isDefault"] = BooleanSchema(),
+                    ["status"] = StringSchema()
+                }
+            },
+            [nameof(UpdateDictValueRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("label", "value", "sortOrder", "isDefault", "status"),
+                ["properties"] = new JsonObject
+                {
+                    ["label"] = StringSchema(),
+                    ["value"] = StringSchema(),
+                    ["description"] = NullableStringSchema(),
+                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["isDefault"] = BooleanSchema(),
+                    ["status"] = StringSchema()
+                }
+            },
             [nameof(DictMutationResponse)] = ObjectSchema(("id", "integer"))
             ,
             ["PagedSettingSummary"] = new JsonObject

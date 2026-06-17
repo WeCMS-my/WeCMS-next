@@ -102,6 +102,92 @@ public sealed class LockedRoleIntegrationTests
         }
     }
 
+    [DbFact]
+    public async Task UserService_ConcurrentAssignRolesCannotRemoveLastEnabledLockedRoleHolder()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_locked_holder_race_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            var connectionString = WithDatabase(baseConnectionString, databaseName);
+            using var setupDb = new SqlSugarClientFactory(connectionString).Create();
+            await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var adminId = Scalar<long>(setupDb, "SELECT id FROM sys_user WHERE username = 'admin'");
+            var roleId = Scalar<long>(setupDb, "SELECT id FROM sys_role WHERE code = 'super_admin'");
+            var backup = await new UserService(
+                new UserRepository(setupDb),
+                new PasswordHasher(),
+                new SqlSugarUnitOfWork(setupDb)).CreateAsync(
+                    new CreateUserRequest("backup_admin", "Backup Admin", "Backup@123", null, null, null, [roleId], []),
+                    UserContext(adminId),
+                    CancellationToken.None);
+
+            using var secondDb = new SqlSugarClientFactory(connectionString).Create();
+            using var thirdDb = new SqlSugarClientFactory(connectionString).Create();
+            var firstService = new UserService(new UserRepository(secondDb), new PasswordHasher(), new SqlSugarUnitOfWork(secondDb));
+            var secondService = new UserService(new UserRepository(thirdDb), new PasswordHasher(), new SqlSugarUnitOfWork(thirdDb));
+
+            using var startSignal = new SemaphoreSlim(0, 2);
+            using var executeSignal = new SemaphoreSlim(0, 2);
+
+            Task<AssignRolesOutcome> TryRemoveLockedRoleAsync(UserService service, long actorId, long targetId)
+            {
+                return Task.Run(async () =>
+                {
+                    startSignal.Release();
+                    await executeSignal.WaitAsync();
+                    try
+                    {
+                        await service.AssignRolesAsync(targetId, new AssignUserRolesRequest([]), UserContext(actorId), CancellationToken.None);
+                        return new AssignRolesOutcome(true, ApiCodes.Success);
+                    }
+                    catch (DomainException ex)
+                    {
+                        return new AssignRolesOutcome(false, ex.Code);
+                    }
+                    catch
+                    {
+                        return new AssignRolesOutcome(false, ApiCodes.BusinessError);
+                    }
+                });
+            }
+
+            var first = TryRemoveLockedRoleAsync(firstService, adminId, adminId);
+            var second = TryRemoveLockedRoleAsync(secondService, backup.Id, backup.Id);
+
+            await startSignal.WaitAsync();
+            await startSignal.WaitAsync();
+            executeSignal.Release(2);
+
+            var outcomes = await Task.WhenAll(first, second);
+
+            Assert.Equal(1, outcomes.Count(outcome => outcome.Success));
+            Assert.Equal(1, outcomes.Count(outcome => outcome.Code == ApiCodes.BusinessError));
+            Assert.Equal(1, Scalar<int>(
+                setupDb,
+                """
+                SELECT COUNT(1)
+                FROM sys_user_role ur
+                INNER JOIN sys_user u ON u.id = ur.user_id
+                WHERE ur.role_id = @roleId
+                  AND u.status = 'enabled'
+                  AND u.deleted_at IS NULL
+                """,
+                new SugarParameter("@roleId", roleId)));
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
     private static RoleRequestContext RoleContext()
     {
         return new RoleRequestContext(1, "admin", "127.0.0.1", "integration", "trace", DateTimeOffset.UtcNow);
@@ -111,6 +197,8 @@ public sealed class LockedRoleIntegrationTests
     {
         return new UserRequestContext(actorUserId, "admin", "127.0.0.1", "integration", "trace", DateTimeOffset.UtcNow);
     }
+
+    private sealed record AssignRolesOutcome(bool Success, int Code);
 
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {

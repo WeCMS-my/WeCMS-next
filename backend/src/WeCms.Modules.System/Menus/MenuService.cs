@@ -105,16 +105,26 @@ public sealed class MenuService : IMenuService
 
     public async Task EnableAsync(long id, MenuRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var menu = await GetAsync(id, cancellationToken);
+        EnsureNotBuiltin(menu.IsBuiltin, "enable");
         await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Menu enabled.", cancellationToken);
     }
 
     public async Task DisableAsync(long id, MenuRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var menu = await GetAsync(id, cancellationToken);
+        EnsureNotBuiltin(menu.IsBuiltin, "disable");
         await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Menu disabled.", cancellationToken);
+    }
+
+    private static void EnsureNotBuiltin(bool isBuiltin, string action)
+    {
+        if (isBuiltin)
+        {
+            throw new DomainException(ApiCodes.BusinessError, $"System built-in menus cannot be {action}d.");
+        }
     }
 
     private async Task EnsureParentAsync(long? currentMenuId, long? parentId, CancellationToken cancellationToken)
