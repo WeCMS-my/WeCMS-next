@@ -63,8 +63,6 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<FileDetailDto>))]
 [JsonSerializable(typeof(ApiResult<FileMutationResponse>))]
 [JsonSerializable(typeof(LoginRequest))]
-[JsonSerializable(typeof(RefreshTokenRequest))]
-[JsonSerializable(typeof(LogoutRequest))]
 [JsonSerializable(typeof(LoginResponse))]
 [JsonSerializable(typeof(AuthMeResponse))]
 [JsonSerializable(typeof(SecurePingResponse))]

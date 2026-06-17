@@ -34,12 +34,13 @@ public sealed class OpenApiExportTests
             Assert.True(paths.TryGetProperty("/api/v1/auth/login", out var loginPath));
             Assert.True(loginPath.GetProperty("post").TryGetProperty("requestBody", out _));
             Assert.True(paths.TryGetProperty("/api/v1/auth/refresh", out var refreshPath));
-            Assert.True(refreshPath.GetProperty("post").TryGetProperty("requestBody", out _));
+            Assert.False(refreshPath.GetProperty("post").TryGetProperty("requestBody", out _));
             Assert.True(paths.TryGetProperty("/api/v1/auth/logout", out var logoutPath));
-            Assert.True(logoutPath.GetProperty("post").TryGetProperty("requestBody", out _));
+            Assert.False(logoutPath.GetProperty("post").TryGetProperty("requestBody", out _));
             Assert.False(logoutPath.GetProperty("post").TryGetProperty("security", out _));
             Assert.True(schemas.TryGetProperty("ApiResult", out _));
-            Assert.True(schemas.TryGetProperty("LoginResponse", out _));
+            Assert.True(schemas.TryGetProperty("LoginResponse", out var loginResponse));
+            Assert.False(loginResponse.GetProperty("properties").TryGetProperty("refreshToken", out _));
             AssertRoleSchemasExposeLockedFlag(schemas);
 
             Assert.True(paths.TryGetProperty("/health/live", out _));
@@ -653,8 +654,8 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/db-check", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/system/secure-ping", "get", SystemPermissions.SecurePing, true, null),
         new RegisteredEndpoint("/api/v1/auth/login", "post", null, false, nameof(LoginRequest)),
-        new RegisteredEndpoint("/api/v1/auth/refresh", "post", null, false, nameof(RefreshTokenRequest)),
-        new RegisteredEndpoint("/api/v1/auth/logout", "post", null, false, nameof(LogoutRequest)),
+        new RegisteredEndpoint("/api/v1/auth/refresh", "post", null, false, null),
+        new RegisteredEndpoint("/api/v1/auth/logout", "post", null, false, null),
         new RegisteredEndpoint("/api/v1/auth/me", "get", null, true, null),
         new RegisteredEndpoint("/api/v1/system/users", "get", UserPermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}", "get", UserPermissions.Detail, true, null),

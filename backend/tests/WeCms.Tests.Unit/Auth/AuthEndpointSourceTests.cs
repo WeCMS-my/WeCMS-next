@@ -10,9 +10,10 @@ public sealed class AuthEndpointSourceTests
         Assert.Contains("group.MapPost(\"/login\"", source, StringComparison.Ordinal);
         Assert.Contains(".AllowAnonymous();", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/refresh\"", source, StringComparison.Ordinal);
-        Assert.Contains("authService.RefreshAsync(request, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("ReadRefreshTokenCookie(context)", source, StringComparison.Ordinal);
+        Assert.Contains("authService.RefreshAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/logout\"", source, StringComparison.Ordinal);
-        Assert.Contains("authService.LogoutAsync(request, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("authService.LogoutAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
 
         var logoutRouteIndex = source.IndexOf("group.MapPost(\"/logout\"", StringComparison.Ordinal);
         Assert.True(logoutRouteIndex >= 0);
@@ -25,6 +26,20 @@ public sealed class AuthEndpointSourceTests
         Assert.True(meAuthorizationIndex > meRouteIndex);
 
         Assert.DoesNotContain(".RequireAuthorization();", source[logoutRouteIndex..meRouteIndex], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AuthEndpoints_UseSecureHttpOnlyRefreshCookie()
+    {
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"));
+
+        Assert.Contains("RefreshCookieName = \"__Host-wecms_refresh\"", source, StringComparison.Ordinal);
+        Assert.Contains("HttpOnly = true", source, StringComparison.Ordinal);
+        Assert.Contains("Secure = true", source, StringComparison.Ordinal);
+        Assert.Contains("SameSite = SameSiteMode.Strict", source, StringComparison.Ordinal);
+        Assert.Contains("Path = \"/\"", source, StringComparison.Ordinal);
+        Assert.Contains("context.Response.Cookies.Append(RefreshCookieName", source, StringComparison.Ordinal);
+        Assert.Contains("context.Response.Cookies.Delete(RefreshCookieName", source, StringComparison.Ordinal);
     }
 
     private static string RepoPath(params string[] segments)

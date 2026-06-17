@@ -102,14 +102,14 @@ public sealed class AuthServiceTests
             RequestContext(),
             CancellationToken.None);
 
-        Assert.NotEmpty(response.AccessToken);
+        Assert.NotEmpty(response.Response.AccessToken);
         Assert.NotEmpty(response.RefreshToken);
         Assert.NotEqual(response.RefreshToken, repository.StoredRefreshTokenHash);
         Assert.Equal(64, repository.StoredRefreshTokenHash.Length);
         Assert.Equal(1, repository.SuccessfulLoginCount);
-        Assert.Equal(["super_admin"], response.Roles);
-        Assert.Equal(["sys:system:secure-ping"], response.Permissions);
-        Assert.NotEmpty(response.Menus);
+        Assert.Equal(["super_admin"], response.Response.Roles);
+        Assert.Equal(["sys:system:secure-ping"], response.Response.Permissions);
+        Assert.NotEmpty(response.Response.Menus);
         Assert.Equal(1, repository.AuditLogCount);
         Assert.Equal("login", repository.LastAuditAction);
         Assert.Equal("success", repository.LastAuditResult);
@@ -151,9 +151,9 @@ public sealed class AuthServiceTests
         };
         var service = CreateService(repository);
 
-        var response = await service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None);
+        var response = await service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None);
 
-        Assert.NotEmpty(response.AccessToken);
+        Assert.NotEmpty(response.Response.AccessToken);
         Assert.NotEmpty(response.RefreshToken);
         Assert.Equal(10, repository.RotatedOldRefreshTokenId);
         Assert.NotEqual(response.RefreshToken, repository.RotatedNewRefreshTokenHash);
@@ -171,7 +171,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(new string('a', 129)), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(new string('a', 129), RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
         Assert.Equal(0, repository.FindRefreshTokenCalls);
@@ -200,7 +200,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.BusinessError, exception.Code);
         Assert.Equal("Password change required.", exception.Message);
@@ -222,7 +222,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
@@ -256,7 +256,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
@@ -290,7 +290,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository, new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 2, TimeSpan.Zero)));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
@@ -324,7 +324,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
@@ -419,7 +419,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
@@ -440,7 +440,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("family-1", repository.RevokedFamilyId);
@@ -460,7 +460,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("auth.refresh_expired", repository.LastSecurityEventType);
@@ -479,7 +479,7 @@ public sealed class AuthServiceTests
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.RefreshAsync(new RefreshTokenRequest(issued.Token), RequestContext(), CancellationToken.None));
+            () => service.RefreshAsync(issued.Token, RequestContext(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal("auth.refresh_user_disabled", repository.LastSecurityEventType);
@@ -508,7 +508,7 @@ public sealed class AuthServiceTests
         };
         var service = CreateService(repository);
 
-        await service.LogoutAsync(new LogoutRequest(issued.Token), RequestContext(), CancellationToken.None);
+        await service.LogoutAsync(issued.Token, RequestContext(), CancellationToken.None);
 
         Assert.Equal("family-logout", repository.RevokedFamilyId);
         Assert.Equal("auth.logout", repository.LastSecurityEventType);
@@ -524,7 +524,7 @@ public sealed class AuthServiceTests
         var repository = new FakeAuthRepository();
         var service = CreateService(repository);
 
-        await service.LogoutAsync(new LogoutRequest("missing-refresh-token"), RequestContext(), CancellationToken.None);
+        await service.LogoutAsync("missing-refresh-token", RequestContext(), CancellationToken.None);
 
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
         Assert.Equal("auth.logout_unknown_token", repository.LastSecurityEventType);
@@ -555,7 +555,7 @@ public sealed class AuthServiceTests
         };
         var service = CreateService(repository);
 
-        await service.LogoutAsync(new LogoutRequest(issued.Token), RequestContext(), CancellationToken.None);
+        await service.LogoutAsync(issued.Token, RequestContext(), CancellationToken.None);
 
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
         Assert.Equal("auth.logout_replay_attempt", repository.LastSecurityEventType);
@@ -592,12 +592,11 @@ public sealed class AuthServiceTests
         return new AuthRequestContext("192.168.101.199", "unit-test");
     }
 
-    private static async Task<LoginResponse?> TryRefreshAsync(AuthService service, string refreshToken)
+    private static async Task<AuthSessionResult?> TryRefreshAsync(AuthService service, string refreshToken)
     {
         try
         {
-            return await service.RefreshAsync(
-                new RefreshTokenRequest(refreshToken),
+            return await service.RefreshAsync(refreshToken,
                 RequestContext(),
                 CancellationToken.None);
         }

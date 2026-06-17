@@ -28,9 +28,9 @@ Implement the M2-FE authentication loop:
 OpenAPI source: `artifacts/openapi/wecms-api-v1.json`.
 
 - `LoginRequest`: `username`, `password`
-- `LoginResponse`: `accessToken`, `refreshToken`, `expiresAt`, `user`, `roles`, `permissions`, `menus`
-- `RefreshTokenRequest`: `refreshToken`
-- `LogoutRequest`: `refreshToken`
+- `LoginResponse`: `accessToken`, `expiresAt`, `user`, `roles`, `permissions`, `menus`
+- `POST /api/v1/auth/refresh`: no JSON request body; refresh token is sent by `HttpOnly; Secure; SameSite=Strict` cookie.
+- `POST /api/v1/auth/logout`: no JSON request body; refresh token is sent by `HttpOnly; Secure; SameSite=Strict` cookie.
 - `AuthMeResponse`: `user`, `roles`, `permissions`, `menus`
 
 `AuthUserDto` currently exposes `id`, `username`, `displayName`, and `isSuperAdmin`.
@@ -39,12 +39,12 @@ OpenAPI source: `artifacts/openapi/wecms-api-v1.json`.
 
 - Login form rejects blank username/password before API submission.
 - Login submit shows loading state.
-- Login success saves access token, refresh token, expiration, user, roles, permissions, and menus.
+- Login success stores access token and expiration in memory only; the backend sets the refresh token cookie.
 - Login success redirects to `redirect` query value or `/dashboard`.
 - Login failure displays backend `msg` or a generic failure message.
-- App startup restores tokens from storage and calls `/auth/me` for authenticated state.
+- App startup calls `/auth/refresh` when no in-memory access token exists, then calls protected APIs with the restored access token.
 - Protected routes redirect unauthenticated users to `/login?redirect=<path>`.
-- Logout calls backend with current refresh token, clears local state even if backend rejects an expired session, and redirects to `/login`.
+- Logout calls backend with credentials, clears local state even if backend rejects an expired session, and redirects to `/login`.
 - Request client retries a single 401 after one shared refresh promise.
 - Multiple concurrent 401 responses must wait for the same refresh promise.
 - Refresh failure clears session and redirects to `/login`.
@@ -69,5 +69,5 @@ Backend gates are not required unless backend files change.
 - No AI runtime or key.
 - No sensitive token/password logging.
 - Password field must not be persisted.
-- Token storage must store only access token, refresh token, and expiration.
+- Token storage must not persist access or refresh tokens in `localStorage` or `sessionStorage`.
 - Button/route permission semantics must remain backend-authority only.

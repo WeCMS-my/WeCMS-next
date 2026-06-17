@@ -51,7 +51,7 @@ public sealed class AuthService : IAuthService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<LoginResponse> LoginAsync(
+    public async Task<AuthSessionResult> LoginAsync(
         LoginRequest request,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken)
@@ -130,25 +130,27 @@ public sealed class AuthService : IAuthService
         var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
         var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
 
-        return new LoginResponse(
-            accessToken.Token,
+        return new AuthSessionResult(
+            new LoginResponse(
+                accessToken.Token,
+                accessToken.ExpiresAt,
+                ToDto(user),
+                roles,
+                permissions,
+                menus),
             refreshToken.Token,
-            accessToken.ExpiresAt,
-            ToDto(user),
-            roles,
-            permissions,
-            menus);
+            refreshToken.ExpiresAt,
+            refreshToken.ExpiresAt - now);
     }
 
-    public async Task<LoginResponse> RefreshAsync(
-        RefreshTokenRequest request,
+    public async Task<AuthSessionResult> RefreshAsync(
+        string refreshToken,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(requestContext);
 
-        var refreshTokenValue = NormalizeRequired(request.RefreshToken, nameof(request.RefreshToken), MaxRefreshTokenLength);
+        var refreshTokenValue = NormalizeRequired(refreshToken, nameof(refreshToken), MaxRefreshTokenLength);
         var refreshTokenHash = _refreshTokenService.Hash(refreshTokenValue);
         var existingToken = await _repository.FindRefreshTokenByHashAsync(refreshTokenHash, cancellationToken);
         if (existingToken is null)
@@ -288,25 +290,27 @@ public sealed class AuthService : IAuthService
         var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
         var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
 
-        return new LoginResponse(
-            accessToken.Token,
+        return new AuthSessionResult(
+            new LoginResponse(
+                accessToken.Token,
+                accessToken.ExpiresAt,
+                ToDto(user),
+                roles,
+                permissions,
+                menus),
             newRefreshToken.Token,
-            accessToken.ExpiresAt,
-            ToDto(user),
-            roles,
-            permissions,
-            menus);
+            newRefreshToken.ExpiresAt,
+            newRefreshToken.ExpiresAt - now);
     }
 
     public async Task LogoutAsync(
-        LogoutRequest request,
+        string refreshToken,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(requestContext);
 
-        var refreshTokenValue = NormalizeRequired(request.RefreshToken, nameof(request.RefreshToken), MaxRefreshTokenLength);
+        var refreshTokenValue = NormalizeRequired(refreshToken, nameof(refreshToken), MaxRefreshTokenLength);
         var refreshTokenHash = _refreshTokenService.Hash(refreshTokenValue);
         var existingToken = await _repository.FindRefreshTokenByHashAsync(refreshTokenHash, cancellationToken);
         var now = _clock.UtcNow;

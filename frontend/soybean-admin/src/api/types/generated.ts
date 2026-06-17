@@ -18,17 +18,8 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface LogoutRequest {
-  refreshToken: string;
-}
-
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
   expiresAt: string;
   user: AuthUserDto;
   roles: string[];
@@ -716,7 +707,6 @@ export interface ApiOperations {
   "/api/v1/auth/logout": {
     post: {
       response: ApiResult<Object>;
-      requestBody: LogoutRequest;
     };
   };
   "/api/v1/auth/me": {
@@ -727,7 +717,6 @@ export interface ApiOperations {
   "/api/v1/auth/refresh": {
     post: {
       response: ApiResult<LoginResponse>;
-      requestBody: RefreshTokenRequest;
     };
   };
   "/api/v1/system/audit-logs": {

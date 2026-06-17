@@ -138,14 +138,14 @@ public static class OpenApiExtensions
             "/api/v1/auth/refresh",
             false,
             null,
-            nameof(RefreshTokenRequest),
+            null,
             nameof(LoginResponse)),
         new OpenApiEndpointDescriptor(
             "post",
             "/api/v1/auth/logout",
             false,
             null,
-            nameof(LogoutRequest),
+            null,
             "Object"),
         new OpenApiEndpointDescriptor(
             "get",
@@ -494,16 +494,13 @@ public static class OpenApiExtensions
                 ["additionalProperties"] = true
             },
             ["LoginRequest"] = ObjectSchema(("username", "string"), ("password", "string")),
-            ["RefreshTokenRequest"] = ObjectSchema(("refreshToken", "string")),
-            ["LogoutRequest"] = ObjectSchema(("refreshToken", "string")),
             ["LoginResponse"] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("accessToken", "refreshToken", "expiresAt", "user", "roles", "permissions", "menus"),
+                ["required"] = Required("accessToken", "expiresAt", "user", "roles", "permissions", "menus"),
                 ["properties"] = new JsonObject
                 {
                     ["accessToken"] = StringSchema(),
-                    ["refreshToken"] = StringSchema(),
                     ["expiresAt"] = new JsonObject { ["type"] = "string", ["format"] = "date-time" },
                     ["user"] = SchemaRef("AuthUserDto"),
                     ["roles"] = ArrayOf(StringSchema()),
