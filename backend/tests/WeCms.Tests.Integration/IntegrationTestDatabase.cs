@@ -74,6 +74,16 @@ internal static class IntegrationTestDatabase
     {
         var tables = db.Ado.GetDataTable(
             "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME");
+        var foreignKeys = db.Ado.GetDataTable(
+            """
+            SELECT
+                TABLE_NAME AS table_name,
+                REFERENCED_TABLE_NAME AS referenced_table_name
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+                AND REFERENCED_TABLE_NAME IS NOT NULL
+                AND TABLE_NAME <> REFERENCED_TABLE_NAME
+            """);
         var selfRefFkColumns = db.Ado.GetDataTable(
             """
             SELECT
@@ -93,6 +103,16 @@ internal static class IntegrationTestDatabase
         {
             return;
         }
+
+        var tableNames = tables
+            .Rows
+            .Cast<DataRow>()
+            .Select(row => row["TABLE_NAME"]?.ToString())
+            .Where(tableName => !string.IsNullOrWhiteSpace(tableName))
+            .Select(tableName => tableName!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var deleteOrder = GetChildFirstDeleteOrder(tableNames, foreignKeys);
 
         await db.Ado.ExecuteCommandAsync("SET SESSION FOREIGN_KEY_CHECKS = 0");
 
@@ -124,21 +144,74 @@ internal static class IntegrationTestDatabase
 
         try
         {
-            foreach (DataRow row in tables.Rows)
+            foreach (var tableName in deleteOrder)
             {
-                var tableName = row["TABLE_NAME"]?.ToString();
-                if (string.IsNullOrWhiteSpace(tableName))
-                {
-                    continue;
-                }
-
-                await db.Ado.ExecuteCommandAsync($"TRUNCATE TABLE `{tableName}`");
+                var quotedTableName = QuoteIdentifier(tableName);
+                await db.Ado.ExecuteCommandAsync($"DROP TABLE IF EXISTS {quotedTableName}");
             }
         }
         finally
         {
             await db.Ado.ExecuteCommandAsync("SET FOREIGN_KEY_CHECKS = 1");
         }
+    }
+
+    private static IReadOnlyList<string> GetChildFirstDeleteOrder(IReadOnlyCollection<string> tableNames, DataTable foreignKeys)
+    {
+        var childrenByParent = foreignKeys
+            .Rows
+            .Cast<DataRow>()
+            .Select(row => new
+            {
+                Child = row["table_name"]?.ToString(),
+                Parent = row["referenced_table_name"]?.ToString()
+            })
+            .Where(row =>
+                !string.IsNullOrWhiteSpace(row.Child) &&
+                !string.IsNullOrWhiteSpace(row.Parent) &&
+                tableNames.Contains(row.Child) &&
+                tableNames.Contains(row.Parent))
+            .GroupBy(row => row.Parent!, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(row => row.Child!).Distinct(StringComparer.Ordinal).ToArray(),
+                StringComparer.Ordinal);
+
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var visiting = new HashSet<string>(StringComparer.Ordinal);
+        var order = new List<string>();
+
+        foreach (var tableName in tableNames.Order(StringComparer.Ordinal))
+        {
+            Visit(tableName);
+        }
+
+        return order;
+
+        void Visit(string tableName)
+        {
+            if (visited.Contains(tableName) || !visiting.Add(tableName))
+            {
+                return;
+            }
+
+            if (childrenByParent.TryGetValue(tableName, out var children))
+            {
+                foreach (var child in children.Order(StringComparer.Ordinal))
+                {
+                    Visit(child);
+                }
+            }
+
+            visiting.Remove(tableName);
+            visited.Add(tableName);
+            order.Add(tableName);
+        }
+    }
+
+    private static string QuoteIdentifier(string identifier)
+    {
+        return $"`{identifier.Replace("`", "``", StringComparison.Ordinal)}`";
     }
 
     private static string? ResolveConnectionString()

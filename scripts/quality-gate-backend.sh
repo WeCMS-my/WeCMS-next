@@ -5,7 +5,28 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 nuget_audit_mode="${WECMS_NUGET_AUDIT_MODE:-strict}"
 nuget_http_cache_path="${NUGET_HTTP_CACHE_PATH:-}"
 
-if [[ -z "${WECMS_TEST_MYSQL_CONNECTION_STRING:-}" ]]; then
+mysql_connection_string="${WECMS_TEST_MYSQL_CONNECTION_STRING:-}"
+if [[ -z "$mysql_connection_string" ]]; then
+  mysql_connection_string="$(python3 - "$repo_root/backend/src/WeCms.Api/appsettings.Development.json" "$repo_root/backend/src/WeCms.Api/appsettings.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+for path_text in sys.argv[1:]:
+    path = Path(path_text)
+    if not path.is_file():
+        continue
+    data = json.loads(path.read_text(encoding="utf-8"))
+    connection_strings = data.get("ConnectionStrings") or {}
+    value = connection_strings.get("Test") or connection_strings.get("Default")
+    if isinstance(value, str) and value.strip():
+        print(value)
+        break
+PY
+)"
+fi
+
+if [[ -z "$mysql_connection_string" ]]; then
   printf 'quality-gate-backend: WECMS_TEST_MYSQL_CONNECTION_STRING is required for MySQL integration tests.\n' >&2
   exit 1
 fi
@@ -35,7 +56,6 @@ if [[ "$nuget_audit_mode" == "fallback" ]]; then
   printf 'quality-gate-backend: WARNING local-only fallback dotnet mode enabled with -p:NuGetAudit=false and NUGET_HTTP_CACHE_PATH=%s.\n' "$NUGET_HTTP_CACHE_PATH"
 fi
 
-mysql_connection_string="$WECMS_TEST_MYSQL_CONNECTION_STRING"
 unset WECMS_TEST_MYSQL_CONNECTION_STRING
 
 cd "$repo_root"

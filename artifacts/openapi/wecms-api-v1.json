@@ -3918,7 +3918,7 @@
           "menus": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AuthMenuDto"
+              "$ref": "#/components/schemas/MenuTreeDto"
             }
           }
         }
@@ -3950,7 +3950,7 @@
           "menus": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AuthMenuDto"
+              "$ref": "#/components/schemas/MenuTreeDto"
             }
           }
         }
@@ -3976,41 +3976,6 @@
           },
           "isSuperAdmin": {
             "type": "boolean"
-          }
-        }
-      },
-      "AuthMenuDto": {
-        "type": "object",
-        "required": [
-          "id",
-          "type",
-          "name",
-          "path",
-          "title"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "parentId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "type": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
           }
         }
       },

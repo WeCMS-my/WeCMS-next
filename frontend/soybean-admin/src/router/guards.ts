@@ -13,7 +13,7 @@ export function installRouterGuards(router: Router): void {
     await authStore.restoreSession();
     if (authStore.isAuthenticated) {
       await menuStore.loadMenuTreeIfAllowed();
-      registerDynamicRoutes(router, menuStore.menuTree, permissionStore.permissions);
+      registerDynamicRoutes(router, menuStore.effectiveMenuTree, permissionStore.permissions);
     }
 
     if (!to.meta.requiresAuth) {

@@ -65,6 +65,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             Assert.Contains("sys:system:secure-ping", login.Permissions);
             Assert.Contains("sys:user:list", login.Permissions);
             Assert.NotEqual(login.RefreshToken, Scalar<string>(db, "SELECT token_hash FROM sys_refresh_token LIMIT 1"));
+            Assert.NotEmpty(login.Menus);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND last_login_at IS NOT NULL AND last_login_ip = '192.168.101.199'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'login' AND result = 'success'"));
 
@@ -75,7 +76,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             Assert.Equal("admin", me.User.Username);
             Assert.Equal(["super_admin"], me.Roles);
             Assert.Equal(login.Permissions, me.Permissions);
-            Assert.Empty(me.Menus);
+            Assert.NotEmpty(me.Menus);
 
             var refreshed = await service.RefreshAsync(
                 new RefreshTokenRequest(login.RefreshToken),
@@ -145,6 +146,52 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_user_disabled'"));
             Assert.Equal(2, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'refresh' AND result = 'failed' AND target_id = 'admin'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'refresh' AND result = 'blocked' AND target_id = 'admin'"));
+        }
+        finally
+        {
+        }
+    }
+
+    [DbFact]
+    public async Task AuthService_UserWithoutMenuTreePermissionStillReceivesVisibleMenusFromAuth()
+    {
+        var baseConnectionString = RequiredConnectionString();
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
+            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var now = new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero);
+            var roleId = await CreateRoleAsync(db, "limited_ops", "Limited Ops", now);
+            var userId = await CreateUserAsync(db, "limited_ops_user", "LimitedOps@123", now);
+
+            await AssignRolePermissionsAsync(
+                db,
+                roleId,
+                ["sys:user:list", "sys:role:list", "sys:file:list"],
+                now);
+            await AssignRoleMenusAsync(
+                db,
+                roleId,
+                ["sys.system", "sys.users", "sys.roles", "sys.files"],
+                now);
+            await AssignUserRoleAsync(db, userId, roleId, now);
+
+            var service = CreateService(db, TokenOptions(), now);
+
+            var login = await service.LoginAsync(
+                new LoginRequest("limited_ops_user", "LimitedOps@123"),
+                new AuthRequestContext("192.168.101.199", "integration"),
+                CancellationToken.None);
+
+            Assert.DoesNotContain("sys:menu:tree", login.Permissions);
+            Assert.NotEmpty(login.Menus);
+
+            var me = await service.MeAsync(userId, CancellationToken.None);
+            Assert.DoesNotContain("sys:menu:tree", me.Permissions);
+            Assert.NotEmpty(me.Menus);
         }
         finally
         {
@@ -807,6 +854,104 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             db,
             "SELECT id FROM sys_user WHERE username = @username",
             new SugarParameter("@username", username));
+    }
+
+    private static async Task<long> CreateRoleAsync(
+        SqlSugar.ISqlSugarClient db,
+        string code,
+        string name,
+        DateTimeOffset now)
+    {
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO sys_role (
+                code,
+                name,
+                status,
+                is_builtin,
+                is_locked,
+                created_at,
+                updated_at,
+                deleted_at
+            )
+            VALUES (
+                @code,
+                @name,
+                'enabled',
+                FALSE,
+                FALSE,
+                @now,
+                @now,
+                NULL
+            )
+            """,
+            new SugarParameter("@code", code),
+            new SugarParameter("@name", name),
+            new SugarParameter("@now", now.UtcDateTime));
+
+        return Scalar<long>(
+            db,
+            "SELECT id FROM sys_role WHERE code = @code",
+            new SugarParameter("@code", code));
+    }
+
+    private static async Task AssignRolePermissionsAsync(
+        SqlSugar.ISqlSugarClient db,
+        long roleId,
+        IReadOnlyList<string> permissionCodes,
+        DateTimeOffset now)
+    {
+        foreach (var permissionCode in permissionCodes)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO sys_role_permission (role_id, permission_id, created_at)
+                SELECT @roleId, p.id, @now
+                FROM sys_permission p
+                WHERE p.code = @permissionCode
+                """,
+                new SugarParameter("@roleId", roleId),
+                new SugarParameter("@permissionCode", permissionCode),
+                new SugarParameter("@now", now.UtcDateTime));
+        }
+    }
+
+    private static async Task AssignRoleMenusAsync(
+        SqlSugar.ISqlSugarClient db,
+        long roleId,
+        IReadOnlyList<string> menuCodes,
+        DateTimeOffset now)
+    {
+        foreach (var menuCode in menuCodes)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO sys_role_menu (role_id, menu_id, created_at)
+                SELECT @roleId, m.id, @now
+                FROM sys_menu m
+                WHERE m.name = @menuCode
+                  AND m.deleted_at IS NULL
+                """,
+                new SugarParameter("@roleId", roleId),
+                new SugarParameter("@menuCode", menuCode),
+                new SugarParameter("@now", now.UtcDateTime));
+        }
+    }
+
+    private static Task AssignUserRoleAsync(
+        SqlSugar.ISqlSugarClient db,
+        long userId,
+        long roleId,
+        DateTimeOffset now)
+    {
+        return db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO sys_user_role (user_id, role_id, created_at)
+            VALUES (@userId, @roleId, @now)
+            """,
+            new SugarParameter("@userId", userId),
+            new SugarParameter("@roleId", roleId),
+            new SugarParameter("@now", now.UtcDateTime));
     }
     private static string RequiredConnectionString()
     {

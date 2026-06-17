@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NSpace, NTag, useMessage } from "naive-ui";
+import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import {
   createPermissionApi,
@@ -12,11 +13,14 @@ import {
   updatePermissionApi
 } from "@/api/system/permissions";
 import type { PermissionDetailDto, PermissionSummaryDto } from "@/api/types/generated";
+import { apiErrorMessage } from "@/utils/api-error";
 
 const message = useMessage();
 const rows = ref<PermissionSummaryDto[]>([]);
 const loading = ref(false);
+const submitting = ref(false);
 const formVisible = ref(false);
+const formRef = ref<FormInst | null>(null);
 const form = reactive({
   id: undefined as number | undefined,
   code: "",
@@ -24,6 +28,11 @@ const form = reactive({
   module: "",
   description: ""
 });
+const formRules: FormRules = {
+  code: [{ required: true, message: "请输入权限码", trigger: ["input", "blur"] }],
+  name: [{ required: true, message: "请输入名称", trigger: ["input", "blur"] }],
+  module: [{ required: true, message: "请输入模块", trigger: ["input", "blur"] }]
+};
 
 const columns = computed(() => [
   { title: "ID", key: "id", width: 70 },
@@ -58,6 +67,8 @@ async function loadPermissions(): Promise<void> {
   loading.value = true;
   try {
     rows.value = (await getPermissionsApi()).data;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
   } finally {
     loading.value = false;
   }
@@ -81,27 +92,36 @@ async function openEdit(row: PermissionSummaryDto): Promise<void> {
 }
 
 async function submitForm(): Promise<void> {
-  if (!form.name.trim() || !form.module.trim() || (!form.id && !form.code.trim())) {
-    message.error("请填写必填字段。");
+  try {
+    await formRef.value?.validate();
+  } catch {
     return;
   }
-  if (form.id) {
-    await updatePermissionApi(form.id, {
-      name: form.name.trim(),
-      module: form.module.trim(),
-      description: form.description || null
-    });
-  } else {
-    await createPermissionApi({
-      code: form.code.trim(),
-      name: form.name.trim(),
-      module: form.module.trim(),
-      description: form.description || null
-    });
+
+  submitting.value = true;
+  try {
+    if (form.id) {
+      await updatePermissionApi(form.id, {
+        name: form.name.trim(),
+        module: form.module.trim(),
+        description: form.description || null
+      });
+    } else {
+      await createPermissionApi({
+        code: form.code.trim(),
+        name: form.name.trim(),
+        module: form.module.trim(),
+        description: form.description || null
+      });
+    }
+    message.success("权限已保存。");
+    formVisible.value = false;
+    await loadPermissions();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("权限已保存。");
-  formVisible.value = false;
-  await loadPermissions();
 }
 
 async function confirmDelete(row: PermissionSummaryDto): Promise<void> {
@@ -111,22 +131,36 @@ async function confirmDelete(row: PermissionSummaryDto): Promise<void> {
   if (!window.confirm(prompt)) {
     return;
   }
-  await deletePermissionApi(row.id);
-  message.success("权限已删除。");
-  await loadPermissions();
+  submitting.value = true;
+  try {
+    await deletePermissionApi(row.id);
+    message.success("权限已删除。");
+    await loadPermissions();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function changeStatus(row: PermissionSummaryDto): Promise<void> {
   if (!window.confirm(`确认${row.status === "enabled" ? "禁用" : "启用"}权限 ${row.name}？`)) {
     return;
   }
-  if (row.status === "enabled") {
-    await disablePermissionApi(row.id);
-  } else {
-    await enablePermissionApi(row.id);
+  submitting.value = true;
+  try {
+    if (row.status === "enabled") {
+      await disablePermissionApi(row.id);
+    } else {
+      await enablePermissionApi(row.id);
+    }
+    message.success("权限状态已更新。");
+    await loadPermissions();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("权限状态已更新。");
-  await loadPermissions();
 }
 </script>
 
@@ -138,17 +172,19 @@ async function changeStatus(row: PermissionSummaryDto): Promise<void> {
           新建权限
         </PermissionButton>
       </NSpace>
-      <NDataTable :columns="columns" :data="rows" :loading="loading" />
+      <NDataTable :columns="columns" :data="rows" :loading="loading">
+        <template #empty>暂无权限</template>
+      </NDataTable>
     </NCard>
     <NModal v-model:show="formVisible" preset="card" title="权限表单" class="max-w-lg">
-      <NForm>
-        <NFormItem v-if="!form.id" label="权限码"><NInput v-model:value="form.code" /></NFormItem>
-        <NFormItem label="名称"><NInput v-model:value="form.name" /></NFormItem>
-        <NFormItem label="模块"><NInput v-model:value="form.module" /></NFormItem>
+      <NForm ref="formRef" :model="form" :rules="formRules">
+        <NFormItem v-if="!form.id" path="code" label="权限码"><NInput v-model:value="form.code" /></NFormItem>
+        <NFormItem path="name" label="名称"><NInput v-model:value="form.name" /></NFormItem>
+        <NFormItem path="module" label="模块"><NInput v-model:value="form.module" /></NFormItem>
         <NFormItem label="描述"><NInput v-model:value="form.description" type="textarea" /></NFormItem>
         <NSpace justify="end">
-          <NButton @click="formVisible = false">取消</NButton>
-          <NButton type="primary" @click="submitForm">保存</NButton>
+          <NButton :disabled="submitting" @click="formVisible = false">取消</NButton>
+          <NButton type="primary" :loading="submitting" @click="submitForm">保存</NButton>
         </NSpace>
       </NForm>
     </NModal>

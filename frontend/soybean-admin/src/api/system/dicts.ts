@@ -11,8 +11,21 @@ import type {
   UpdateDictValueRequest
 } from "@/api/types/generated";
 
-export function getDictTypesApi(): Promise<ApiResult<PagedDictTypeSummary>> {
-  return requestJson<PagedDictTypeSummary>("/api/v1/system/dict-types?page=1&pageSize=100");
+export interface DictTypeListQuery {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+  status?: string;
+}
+
+export function getDictTypesApi(query: DictTypeListQuery = { page: 1, pageSize: 20 }): Promise<ApiResult<PagedDictTypeSummary>> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize)
+  });
+  appendParam(params, "keyword", query.keyword);
+  appendParam(params, "status", query.status);
+  return requestJson<PagedDictTypeSummary>(`/api/v1/system/dict-types?${params}`);
 }
 
 export function getDictTypeApi(id: number): Promise<ApiResult<DictTypeDetailDto>> {
@@ -45,4 +58,11 @@ export function updateDictValueApi(id: number, request: UpdateDictValueRequest):
 
 export function deleteDictValueApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/dict-values/${id}`, { method: "DELETE" });
+}
+
+function appendParam(params: URLSearchParams, key: string, value?: string): void {
+  const normalized = value?.trim();
+  if (normalized) {
+    params.set(key, normalized);
+  }
 }

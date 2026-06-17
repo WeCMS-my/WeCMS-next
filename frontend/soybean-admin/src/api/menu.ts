@@ -34,10 +34,10 @@ export function deleteMenuApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/menus/${id}`, { method: "DELETE" });
 }
 
-export function enableMenuApi(id: number): Promise<ApiResult<MenuMutationResponse>> {
-  return requestJson<MenuMutationResponse>(`/api/v1/system/menus/${id}/enable`, { method: "POST" });
+export function enableMenuApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/menus/${id}/enable`, { method: "POST" });
 }
 
-export function disableMenuApi(id: number): Promise<ApiResult<MenuMutationResponse>> {
-  return requestJson<MenuMutationResponse>(`/api/v1/system/menus/${id}/disable`, { method: "POST" });
+export function disableMenuApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/menus/${id}/disable`, { method: "POST" });
 }

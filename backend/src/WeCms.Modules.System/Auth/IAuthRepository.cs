@@ -1,3 +1,5 @@
+using WeCms.Modules.System.Menus;
+
 namespace WeCms.Modules.System.Auth;
 
 public interface IAuthRepository
@@ -11,6 +13,8 @@ public interface IAuthRepository
     Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken);
 
     Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken);
 

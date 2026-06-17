@@ -41,7 +41,7 @@ async function sendJson<TData>(path: string, options: RequestOptions): Promise<A
     headers
   });
 
-  const result = (await response.json()) as ApiResult<TData>;
+  const result = await readApiResult<TData>(response);
   if (response.status === 401 && !options.skipAuth && !options.skipRefresh) {
     await refreshSession();
     return sendJson<TData>(path, {
@@ -86,7 +86,7 @@ async function refreshAccessToken(): Promise<LoginResponse> {
     })
   });
 
-  const result = (await response.json()) as ApiResult<LoginResponse>;
+  const result = await readApiResult<LoginResponse>(response);
   if (!response.ok) {
     clearTokenSet();
     redirectToLogin();
@@ -132,9 +132,30 @@ async function sendBlob(path: string, options: RequestOptions): Promise<Blob> {
   }
 
   if (!response.ok) {
-    const result = (await response.json()) as ApiResult<unknown>;
+    const result = await readApiResult<unknown>(response);
     throw result;
   }
 
   return response.blob();
+}
+
+async function readApiResult<TData>(response: Response): Promise<ApiResult<TData>> {
+  const text = await response.text();
+  if (!text) {
+    return {
+      code: response.status,
+      msg: response.statusText || "Empty response body.",
+      data: null as TData
+    };
+  }
+
+  try {
+    return JSON.parse(text) as ApiResult<TData>;
+  } catch {
+    return {
+      code: response.status,
+      msg: text.slice(0, 300),
+      data: null as TData
+    };
+  }
 }

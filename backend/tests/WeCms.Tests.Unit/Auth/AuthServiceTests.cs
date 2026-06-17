@@ -1,4 +1,5 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Menus;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -81,13 +82,18 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_SuccessStoresRefreshTokenHashOnly()
+    public async Task LoginAsync_SuccessStoresRefreshTokenHashOnlyAndReturnsVisibleMenus()
     {
         var repository = new FakeAuthRepository
         {
             User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", true),
             Roles = ["super_admin"],
-            Permissions = ["sys:system:secure-ping"]
+            Permissions = ["sys:system:secure-ping"],
+            VisibleMenus =
+            [
+                new MenuSummaryDto(1, null, "catalog", "sys.system", "/system", "layout.base", "System Management", "route.system", "material-symbols:settings", 100, false, false, null, null, "enabled", true),
+                new MenuSummaryDto(2, 1, "menu", "sys.users", "/system/users", "system/users/index", "Users", "route.system.users", "material-symbols:group", 110, false, false, null, "sys:user:page", "enabled", true)
+            ]
         };
         var service = CreateService(repository);
 
@@ -103,20 +109,25 @@ public sealed class AuthServiceTests
         Assert.Equal(1, repository.SuccessfulLoginCount);
         Assert.Equal(["super_admin"], response.Roles);
         Assert.Equal(["sys:system:secure-ping"], response.Permissions);
-        Assert.Empty(response.Menus);
+        Assert.NotEmpty(response.Menus);
         Assert.Equal(1, repository.AuditLogCount);
         Assert.Equal("login", repository.LastAuditAction);
         Assert.Equal("success", repository.LastAuditResult);
     }
 
     [Fact]
-    public async Task MeAsync_ReturnsUserRolesPermissionsAndEmptyMenus()
+    public async Task MeAsync_ReturnsUserRolesPermissionsAndVisibleMenus()
     {
         var repository = new FakeAuthRepository
         {
             User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", true),
             Roles = ["super_admin"],
-            Permissions = ["sys:system:secure-ping"]
+            Permissions = ["sys:system:secure-ping"],
+            VisibleMenus =
+            [
+                new MenuSummaryDto(1, null, "catalog", "sys.system", "/system", "layout.base", "System Management", "route.system", "material-symbols:settings", 100, false, false, null, null, "enabled", true),
+                new MenuSummaryDto(2, 1, "menu", "sys.users", "/system/users", "system/users/index", "Users", "route.system.users", "material-symbols:group", 110, false, false, null, "sys:user:page", "enabled", true)
+            ]
         };
         var service = CreateService(repository);
 
@@ -125,7 +136,7 @@ public sealed class AuthServiceTests
         Assert.Equal("admin", response.User.Username);
         Assert.Equal(["super_admin"], response.Roles);
         Assert.Equal(["sys:system:secure-ping"], response.Permissions);
-        Assert.Empty(response.Menus);
+        Assert.NotEmpty(response.Menus);
     }
 
     [Fact]
@@ -606,6 +617,8 @@ public sealed class AuthServiceTests
 
         public IReadOnlyList<string> Permissions { get; init; } = [];
 
+        public IReadOnlyList<MenuSummaryDto> VisibleMenus { get; init; } = [];
+
         public int FindUserCalls { get; private set; }
 
         public int FindRefreshTokenCalls { get; private set; }
@@ -663,6 +676,11 @@ public sealed class AuthServiceTests
         public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(Permissions);
+        }
+
+        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(VisibleMenus);
         }
 
         public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
@@ -777,6 +795,11 @@ public sealed class AuthServiceTests
         public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<MenuSummaryDto>>([]);
         }
 
         public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)

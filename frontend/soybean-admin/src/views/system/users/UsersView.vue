@@ -13,6 +13,7 @@ import {
   NTag,
   useMessage
 } from "naive-ui";
+import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { getDepartmentTreeApi } from "@/api/system/depts";
 import { getPostsApi } from "@/api/system/posts";
@@ -30,6 +31,7 @@ import {
   updateUserApi
 } from "@/api/system/users";
 import type { DepartmentTreeDto, PostSummaryDto, RoleSummaryDto, UserDetailDto, UserSummaryDto } from "@/api/types/generated";
+import { apiErrorMessage } from "@/utils/api-error";
 
 interface UserFormState {
   id?: number;
@@ -45,6 +47,7 @@ interface UserFormState {
 
 const message = useMessage();
 const loading = ref(false);
+const submitting = ref(false);
 const rows = ref<UserSummaryDto[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -64,6 +67,12 @@ const filters = reactive({
 const form = reactive<UserFormState>(createEmptyForm());
 const assignedRoleIds = ref<number[]>([]);
 const assignedPostIds = ref<number[]>([]);
+const formRef = ref<FormInst | null>(null);
+const formRules: FormRules = {
+  username: [{ required: true, message: "请输入用户名", trigger: ["input", "blur"] }],
+  displayName: [{ required: true, message: "请输入显示名", trigger: ["input", "blur"] }],
+  password: [{ required: true, message: "请输入密码", trigger: ["input", "blur"] }]
+};
 
 const roleOptions = computed(() => roles.value.map((role) => ({
   label: role.name,
@@ -163,6 +172,8 @@ async function loadUsers(): Promise<void> {
     });
     rows.value = result.data.records;
     total.value = result.data.total;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
   } finally {
     loading.value = false;
   }
@@ -202,43 +213,58 @@ async function openEdit(row: UserSummaryDto): Promise<void> {
 }
 
 async function submitForm(): Promise<void> {
-  if (!form.displayName.trim() || (!form.id && (!form.username.trim() || !form.password.trim()))) {
-    message.error("请填写必填字段。");
+  try {
+    await formRef.value?.validate();
+  } catch {
     return;
   }
 
-  if (form.id) {
-    await updateUserApi(form.id, {
-      displayName: form.displayName.trim(),
-      email: form.email || null,
-      phone: form.phone || null,
-      deptId: form.deptId ?? null
-    });
-  } else {
-    await createUserApi({
-      username: form.username.trim(),
-      displayName: form.displayName.trim(),
-      password: form.password,
-      email: form.email || null,
-      phone: form.phone || null,
-      deptId: form.deptId ?? null,
-      roleIds: form.roleIds,
-      postIds: form.postIds
-    });
-  }
+  submitting.value = true;
+  try {
+    if (form.id) {
+      await updateUserApi(form.id, {
+        displayName: form.displayName.trim(),
+        email: form.email || null,
+        phone: form.phone || null,
+        deptId: form.deptId ?? null
+      });
+    } else {
+      await createUserApi({
+        username: form.username.trim(),
+        displayName: form.displayName.trim(),
+        password: form.password,
+        email: form.email || null,
+        phone: form.phone || null,
+        deptId: form.deptId ?? null,
+        roleIds: form.roleIds,
+        postIds: form.postIds
+      });
+    }
 
-  message.success("用户已保存。");
-  formVisible.value = false;
-  await loadUsers();
+    message.success("用户已保存。");
+    formVisible.value = false;
+    await loadUsers();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function confirmDelete(row: UserSummaryDto): Promise<void> {
   if (!window.confirm(`确认删除用户 ${row.username}？`)) {
     return;
   }
-  await deleteUserApi(row.id);
-  message.success("用户已删除。");
-  await loadUsers();
+  submitting.value = true;
+  try {
+    await deleteUserApi(row.id);
+    message.success("用户已删除。");
+    await loadUsers();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function changeStatus(row: UserSummaryDto): Promise<void> {
@@ -246,13 +272,20 @@ async function changeStatus(row: UserSummaryDto): Promise<void> {
   if (!window.confirm(`确认${enabling ? "启用" : "禁用"}用户 ${row.username}？`)) {
     return;
   }
-  if (enabling) {
-    await enableUserApi(row.id);
-  } else {
-    await disableUserApi(row.id);
+  submitting.value = true;
+  try {
+    if (enabling) {
+      await enableUserApi(row.id);
+    } else {
+      await disableUserApi(row.id);
+    }
+    message.success("用户状态已更新。");
+    await loadUsers();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("用户状态已更新。");
-  await loadUsers();
 }
 
 async function resetPassword(row: UserSummaryDto): Promise<void> {
@@ -260,8 +293,15 @@ async function resetPassword(row: UserSummaryDto): Promise<void> {
   if (!password) {
     return;
   }
-  await resetUserPasswordApi(row.id, { password });
-  message.success("密码已重置。");
+  submitting.value = true;
+  try {
+    await resetUserPasswordApi(row.id, { password });
+    message.success("密码已重置。");
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function openAssignRoles(row: UserSummaryDto): Promise<void> {
@@ -275,9 +315,16 @@ async function submitAssignRoles(): Promise<void> {
   if (!activeUser.value) {
     return;
   }
-  await assignUserRolesApi(activeUser.value.id, { roleIds: assignedRoleIds.value });
-  message.success("角色已分配。");
-  assignRolesVisible.value = false;
+  submitting.value = true;
+  try {
+    await assignUserRolesApi(activeUser.value.id, { roleIds: assignedRoleIds.value });
+    message.success("角色已分配。");
+    assignRolesVisible.value = false;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function openAssignPosts(row: UserSummaryDto): Promise<void> {
@@ -291,9 +338,16 @@ async function submitAssignPosts(): Promise<void> {
   if (!activeUser.value) {
     return;
   }
-  await assignUserPostsApi(activeUser.value.id, { postIds: assignedPostIds.value });
-  message.success("岗位已分配。");
-  assignPostsVisible.value = false;
+  submitting.value = true;
+  try {
+    await assignUserPostsApi(activeUser.value.id, { postIds: assignedPostIds.value });
+    message.success("岗位已分配。");
+    assignPostsVisible.value = false;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function createEmptyForm(): UserFormState {
@@ -362,14 +416,14 @@ function findDepartmentName(deptId?: number | null): string {
     </NCard>
 
     <NModal v-model:show="formVisible" preset="card" title="用户表单" class="max-w-xl">
-      <NForm>
-        <NFormItem v-if="!form.id" label="用户名">
+      <NForm ref="formRef" :model="form" :rules="formRules">
+        <NFormItem v-if="!form.id" path="username" label="用户名">
           <NInput v-model:value="form.username" />
         </NFormItem>
-        <NFormItem label="显示名">
+        <NFormItem path="displayName" label="显示名">
           <NInput v-model:value="form.displayName" />
         </NFormItem>
-        <NFormItem v-if="!form.id" label="密码">
+        <NFormItem v-if="!form.id" path="password" label="密码">
           <NInput v-model:value="form.password" type="password" />
         </NFormItem>
         <NFormItem label="邮箱">
@@ -388,8 +442,8 @@ function findDepartmentName(deptId?: number | null): string {
           <NSelect v-model:value="form.postIds" multiple :options="postOptions" />
         </NFormItem>
         <NSpace justify="end">
-          <NButton @click="formVisible = false">取消</NButton>
-          <NButton type="primary" @click="submitForm">保存</NButton>
+          <NButton :disabled="submitting" @click="formVisible = false">取消</NButton>
+          <NButton type="primary" :loading="submitting" @click="submitForm">保存</NButton>
         </NSpace>
       </NForm>
     </NModal>
@@ -397,16 +451,16 @@ function findDepartmentName(deptId?: number | null): string {
     <NModal v-model:show="assignRolesVisible" preset="card" title="分配角色" class="max-w-lg">
       <NSelect v-model:value="assignedRoleIds" multiple :options="roleOptions" />
       <NSpace class="mt-4" justify="end">
-        <NButton @click="assignRolesVisible = false">取消</NButton>
-        <NButton type="primary" @click="submitAssignRoles">保存</NButton>
+        <NButton :disabled="submitting" @click="assignRolesVisible = false">取消</NButton>
+        <NButton type="primary" :loading="submitting" @click="submitAssignRoles">保存</NButton>
       </NSpace>
     </NModal>
 
     <NModal v-model:show="assignPostsVisible" preset="card" title="分配岗位" class="max-w-lg">
       <NSelect v-model:value="assignedPostIds" multiple :options="postOptions" />
       <NSpace class="mt-4" justify="end">
-        <NButton @click="assignPostsVisible = false">取消</NButton>
-        <NButton type="primary" @click="submitAssignPosts">保存</NButton>
+        <NButton :disabled="submitting" @click="assignPostsVisible = false">取消</NButton>
+        <NButton type="primary" :loading="submitting" @click="submitAssignPosts">保存</NButton>
       </NSpace>
     </NModal>
   </main>

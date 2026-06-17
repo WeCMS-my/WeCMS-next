@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NSelect, NSpace, NTag, useMessage } from "naive-ui";
+import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { getMenuTreeApi } from "@/api/menu";
 import { getPermissionTreeApi } from "@/api/system/permissions";
@@ -16,19 +17,29 @@ import {
   updateRoleApi
 } from "@/api/system/roles";
 import type { MenuTreeDto, PermissionTreeDto, RoleDetailDto, RoleSummaryDto } from "@/api/types/generated";
+import { apiErrorMessage } from "@/utils/api-error";
 
 const message = useMessage();
 const rows = ref<RoleSummaryDto[]>([]);
 const loading = ref(false);
+const submitting = ref(false);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
 const formVisible = ref(false);
 const permissionVisible = ref(false);
 const menuVisible = ref(false);
+const formRef = ref<FormInst | null>(null);
 const activeRole = ref<RoleDetailDto | null>(null);
 const permissionTree = ref<PermissionTreeDto[]>([]);
 const menuTree = ref<MenuTreeDto[]>([]);
 const assignedPermissionIds = ref<number[]>([]);
 const assignedMenuIds = ref<number[]>([]);
 const form = reactive({ id: undefined as number | undefined, code: "", name: "" });
+const formRules: FormRules = {
+  code: [{ required: true, message: "请输入角色编码", trigger: ["input", "blur"] }],
+  name: [{ required: true, message: "请输入角色名称", trigger: ["input", "blur"] }]
+};
 const permissionOptions = computed(() => permissionTree.value.flatMap((group) => group.permissions.map((item) => ({
   label: `${group.module} / ${item.name}`,
   value: item.id
@@ -69,7 +80,11 @@ onMounted(async () => {
 async function loadRoles(): Promise<void> {
   loading.value = true;
   try {
-    rows.value = (await getRolesApi()).data.records;
+    const result = await getRolesApi({ page: page.value, pageSize: pageSize.value });
+    rows.value = result.data.records;
+    total.value = result.data.total;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
   } finally {
     loading.value = false;
   }
@@ -93,40 +108,63 @@ async function openEdit(row: RoleSummaryDto): Promise<void> {
 }
 
 async function submitForm(): Promise<void> {
-  if (!form.name.trim() || (!form.id && !form.code.trim())) {
-    message.error("请填写必填字段。");
+  try {
+    await formRef.value?.validate();
+  } catch {
     return;
   }
-  if (form.id) {
-    await updateRoleApi(form.id, { name: form.name.trim() });
-  } else {
-    await createRoleApi({ code: form.code.trim(), name: form.name.trim(), permissionIds: [], menuIds: [] });
+
+  submitting.value = true;
+  try {
+    if (form.id) {
+      await updateRoleApi(form.id, { name: form.name.trim() });
+    } else {
+      await createRoleApi({ code: form.code.trim(), name: form.name.trim(), permissionIds: [], menuIds: [] });
+    }
+    message.success("角色已保存。");
+    formVisible.value = false;
+    await loadRoles();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("角色已保存。");
-  formVisible.value = false;
-  await loadRoles();
 }
 
 async function confirmDelete(row: RoleSummaryDto): Promise<void> {
   if (!window.confirm(`确认删除角色 ${row.name}？`)) {
     return;
   }
-  await deleteRoleApi(row.id);
-  message.success("角色已删除。");
-  await loadRoles();
+  submitting.value = true;
+  try {
+    await deleteRoleApi(row.id);
+    message.success("角色已删除。");
+    await loadRoles();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function changeStatus(row: RoleSummaryDto): Promise<void> {
   if (!window.confirm(`确认${row.status === "enabled" ? "禁用" : "启用"}角色 ${row.name}？`)) {
     return;
   }
-  if (row.status === "enabled") {
-    await disableRoleApi(row.id);
-  } else {
-    await enableRoleApi(row.id);
+  submitting.value = true;
+  try {
+    if (row.status === "enabled") {
+      await disableRoleApi(row.id);
+    } else {
+      await enableRoleApi(row.id);
+    }
+    message.success("角色状态已更新。");
+    await loadRoles();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("角色状态已更新。");
-  await loadRoles();
 }
 
 async function openAssignPermissions(row: RoleSummaryDto): Promise<void> {
@@ -145,18 +183,32 @@ async function submitPermissions(): Promise<void> {
   if (!activeRole.value) {
     return;
   }
-  await assignRolePermissionsApi(activeRole.value.id, { permissionIds: assignedPermissionIds.value });
-  message.success("权限已保存。");
-  permissionVisible.value = false;
+  submitting.value = true;
+  try {
+    await assignRolePermissionsApi(activeRole.value.id, { permissionIds: assignedPermissionIds.value });
+    message.success("权限已保存。");
+    permissionVisible.value = false;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function submitMenus(): Promise<void> {
   if (!activeRole.value) {
     return;
   }
-  await assignRoleMenusApi(activeRole.value.id, { menuIds: assignedMenuIds.value });
-  message.success("菜单已保存。");
-  menuVisible.value = false;
+  submitting.value = true;
+  try {
+    await assignRoleMenusApi(activeRole.value.id, { menuIds: assignedMenuIds.value });
+    message.success("菜单已保存。");
+    menuVisible.value = false;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function flattenMenus(menus: MenuTreeDto[]): Array<{ label: string; value: number }> {
@@ -170,22 +222,29 @@ function flattenMenus(menus: MenuTreeDto[]): Array<{ label: string; value: numbe
       <NSpace class="mb-4">
         <PermissionButton type="primary" :permissions="['sys:role:create']" @click="openCreate">新建角色</PermissionButton>
       </NSpace>
-      <NDataTable :columns="columns" :data="rows" :loading="loading" />
+      <NDataTable
+        :columns="columns"
+        :data="rows"
+        :loading="loading"
+        :pagination="{ page, pageSize, itemCount: total, onUpdatePage: (nextPage: number) => { page = nextPage; loadRoles(); } }"
+      >
+        <template #empty>暂无角色</template>
+      </NDataTable>
     </NCard>
     <NModal v-model:show="formVisible" preset="card" title="角色表单" class="max-w-lg">
-      <NForm>
-        <NFormItem v-if="!form.id" label="角色编码"><NInput v-model:value="form.code" /></NFormItem>
-        <NFormItem label="角色名称"><NInput v-model:value="form.name" /></NFormItem>
-        <NSpace justify="end"><NButton @click="formVisible = false">取消</NButton><NButton type="primary" @click="submitForm">保存</NButton></NSpace>
+      <NForm ref="formRef" :model="form" :rules="formRules">
+        <NFormItem v-if="!form.id" path="code" label="角色编码"><NInput v-model:value="form.code" /></NFormItem>
+        <NFormItem path="name" label="角色名称"><NInput v-model:value="form.name" /></NFormItem>
+        <NSpace justify="end"><NButton :disabled="submitting" @click="formVisible = false">取消</NButton><NButton type="primary" :loading="submitting" @click="submitForm">保存</NButton></NSpace>
       </NForm>
     </NModal>
     <NModal v-model:show="permissionVisible" preset="card" title="分配权限" class="max-w-xl">
       <NSelect v-model:value="assignedPermissionIds" multiple filterable :options="permissionOptions" />
-      <NSpace class="mt-4" justify="end"><NButton @click="permissionVisible = false">取消</NButton><NButton type="primary" @click="submitPermissions">保存</NButton></NSpace>
+      <NSpace class="mt-4" justify="end"><NButton :disabled="submitting" @click="permissionVisible = false">取消</NButton><NButton type="primary" :loading="submitting" @click="submitPermissions">保存</NButton></NSpace>
     </NModal>
     <NModal v-model:show="menuVisible" preset="card" title="分配菜单" class="max-w-xl">
       <NSelect v-model:value="assignedMenuIds" multiple filterable :options="menuOptions" />
-      <NSpace class="mt-4" justify="end"><NButton @click="menuVisible = false">取消</NButton><NButton type="primary" @click="submitMenus">保存</NButton></NSpace>
+      <NSpace class="mt-4" justify="end"><NButton :disabled="submitting" @click="menuVisible = false">取消</NButton><NButton type="primary" :loading="submitting" @click="submitMenus">保存</NButton></NSpace>
     </NModal>
   </main>
 </template>

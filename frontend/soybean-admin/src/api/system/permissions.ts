@@ -44,10 +44,10 @@ export function deletePermissionApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/permissions/${id}`, { method: "DELETE" });
 }
 
-export function enablePermissionApi(id: number): Promise<ApiResult<PermissionMutationResponse>> {
-  return requestJson<PermissionMutationResponse>(`/api/v1/system/permissions/${id}/enable`, { method: "POST" });
+export function enablePermissionApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/permissions/${id}/enable`, { method: "POST" });
 }
 
-export function disablePermissionApi(id: number): Promise<ApiResult<PermissionMutationResponse>> {
-  return requestJson<PermissionMutationResponse>(`/api/v1/system/permissions/${id}/disable`, { method: "POST" });
+export function disablePermissionApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/permissions/${id}/disable`, { method: "POST" });
 }

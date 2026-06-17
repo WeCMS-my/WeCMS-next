@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NSelect, NSpace, useMessage } from "naive-ui";
+import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import {
   createDepartmentApi,
@@ -12,11 +13,20 @@ import {
   updateDepartmentApi
 } from "@/api/system/depts";
 import type { DepartmentTreeDto } from "@/api/types/generated";
+import { apiErrorMessage } from "@/utils/api-error";
 
 const message = useMessage();
 const departments = ref<DepartmentTreeDto[]>([]);
+const loading = ref(false);
+const submitting = ref(false);
 const formVisible = ref(false);
+const formRef = ref<FormInst | null>(null);
 const form = reactive({ id: undefined as number | undefined, parentId: undefined as number | undefined, code: "", name: "", sortOrder: 0, status: "enabled" });
+const formRules: FormRules = {
+  code: [{ required: true, message: "请输入编码", trigger: ["input", "blur"] }],
+  name: [{ required: true, message: "请输入名称", trigger: ["input", "blur"] }],
+  status: [{ required: true, message: "请选择状态", trigger: ["change", "blur"] }]
+};
 const departmentOptions = computed(() => flattenDepartments(departments.value).filter((item) => item.value !== form.id && !isDescendant(form.id, item.value, departments.value)));
 const columns = computed(() => [
   { title: "名称", key: "name" },
@@ -33,7 +43,14 @@ const columns = computed(() => [
 onMounted(loadDepartments);
 
 async function loadDepartments(): Promise<void> {
-  departments.value = (await getDepartmentTreeApi()).data;
+  loading.value = true;
+  try {
+    departments.value = (await getDepartmentTreeApi()).data;
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    loading.value = false;
+  }
 }
 
 function openCreate(): void {
@@ -48,32 +65,55 @@ async function openEdit(row: DepartmentTreeDto): Promise<void> {
 }
 
 async function submitForm(): Promise<void> {
-  if (!form.name.trim() || (!form.id && !form.code.trim())) {
-    message.error("请填写必填字段。");
+  try {
+    await formRef.value?.validate();
+  } catch {
     return;
   }
-  if (form.id) {
-    await updateDepartmentApi(form.id, { parentId: form.parentId ?? null, name: form.name, sortOrder: form.sortOrder, status: form.status });
-  } else {
-    await createDepartmentApi({ parentId: form.parentId ?? null, code: form.code, name: form.name, sortOrder: form.sortOrder, status: form.status });
+
+  submitting.value = true;
+  try {
+    if (form.id) {
+      await updateDepartmentApi(form.id, { parentId: form.parentId ?? null, name: form.name, sortOrder: form.sortOrder, status: form.status });
+    } else {
+      await createDepartmentApi({ parentId: form.parentId ?? null, code: form.code, name: form.name, sortOrder: form.sortOrder, status: form.status });
+    }
+    message.success("部门已保存。");
+    formVisible.value = false;
+    await loadDepartments();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
   }
-  message.success("部门已保存。");
-  formVisible.value = false;
-  await loadDepartments();
 }
 
 async function confirmDelete(row: DepartmentTreeDto): Promise<void> {
   if (!window.confirm(`确认删除部门 ${row.name}？`)) return;
-  await deleteDepartmentApi(row.id);
-  message.success("部门已删除。");
-  await loadDepartments();
+  submitting.value = true;
+  try {
+    await deleteDepartmentApi(row.id);
+    message.success("部门已删除。");
+    await loadDepartments();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 async function changeStatus(row: DepartmentTreeDto): Promise<void> {
   if (!window.confirm(`确认${row.status === "enabled" ? "禁用" : "启用"}部门 ${row.name}？`)) return;
-  if (row.status === "enabled") await disableDepartmentApi(row.id); else await enableDepartmentApi(row.id);
-  message.success("部门状态已更新。");
-  await loadDepartments();
+  submitting.value = true;
+  try {
+    if (row.status === "enabled") await disableDepartmentApi(row.id); else await enableDepartmentApi(row.id);
+    message.success("部门状态已更新。");
+    await loadDepartments();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function flattenDepartments(items: DepartmentTreeDto[]): Array<{ label: string; value: number }> {
@@ -100,16 +140,18 @@ function findDepartment(id: number, items: DepartmentTreeDto[]): DepartmentTreeD
   <main>
     <NCard title="部门管理">
       <NSpace class="mb-4"><PermissionButton type="primary" :permissions="['sys:dept:create']" @click="openCreate">新建部门</PermissionButton></NSpace>
-      <NDataTable :columns="columns" :data="departments" :children-key="'children'" />
+      <NDataTable :columns="columns" :data="departments" :children-key="'children'" :loading="loading">
+        <template #empty>暂无部门</template>
+      </NDataTable>
     </NCard>
     <NModal v-model:show="formVisible" preset="card" title="部门表单" class="max-w-lg">
-      <NForm>
+      <NForm ref="formRef" :model="form" :rules="formRules">
         <NFormItem label="父级"><NSelect v-model:value="form.parentId" clearable :options="departmentOptions" /></NFormItem>
-        <NFormItem v-if="!form.id" label="编码"><NInput v-model:value="form.code" /></NFormItem>
-        <NFormItem label="名称"><NInput v-model:value="form.name" /></NFormItem>
+        <NFormItem v-if="!form.id" path="code" label="编码"><NInput v-model:value="form.code" /></NFormItem>
+        <NFormItem path="name" label="名称"><NInput v-model:value="form.name" /></NFormItem>
         <NFormItem label="排序"><NInputNumber v-model:value="form.sortOrder" /></NFormItem>
-        <NFormItem label="状态"><NSelect v-model:value="form.status" :options="[{ label: '启用', value: 'enabled' }, { label: '禁用', value: 'disabled' }]" /></NFormItem>
-        <NSpace justify="end"><NButton @click="formVisible = false">取消</NButton><NButton type="primary" @click="submitForm">保存</NButton></NSpace>
+        <NFormItem path="status" label="状态"><NSelect v-model:value="form.status" :options="[{ label: '启用', value: 'enabled' }, { label: '禁用', value: 'disabled' }]" /></NFormItem>
+        <NSpace justify="end"><NButton :disabled="submitting" @click="formVisible = false">取消</NButton><NButton type="primary" :loading="submitting" @click="submitForm">保存</NButton></NSpace>
       </NForm>
     </NModal>
   </main>

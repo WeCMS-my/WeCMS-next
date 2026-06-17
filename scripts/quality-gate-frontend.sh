@@ -21,3 +21,4 @@ pnpm --dir "${FRONTEND_DIR}" build
 bash "${ROOT_DIR}/scripts/checks/check-no-cms-frontend.sh"
 bash "${ROOT_DIR}/scripts/checks/check-api-contract-generated.sh"
 bash "${ROOT_DIR}/scripts/checks/check-route-permission-coverage.sh"
+bash "${ROOT_DIR}/scripts/checks/check-frontend-smoke-fixtures.sh"

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { authMeApi, loginApi, logoutApi } from "@/api/auth";
-import type { AuthMenuDto, AuthUserDto, LoginRequest, LoginResponse } from "@/api/types/generated";
+import type { AuthUserDto, LoginRequest, LoginResponse, MenuTreeDto } from "@/api/types/generated";
 import { useMenuStore } from "@/stores/menu";
 import { usePermissionStore } from "@/stores/permission";
 import { clearTokenSet, readTokenSet, saveTokenSet, type TokenSet } from "@/utils/token";
@@ -72,7 +72,7 @@ export const useAuthStore = defineStore("auth", () => {
     nextUser: AuthUserDto,
     nextRoles: string[],
     nextPermissions: string[],
-    nextMenus: AuthMenuDto[]
+    nextMenus: MenuTreeDto[]
   ): void {
     const permissionStore = usePermissionStore();
     const menuStore = useMenuStore();

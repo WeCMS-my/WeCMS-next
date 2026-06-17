@@ -37,10 +37,10 @@ export function deleteDepartmentApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/depts/${id}`, { method: "DELETE" });
 }
 
-export function enableDepartmentApi(id: number): Promise<ApiResult<DepartmentMutationResponse>> {
-  return requestJson<DepartmentMutationResponse>(`/api/v1/system/depts/${id}/enable`, { method: "POST" });
+export function enableDepartmentApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/depts/${id}/enable`, { method: "POST" });
 }
 
-export function disableDepartmentApi(id: number): Promise<ApiResult<DepartmentMutationResponse>> {
-  return requestJson<DepartmentMutationResponse>(`/api/v1/system/depts/${id}/disable`, { method: "POST" });
+export function disableDepartmentApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/depts/${id}/disable`, { method: "POST" });
 }

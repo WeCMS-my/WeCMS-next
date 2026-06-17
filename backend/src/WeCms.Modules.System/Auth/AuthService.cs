@@ -1,5 +1,6 @@
 using WeCms.Shared;
 using WeCms.Shared.Data;
+using WeCms.Modules.System.Menus;
 
 namespace WeCms.Modules.System.Auth;
 
@@ -127,6 +128,7 @@ public sealed class AuthService : IAuthService
 
         var roles = await _repository.ListRoleCodesAsync(user.Id, cancellationToken);
         var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
+        var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
 
         return new LoginResponse(
             accessToken.Token,
@@ -135,7 +137,7 @@ public sealed class AuthService : IAuthService
             ToDto(user),
             roles,
             permissions,
-            []);
+            menus);
     }
 
     public async Task<LoginResponse> RefreshAsync(
@@ -284,6 +286,7 @@ public sealed class AuthService : IAuthService
 
         var roles = await _repository.ListRoleCodesAsync(user.Id, cancellationToken);
         var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
+        var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
 
         return new LoginResponse(
             accessToken.Token,
@@ -292,7 +295,7 @@ public sealed class AuthService : IAuthService
             ToDto(user),
             roles,
             permissions,
-            []);
+            menus);
     }
 
     public async Task LogoutAsync(
@@ -385,8 +388,15 @@ public sealed class AuthService : IAuthService
 
         var roles = await _repository.ListRoleCodesAsync(user.Id, cancellationToken);
         var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
+        var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
 
-        return new AuthMeResponse(ToDto(user), roles, permissions, []);
+        return new AuthMeResponse(ToDto(user), roles, permissions, menus);
+    }
+
+    private async Task<IReadOnlyList<MenuTreeDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+    {
+        var menus = await _repository.ListVisibleMenusAsync(userId, isSuperAdmin, cancellationToken);
+        return MenuTreeBuilder.Build(menus);
     }
 
     private async Task RecordFailedLoginAsync(
@@ -528,7 +538,7 @@ public sealed class AuthService : IAuthService
             return false;
         }
 
-        return now >= token.RevokedAt && now - token.RevokedAt <= RefreshTokenConcurrentReuseWindow;
+        return (now - token.RevokedAt.Value).Duration() <= RefreshTokenConcurrentReuseWindow;
     }
 
     private async Task RecordRefreshReuseAsync(
