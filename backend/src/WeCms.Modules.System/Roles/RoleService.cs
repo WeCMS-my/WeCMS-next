@@ -95,7 +95,8 @@ public sealed class RoleService : IRoleService
 
     public async Task EnableAsync(long id, RoleRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role cannot be enabled.");
         await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Role enabled.", cancellationToken);
     }

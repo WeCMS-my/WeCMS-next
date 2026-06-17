@@ -63,6 +63,8 @@ expected = {
     "/api/v1/system/security-events/{id:long}": {"get"},
     "/api/v1/system/files": {"get", "post"},
     "/api/v1/system/files/{id:long}": {"get", "delete"},
+    "/api/v1/system/files/{id:long}/download": {"get"},
+    "/api/v1/system/files/{id:long}/preview": {"get"},
 }
 
 for route, methods in expected.items():

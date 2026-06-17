@@ -111,8 +111,9 @@ public sealed class UserServiceTests
     [Fact]
     public async Task DeleteAsync_RevokesRefreshTokensAndCommitsTransaction()
     {
-        var repository = new FakeUserRepository();
-        var unitOfWork = new FakeUnitOfWork();
+        var operations = new List<string>();
+        var repository = new FakeUserRepository(operations);
+        var unitOfWork = new FakeUnitOfWork(operations);
         var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
 
         await service.DeleteAsync(1, Context(actorUserId: 2), CancellationToken.None);
@@ -123,13 +124,15 @@ public sealed class UserServiceTests
         Assert.Equal(1, unitOfWork.BeginTransactionCalls);
         Assert.Equal(1, unitOfWork.CommitCalls);
         Assert.Equal(0, unitOfWork.RollbackCalls);
+        AssertHolderCheckWasInsideCommittedTransaction(operations);
     }
 
     [Fact]
     public async Task DisableAsync_RevokesRefreshTokensAndCommitsTransaction()
     {
-        var repository = new FakeUserRepository();
-        var unitOfWork = new FakeUnitOfWork();
+        var operations = new List<string>();
+        var repository = new FakeUserRepository(operations);
+        var unitOfWork = new FakeUnitOfWork(operations);
         var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
 
         await service.DisableAsync(1, Context(actorUserId: 2), CancellationToken.None);
@@ -141,6 +144,24 @@ public sealed class UserServiceTests
         Assert.Equal(1, unitOfWork.BeginTransactionCalls);
         Assert.Equal(1, unitOfWork.CommitCalls);
         Assert.Equal(0, unitOfWork.RollbackCalls);
+        AssertHolderCheckWasInsideCommittedTransaction(operations);
+    }
+
+    [Fact]
+    public async Task AssignRolesAsync_ChecksLockedRoleHolderInsideCommittedTransaction()
+    {
+        var operations = new List<string>();
+        var repository = new FakeUserRepository(operations) { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 2 } };
+        var unitOfWork = new FakeUnitOfWork(operations);
+        var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
+
+        await service.AssignRolesAsync(1, new AssignUserRolesRequest([2]), Context(actorUserId: 2), CancellationToken.None);
+
+        Assert.True(repository.RolesWereReplaced);
+        Assert.Equal(1, unitOfWork.BeginTransactionCalls);
+        Assert.Equal(1, unitOfWork.CommitCalls);
+        Assert.Equal(0, unitOfWork.RollbackCalls);
+        AssertHolderCheckWasInsideCommittedTransaction(operations);
     }
 
     [Fact]
@@ -171,6 +192,18 @@ public sealed class UserServiceTests
             new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
     }
 
+    private static void AssertHolderCheckWasInsideCommittedTransaction(IReadOnlyList<string> operations)
+    {
+        var orderedOperations = operations.ToList();
+        var beginIndex = orderedOperations.IndexOf("begin");
+        var countIndex = orderedOperations.IndexOf("count-locked-role-holders");
+        var commitIndex = orderedOperations.IndexOf("commit");
+
+        Assert.True(beginIndex >= 0, string.Join(", ", operations));
+        Assert.True(countIndex > beginIndex, string.Join(", ", operations));
+        Assert.True(commitIndex > countIndex, string.Join(", ", operations));
+    }
+
     private sealed class FakePasswordHasher : IPasswordHasher
     {
         public string Hash(string password)
@@ -186,6 +219,7 @@ public sealed class UserServiceTests
 
     private sealed class FakeUserRepository : IUserRepository
     {
+        private readonly List<string>? _operations;
         public int SoftDeleteCalls { get; private set; }
         public int UpdateStatusCalls { get; private set; }
         public string LastUpdatedStatus { get; private set; } = string.Empty;
@@ -196,6 +230,15 @@ public sealed class UserServiceTests
         public IReadOnlySet<long> RequestedLockedRoleIds { get; init; } = new HashSet<long>();
         public IReadOnlyDictionary<long, int> EnabledUsersByLockedRole { get; init; } = new Dictionary<long, int> { [9] = 2 };
         public bool RolesWereReplaced { get; private set; }
+
+        public FakeUserRepository()
+        {
+        }
+
+        public FakeUserRepository(List<string> operations)
+        {
+            _operations = operations;
+        }
 
         public Task<PagedResult<UserSummaryDto>> ListAsync(UserListCriteria criteria, CancellationToken cancellationToken)
         {
@@ -231,12 +274,14 @@ public sealed class UserServiceTests
         public Task UpdateAsync(UserUpdateRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken)
         {
+            _operations?.Add("soft-delete");
             SoftDeleteCalls++;
             return Task.CompletedTask;
         }
 
         public Task SetStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken)
         {
+            _operations?.Add($"set-status:{status}");
             UpdateStatusCalls++;
             LastUpdatedStatus = status;
             return Task.CompletedTask;
@@ -250,11 +295,13 @@ public sealed class UserServiceTests
 
         public Task RevokeUserRefreshTokensAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
         {
+            _operations?.Add("revoke-refresh-tokens");
             RevokeRefreshTokenCalls++;
             return Task.CompletedTask;
         }
         public Task ReplaceRolesAsync(long id, IReadOnlyList<long> roleIds, DateTimeOffset now, CancellationToken cancellationToken)
         {
+            _operations?.Add("replace-roles");
             RolesWereReplaced = true;
             return Task.CompletedTask;
         }
@@ -262,9 +309,14 @@ public sealed class UserServiceTests
         public Task ReplacePostsAsync(long id, IReadOnlyList<long> postIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<IReadOnlyList<long>> ListLockedRoleIdsByUserAsync(long userId, CancellationToken cancellationToken) => Task.FromResult(CurrentLockedRoleIds);
         public Task<IReadOnlySet<long>> ExistingLockedRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken) => Task.FromResult(RequestedLockedRoleIds);
-        public Task<int> CountEnabledUsersByRoleAsync(long roleId, CancellationToken cancellationToken) => Task.FromResult(EnabledUsersByLockedRole.GetValueOrDefault(roleId));
+        public Task<int> CountEnabledUsersByRoleForUpdateAsync(long roleId, CancellationToken cancellationToken)
+        {
+            _operations?.Add("count-locked-role-holders");
+            return Task.FromResult(EnabledUsersByLockedRole.GetValueOrDefault(roleId));
+        }
         public Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken)
         {
+            _operations?.Add("audit");
             RecordAuditCalls++;
             return Task.CompletedTask;
         }
@@ -272,23 +324,36 @@ public sealed class UserServiceTests
 
     private sealed class FakeUnitOfWork : IUnitOfWork
     {
+        private readonly List<string>? _operations;
         public int BeginTransactionCalls { get; private set; }
         public int CommitCalls { get; private set; }
         public int RollbackCalls { get; private set; }
 
+        public FakeUnitOfWork()
+        {
+        }
+
+        public FakeUnitOfWork(List<string> operations)
+        {
+            _operations = operations;
+        }
+
         public Task<ITransactionContext> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
+            _operations?.Add("begin");
             BeginTransactionCalls++;
             return Task.FromResult<ITransactionContext>(new FakeTransactionContext(this));
         }
 
         private void AddCommit()
         {
+            _operations?.Add("commit");
             CommitCalls++;
         }
 
         private void AddRollback()
         {
+            _operations?.Add("rollback");
             RollbackCalls++;
         }
 
