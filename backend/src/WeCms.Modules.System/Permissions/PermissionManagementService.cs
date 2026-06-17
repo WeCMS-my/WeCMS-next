@@ -77,16 +77,26 @@ public sealed class PermissionManagementService : IPermissionManagementService
 
     public async Task EnableAsync(long id, PermissionRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var permission = await GetAsync(id, cancellationToken);
+        EnsureNotBuiltin(permission.IsBuiltin, "enable");
         await _repository.SetManagementStatusAsync(id, "enabled", context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Permission enabled.", cancellationToken);
     }
 
     public async Task DisableAsync(long id, PermissionRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var permission = await GetAsync(id, cancellationToken);
+        EnsureNotBuiltin(permission.IsBuiltin, "disable");
         await _repository.SetManagementStatusAsync(id, "disabled", context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Permission disabled.", cancellationToken);
+    }
+
+    private static void EnsureNotBuiltin(bool isBuiltin, string action)
+    {
+        if (isBuiltin)
+        {
+            throw new DomainException(ApiCodes.BusinessError, $"System built-in permissions cannot be {action}d.");
+        }
     }
 
     private Task AuditAsync(PermissionRequestContext context, string action, long targetPermissionId, string result, string detail, CancellationToken cancellationToken)

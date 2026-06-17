@@ -1,5 +1,11 @@
 using System.Text.Json;
 using WeCms.Api.Extensions;
+using WeCms.Modules.System.Departments;
+using WeCms.Modules.System.Dicts;
+using WeCms.Modules.System.Files;
+using WeCms.Modules.System.Menus;
+using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Posts;
 using WeCms.Modules.System.Roles;
 using WeCms.Modules.System.Users;
 
@@ -28,6 +34,100 @@ public sealed class OpenApiContractCompletenessTests
                 schemas.GetProperty(nameof(CreateRoleRequest)),
                 required: ["code", "name"],
                 optional: ["permissionIds", "menuIds"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateUserRequest)),
+                required: ["displayName"],
+                optional: ["email", "phone", "deptId"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreatePermissionRequest)),
+                required: ["code", "name", "module"],
+                optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdatePermissionRequest)),
+                required: ["name", "module"],
+                optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreateMenuRequest)),
+                required: ["type", "code", "path", "title", "sort", "hidden", "keepAlive", "status"],
+                optional: ["parentId", "component", "i18nKey", "icon", "externalUrl", "permissionCode"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateMenuRequest)),
+                required: ["type", "path", "title", "sort", "hidden", "keepAlive", "status"],
+                optional: ["parentId", "component", "i18nKey", "icon", "externalUrl"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreateDepartmentRequest)),
+                required: ["code", "name", "sortOrder", "status"],
+                optional: ["parentId"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateDepartmentRequest)),
+                required: ["name", "sortOrder", "status"],
+                optional: ["parentId"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreatePostRequest)),
+                required: ["code", "name", "sortOrder", "status"],
+                optional: []);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdatePostRequest)),
+                required: ["name", "sortOrder", "status"],
+                optional: []);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreateDictTypeRequest)),
+                required: ["code", "name", "sortOrder", "status"],
+                optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateDictTypeRequest)),
+                required: ["name", "sortOrder", "status"],
+                optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreateDictValueRequest)),
+                required: ["label", "value", "sortOrder", "isDefault", "status"],
+                optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateDictValueRequest)),
+                required: ["label", "value", "sortOrder", "isDefault", "status"],
+                optional: ["description"]);
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ExportOpenApiAsync_FileDownloadAndPreviewUseSamePermissionAndHaveNoRequestBody()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-file-access-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var paths = document.RootElement.GetProperty("paths");
+
+            var download = paths.GetProperty("/api/v1/system/files/{id:long}/download").GetProperty("get");
+            var preview = paths.GetProperty("/api/v1/system/files/{id:long}/preview").GetProperty("get");
+
+            Assert.Equal("sys:file:download", download.GetProperty("x-wecms-permission").GetString());
+            Assert.Equal("sys:file:download", preview.GetProperty("x-wecms-permission").GetString());
+            Assert.False(download.TryGetProperty("requestBody", out _));
+            Assert.False(preview.TryGetProperty("requestBody", out _));
         }
         finally
         {

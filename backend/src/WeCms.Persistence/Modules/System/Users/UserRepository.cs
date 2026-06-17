@@ -314,6 +314,7 @@ public sealed class UserRepository : IUserRepository
               AND r.is_locked = TRUE
               AND r.deleted_at IS NULL
             ORDER BY r.id
+            FOR UPDATE
             """,
             new SugarParameter("@userId", userId));
     }

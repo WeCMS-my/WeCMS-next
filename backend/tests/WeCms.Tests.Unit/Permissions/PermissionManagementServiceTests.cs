@@ -38,6 +38,30 @@ public sealed class PermissionManagementServiceTests
         Assert.True(repository.SoftDeleted);
     }
 
+    [Fact]
+    public async Task EnableAsync_RejectsBuiltinPermission()
+    {
+        var service = new PermissionManagementService(new FakePermissionRepository());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.EnableAsync(1, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("System built-in permissions cannot be enabled.", exception.Message);
+    }
+
+    [Fact]
+    public async Task DisableAsync_RejectsBuiltinPermission()
+    {
+        var service = new PermissionManagementService(new FakePermissionRepository());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.DisableAsync(1, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("System built-in permissions cannot be disabled.", exception.Message);
+    }
+
     private static PermissionRequestContext Context()
     {
         return new PermissionRequestContext(1, "admin", "127.0.0.1", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
