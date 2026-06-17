@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from "vue";
-import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NSelect, NSpace, NSwitch, useMessage } from "naive-ui";
+import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NSelect, NSpace, NSwitch, useMessage } from "naive-ui";
 import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { createMenuApi, deleteMenuApi, disableMenuApi, enableMenuApi, getMenuApi, getMenuTreeApi, updateMenuApi } from "@/api/menu";
@@ -13,12 +13,31 @@ const loading = ref(false);
 const submitting = ref(false);
 const formVisible = ref(false);
 const formRef = ref<FormInst | null>(null);
-const form = reactive({ id: undefined as number | undefined, parentId: undefined as number | undefined, type: "menu", code: "", path: "", component: "", title: "", sort: 0, hidden: false, keepAlive: false, status: "enabled", isBuiltin: false });
+const form = reactive({
+  id: undefined as number | undefined,
+  parentId: undefined as number | undefined,
+  type: "menu",
+  code: "",
+  path: "",
+  component: "",
+  title: "",
+  i18nKey: "",
+  icon: "",
+  sort: 0,
+  externalUrl: "",
+  permissionCode: "",
+  hidden: false,
+  keepAlive: false,
+  status: "enabled",
+  isBuiltin: false
+});
 const formRules: FormRules = {
   type: [{ required: true, message: "请选择类型", trigger: ["change", "blur"] }],
   code: [{ required: true, message: "请输入编码", trigger: ["input", "blur"] }],
   title: [{ required: true, message: "请输入标题", trigger: ["input", "blur"] }],
-  path: [{ required: true, message: "请输入路径", trigger: ["input", "blur"] }]
+  path: [{ required: true, message: "请输入路径", trigger: ["input", "blur"] }],
+  sort: [{ required: true, type: "number", message: "请输入排序", trigger: ["input", "blur"] }],
+  status: [{ required: true, message: "请选择状态", trigger: ["change", "blur"] }]
 };
 const menuOptions = computed(() => flattenMenus(menus.value).filter((item) => item.value !== form.id && !isDescendant(form.id, item.value, menus.value)));
 const columns = computed(() => [
@@ -50,13 +69,38 @@ async function loadMenus(): Promise<void> {
 }
 
 function openCreate(): void {
-  Object.assign(form, { id: undefined, parentId: undefined, type: "menu", code: "", path: "", component: "", title: "", sort: 0, hidden: false, keepAlive: false, status: "enabled", isBuiltin: false });
+  Object.assign(form, {
+    id: undefined,
+    parentId: undefined,
+    type: "menu",
+    code: "",
+    path: "",
+    component: "",
+    title: "",
+    i18nKey: "",
+    icon: "",
+    sort: 0,
+    externalUrl: "",
+    permissionCode: "",
+    hidden: false,
+    keepAlive: false,
+    status: "enabled",
+    isBuiltin: false
+  });
   formVisible.value = true;
 }
 
 async function openEdit(row: MenuTreeDto): Promise<void> {
   const detail = (await getMenuApi(row.id)).data;
-  Object.assign(form, { ...detail, parentId: detail.parentId ?? undefined, component: detail.component ?? "" });
+  Object.assign(form, {
+    ...detail,
+    parentId: detail.parentId ?? undefined,
+    component: detail.component ?? "",
+    i18nKey: detail.i18nKey ?? "",
+    icon: detail.icon ?? "",
+    externalUrl: detail.externalUrl ?? "",
+    permissionCode: detail.permissionCode ?? ""
+  });
   formVisible.value = true;
 }
 
@@ -70,9 +114,38 @@ async function submitForm(): Promise<void> {
   submitting.value = true;
   try {
     if (form.id) {
-      await updateMenuApi(form.id, { parentId: form.parentId ?? null, type: form.type, path: form.path, component: form.component || null, title: form.title, sort: form.sort, hidden: form.hidden, keepAlive: form.keepAlive, status: form.status });
+      await updateMenuApi(form.id, {
+        parentId: form.parentId ?? null,
+        type: form.type,
+        path: form.path,
+        component: form.component || null,
+        title: form.title,
+        i18nKey: form.i18nKey || null,
+        icon: form.icon || null,
+        sort: form.sort,
+        hidden: form.hidden,
+        keepAlive: form.keepAlive,
+        externalUrl: form.externalUrl || null,
+        permissionCode: form.permissionCode || null,
+        status: form.status
+      });
     } else {
-      await createMenuApi({ parentId: form.parentId ?? null, type: form.type, code: form.code, path: form.path, component: form.component || null, title: form.title, sort: form.sort, hidden: form.hidden, keepAlive: form.keepAlive, status: form.status });
+      await createMenuApi({
+        parentId: form.parentId ?? null,
+        type: form.type,
+        code: form.code,
+        path: form.path,
+        component: form.component || null,
+        title: form.title,
+        i18nKey: form.i18nKey || null,
+        icon: form.icon || null,
+        sort: form.sort,
+        hidden: form.hidden,
+        keepAlive: form.keepAlive,
+        externalUrl: form.externalUrl || null,
+        permissionCode: form.permissionCode || null,
+        status: form.status
+      });
     }
     message.success("菜单已保存。");
     formVisible.value = false;
@@ -147,7 +220,13 @@ function findMenu(id: number, items: MenuTreeDto[]): MenuTreeDto | undefined {
         <NFormItem v-if="!form.id" path="code" label="编码"><NInput v-model:value="form.code" /></NFormItem>
         <NFormItem path="title" label="标题"><NInput v-model:value="form.title" /></NFormItem>
         <NFormItem path="path" label="路径"><NInput v-model:value="form.path" /></NFormItem>
+        <NFormItem label="国际化 Key"><NInput v-model:value="form.i18nKey" /></NFormItem>
+        <NFormItem label="图标"><NInput v-model:value="form.icon" /></NFormItem>
+        <NFormItem label="外链地址"><NInput v-model:value="form.externalUrl" /></NFormItem>
+        <NFormItem label="权限码"><NInput v-model:value="form.permissionCode" /></NFormItem>
         <NFormItem label="组件"><NInput v-model:value="form.component" /></NFormItem>
+        <NFormItem path="sort" label="排序"><NInputNumber v-model:value="form.sort" /></NFormItem>
+        <NFormItem path="status" label="状态"><NSelect v-model:value="form.status" :options="[{ label: '启用', value: 'enabled' }, { label: '禁用', value: 'disabled' }]" /></NFormItem>
         <NFormItem label="隐藏"><NSwitch v-model:value="form.hidden" /></NFormItem>
         <NFormItem label="缓存"><NSwitch v-model:value="form.keepAlive" /></NFormItem>
         <NSpace justify="end"><NButton :disabled="submitting" @click="formVisible = false">取消</NButton><NButton type="primary" :loading="submitting" @click="submitForm">保存</NButton></NSpace>

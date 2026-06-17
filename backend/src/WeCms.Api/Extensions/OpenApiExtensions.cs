@@ -786,6 +786,7 @@ public static class OpenApiExtensions
                     ["hidden"] = BooleanSchema(),
                     ["keepAlive"] = BooleanSchema(),
                     ["externalUrl"] = NullableStringSchema(),
+                    ["permissionCode"] = NullableStringSchema(),
                     ["status"] = StringSchema()
                 }
             },

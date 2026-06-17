@@ -293,6 +293,7 @@ export interface UpdateMenuRequest {
   hidden: boolean;
   keepAlive: boolean;
   externalUrl?: string | null;
+  permissionCode?: string | null;
   status: string;
 }
 

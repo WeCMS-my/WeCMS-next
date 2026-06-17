@@ -85,6 +85,7 @@ public sealed record UpdateMenuRequest(
     bool Hidden,
     bool KeepAlive,
     string? ExternalUrl,
+    string? PermissionCode,
     string Status);
 
 public sealed record MenuMutationResponse(long Id);

@@ -79,6 +79,7 @@ public sealed class MenuService : IMenuService
                 request.Hidden,
                 request.KeepAlive,
                 NormalizeOptional(request.ExternalUrl, 500),
+                NormalizeOptional(request.PermissionCode, 160),
                 status,
                 context.Now),
             cancellationToken);

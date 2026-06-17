@@ -68,18 +68,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20.19.0
+      - name: Setup Node.js 24.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
-          cache: pnpm
-          cache-dependency-path: frontend/soybean-admin/pnpm-lock.yaml
+          node-version: 24.x
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Setup pnpm 10.5.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.0
 
-      - name: Activate pnpm 10.5.0
-        run: corepack prepare pnpm@10.5.0 --activate
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/soybean-admin/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Run frontend quality gate
         run: bash scripts/quality-gate-frontend.sh
