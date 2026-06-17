@@ -17,6 +17,10 @@ export async function requestJson<TData>(
   return sendJson<TData>(path, options);
 }
 
+export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  return sendBlob(path, options);
+}
+
 async function sendJson<TData>(path: string, options: RequestOptions): Promise<ApiResult<TData>> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
@@ -103,4 +107,34 @@ function redirectToLogin(): void {
     const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
     window.location.assign(`/login?redirect=${redirect}`);
   }
+}
+
+async function sendBlob(path: string, options: RequestOptions): Promise<Blob> {
+  const headers = new Headers(options.headers);
+  if (!options.skipAuth) {
+    const tokenSet = readTokenSet();
+    if (tokenSet?.accessToken) {
+      headers.set("Authorization", `Bearer ${tokenSet.accessToken}`);
+    }
+  }
+
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...options,
+    headers
+  });
+
+  if (response.status === 401 && !options.skipAuth && !options.skipRefresh) {
+    await refreshSession();
+    return sendBlob(path, {
+      ...options,
+      skipRefresh: true
+    });
+  }
+
+  if (!response.ok) {
+    const result = (await response.json()) as ApiResult<unknown>;
+    throw result;
+  }
+
+  return response.blob();
 }

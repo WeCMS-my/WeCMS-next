@@ -398,6 +398,25 @@ export interface SecurityEventSummaryDto {
 export type SecurityEventDetailDto = SecurityEventSummaryDto;
 export type PagedSecurityEventSummary = PagedResult<SecurityEventSummaryDto>;
 
+export interface FileSummaryDto {
+  id: number;
+  originalName: string;
+  fileExt: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  status: string;
+  createdBy: number;
+  createdAt: string;
+}
+
+export type FileDetailDto = FileSummaryDto;
+export type PagedFileSummary = PagedResult<FileSummaryDto>;
+
+export interface FileMutationResponse {
+  id: number;
+}
+
 export interface DepartmentTreeDto {
   id: number;
   parentId?: number | null;

@@ -22,6 +22,7 @@ const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
 const LoginLogsView = () => import("@/views/system/logs/LoginLogsView.vue");
 const AuditLogsView = () => import("@/views/system/logs/AuditLogsView.vue");
 const SecurityEventsView = () => import("@/views/system/logs/SecurityEventsView.vue");
+const FilesView = () => import("@/views/system/files/FilesView.vue");
 
 export const staticRoutes: RouteRecordRaw[] = [
   {
@@ -142,6 +143,15 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "安全事件",
       requiresAuth: true,
       permissions: ["sys:security-event:list"]
+    }
+  },
+  {
+    path: "/system/files",
+    component: FilesView,
+    meta: {
+      title: "文件管理",
+      requiresAuth: true,
+      permissions: ["sys:file:list"]
     }
   }
 ];
