@@ -36,3 +36,4 @@ artifacts/*
 *.coveragexml
 *.tsbuildinfo
 vstest.diag*.log
+.pnpm-store/
