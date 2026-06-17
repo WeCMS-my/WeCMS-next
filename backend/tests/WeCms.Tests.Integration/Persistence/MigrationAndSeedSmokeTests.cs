@@ -4,22 +4,25 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Persistence;
 
-public sealed class MigrationAndSeedSmokeTests
+public sealed class MigrationAndSeedSmokeTests : global::Xunit.IAsyncLifetime
 {
+
+    public Task InitializeAsync()
+    {
+        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [DbFact]
     public async Task MigrationAndSeed_CanRunTwiceAgainstEmptyDatabase()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_m0_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             var migrationRunner = new DbMigrationRunner(db);
             var seedRunner = new SeedRunner(db);
 
@@ -66,23 +69,17 @@ public sealed class MigrationAndSeedSmokeTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     [DbFact]
     public async Task Migration_FailsWhenTargetTableExistsWithoutMigrationRecord()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_m0_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             db.Ado.ExecuteCommand("CREATE TABLE sys_user (id BIGINT NOT NULL PRIMARY KEY) ENGINE=InnoDB");
 
             var migrationRunner = new DbMigrationRunner(db);
@@ -92,10 +89,8 @@ public sealed class MigrationAndSeedSmokeTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     private static T Scalar<T>(SqlSugar.ISqlSugarClient db, string sql)
     {
         var scalar = db.Ado.GetScalar(sql);
@@ -104,22 +99,10 @@ public sealed class MigrationAndSeedSmokeTests
             ? value
             : (T)Convert.ChangeType(scalar, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
     }
-
     private static string RequiredConnectionString()
     {
         return IntegrationTestDatabase.GetConnectionString();
     }
-
-    private static string WithDatabase(string connectionString, string databaseName)
-    {
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(part => !part.StartsWith("database=", StringComparison.OrdinalIgnoreCase)
-                && !part.StartsWith("initial catalog=", StringComparison.OrdinalIgnoreCase))
-            .Append($"database={databaseName}");
-
-        return string.Join(';', parts);
-    }
-
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

@@ -7,22 +7,25 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Permissions;
 
-public sealed class PermissionRepositoryTests
+public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
 {
+
+    public Task InitializeAsync()
+    {
+        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [DbFact]
     public async Task UserHasPermissionAsync_UsesPersistedRolePermissionAssignments()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_permission_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -46,23 +49,17 @@ public sealed class PermissionRepositoryTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     [DbFact]
     public async Task PermissionChecker_ReturnsUserDisabledFromPersistedUserStatus()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_permission_disabled_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -79,23 +76,17 @@ public sealed class PermissionRepositoryTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     [DbFact]
     public async Task PermissionChecker_ReturnsUserDisabledFromPersistedUserSoftDelete()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_permission_deleted_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -112,10 +103,8 @@ public sealed class PermissionRepositoryTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {
         var scalar = db.Ado.GetScalar(sql, parameters);
@@ -124,22 +113,10 @@ public sealed class PermissionRepositoryTests
             ? value
             : (T)Convert.ChangeType(scalar, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
     }
-
     private static string RequiredConnectionString()
     {
         return IntegrationTestDatabase.GetConnectionString();
     }
-
-    private static string WithDatabase(string connectionString, string databaseName)
-    {
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(part => !part.StartsWith("database=", StringComparison.OrdinalIgnoreCase)
-                && !part.StartsWith("initial catalog=", StringComparison.OrdinalIgnoreCase))
-            .Append($"database={databaseName}");
-
-        return string.Join(';', parts);
-    }
-
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

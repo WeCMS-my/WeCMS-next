@@ -24,7 +24,7 @@ public sealed class SystemDatabaseProbeTests
     [DbFact]
     public async Task CheckAsync_ReturnsUnavailableWithoutLeakingExceptionMessage()
     {
-        using var db = new SqlSugarClientFactory("server=127.0.0.1;port=1;database=missing;uid=missing;pwd=missing;").Create();
+        using var db = new SqlSugarClientFactory("server=192.168.101.199;port=3306;database=wecms_missing_db;uid=wecms_dev;pwd=wecms-dev-123;charset=utf8mb4;SslMode=None;").Create();
         var probe = new SystemDatabaseProbe(db, NullLogger<SystemDatabaseProbe>.Instance);
 
         var result = await probe.CheckAsync(CancellationToken.None);

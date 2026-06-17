@@ -94,7 +94,7 @@ public sealed class AuthSecurityTests
     public void AuthRequestContext_RejectsOverlongUserAgent()
     {
         var exception = Assert.Throws<DomainException>(
-            () => new AuthRequestContext("127.0.0.1", new string('a', AuthRequestContext.MaxUserAgentLength + 1)));
+            () => new AuthRequestContext("192.168.101.199", new string('a', AuthRequestContext.MaxUserAgentLength + 1)));
 
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
     }

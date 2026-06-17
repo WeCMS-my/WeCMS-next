@@ -186,7 +186,7 @@ public sealed class UserServiceTests
         return new UserRequestContext(
             actorUserId,
             "admin",
-            "127.0.0.1",
+            "192.168.101.199",
             "unit-test",
             "trace",
             new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
