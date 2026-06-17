@@ -4,6 +4,7 @@
 **/[Dd]ebug/
 **/[Rr]elease/
 **/[Pp]ublish/
+**/dist/
 
 # Visual Studio files
 .vs/
@@ -33,4 +34,5 @@ artifacts/*
 *.trx
 *.coverage
 *.coveragexml
+*.tsbuildinfo
 vstest.diag*.log
