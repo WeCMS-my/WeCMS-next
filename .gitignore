@@ -4,6 +4,7 @@
 **/[Dd]ebug/
 **/[Rr]elease/
 **/[Pp]ublish/
+**/dist/
 
 # Visual Studio files
 .vs/
@@ -20,6 +21,9 @@
 .DS_Store
 **/node_modules/
 
+# Local isolated Codex worktrees
+.worktrees/
+
 # Build artifacts (generated)
 artifacts/*
 !artifacts/openapi/
@@ -30,4 +34,6 @@ artifacts/*
 *.trx
 *.coverage
 *.coveragexml
+*.tsbuildinfo
 vstest.diag*.log
+.pnpm-store/

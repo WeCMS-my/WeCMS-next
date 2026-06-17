@@ -1,0 +1,157 @@
+import type { RouteRecordRaw } from "vue-router";
+
+declare module "vue-router" {
+  interface RouteMeta {
+    title: string;
+    requiresAuth?: boolean;
+    permissions?: string[];
+    hideInMenu?: boolean;
+  }
+}
+
+const LoginView = () => import("@/views/LoginView.vue");
+const DashboardView = () => import("@/views/DashboardView.vue");
+const UsersView = () => import("@/views/system/users/UsersView.vue");
+const RolesView = () => import("@/views/system/roles/RolesView.vue");
+const PermissionsView = () => import("@/views/system/permissions/PermissionsView.vue");
+const MenusView = () => import("@/views/system/menus/MenusView.vue");
+const DepartmentsView = () => import("@/views/system/depts/DepartmentsView.vue");
+const PostsView = () => import("@/views/system/posts/PostsView.vue");
+const DictsView = () => import("@/views/system/dicts/DictsView.vue");
+const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
+const LoginLogsView = () => import("@/views/system/logs/LoginLogsView.vue");
+const AuditLogsView = () => import("@/views/system/logs/AuditLogsView.vue");
+const SecurityEventsView = () => import("@/views/system/logs/SecurityEventsView.vue");
+const FilesView = () => import("@/views/system/files/FilesView.vue");
+
+export const staticRoutes: RouteRecordRaw[] = [
+  {
+    path: "/",
+    redirect: "/dashboard"
+  },
+  {
+    path: "/login",
+    component: LoginView,
+    meta: {
+      title: "登录",
+      hideInMenu: true
+    }
+  },
+  {
+    path: "/dashboard",
+    component: DashboardView,
+    meta: {
+      title: "工作台",
+      requiresAuth: true,
+      permissions: []
+    }
+  },
+  {
+    path: "/system/users",
+    component: UsersView,
+    meta: {
+      title: "用户管理",
+      requiresAuth: true,
+      permissions: ["sys:user:list"]
+    }
+  },
+  {
+    path: "/system/roles",
+    component: RolesView,
+    meta: {
+      title: "角色管理",
+      requiresAuth: true,
+      permissions: ["sys:role:list"]
+    }
+  },
+  {
+    path: "/system/permissions",
+    component: PermissionsView,
+    meta: {
+      title: "权限管理",
+      requiresAuth: true,
+      permissions: ["sys:permission:list"]
+    }
+  },
+  {
+    path: "/system/menus",
+    component: MenusView,
+    meta: {
+      title: "菜单管理",
+      requiresAuth: true,
+      permissions: ["sys:menu:list"]
+    }
+  },
+  {
+    path: "/system/depts",
+    component: DepartmentsView,
+    meta: {
+      title: "部门管理",
+      requiresAuth: true,
+      permissions: ["sys:dept:list"]
+    }
+  },
+  {
+    path: "/system/posts",
+    component: PostsView,
+    meta: {
+      title: "岗位管理",
+      requiresAuth: true,
+      permissions: ["sys:post:list"]
+    }
+  },
+  {
+    path: "/system/dicts",
+    component: DictsView,
+    meta: {
+      title: "字典管理",
+      requiresAuth: true,
+      permissions: ["sys:dict-type:list"]
+    }
+  },
+  {
+    path: "/system/settings",
+    component: SettingsView,
+    meta: {
+      title: "系统设置",
+      requiresAuth: true,
+      permissions: ["sys:setting:list"]
+    }
+  },
+  {
+    path: "/system/logs/login",
+    component: LoginLogsView,
+    meta: {
+      title: "登录日志",
+      requiresAuth: true,
+      permissions: ["sys:login-log:list"]
+    }
+  },
+  {
+    path: "/system/logs/audit",
+    component: AuditLogsView,
+    meta: {
+      title: "操作审计日志",
+      requiresAuth: true,
+      permissions: ["sys:audit-log:list"]
+    }
+  },
+  {
+    path: "/system/logs/security",
+    component: SecurityEventsView,
+    meta: {
+      title: "安全事件",
+      requiresAuth: true,
+      permissions: ["sys:security-event:list"]
+    }
+  },
+  {
+    path: "/system/files",
+    component: FilesView,
+    meta: {
+      title: "文件管理",
+      requiresAuth: true,
+      permissions: ["sys:file:list"]
+    }
+  }
+];
