@@ -18,6 +18,8 @@ pnpm --dir "${FRONTEND_DIR}" install --frozen-lockfile
 pnpm --dir "${FRONTEND_DIR}" lint
 pnpm --dir "${FRONTEND_DIR}" typecheck
 pnpm --dir "${FRONTEND_DIR}" build
+# P3-HARDEN: include Vite proxy config validation in gate.
+pnpm --dir "${FRONTEND_DIR}" test:config
 bash "${ROOT_DIR}/scripts/checks/check-no-cms-frontend.sh"
 bash "${ROOT_DIR}/scripts/checks/check-api-contract-generated.sh"
 bash "${ROOT_DIR}/scripts/checks/check-route-permission-coverage.sh"
