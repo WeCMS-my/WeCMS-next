@@ -3,7 +3,9 @@ import type { RouteRecordRaw, Router } from "vue-router";
 import type { MenuTreeDto } from "@/api/types/generated";
 
 const routeComponentMap: Record<string, () => Promise<Component>> = {
-  "dashboard/index": () => import("@/views/DashboardView.vue")
+  "dashboard/index": () => import("@/views/DashboardView.vue"),
+  "system/user/index": () => import("@/views/system/users/UsersView.vue"),
+  "system/users/index": () => import("@/views/system/users/UsersView.vue")
 };
 
 const dynamicRouteNames = new Set<string>();
