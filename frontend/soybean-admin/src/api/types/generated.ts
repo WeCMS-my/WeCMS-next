@@ -243,6 +243,88 @@ export interface PostSummaryDto {
 
 export type PagedPostSummary = PagedResult<PostSummaryDto>;
 
+export interface PostDetailDto extends PostSummaryDto {
+  updatedAt: string;
+}
+
+export interface CreatePostRequest {
+  code: string;
+  name: string;
+  sortOrder: number;
+  status: string;
+}
+
+export interface UpdatePostRequest {
+  name: string;
+  sortOrder: number;
+  status: string;
+}
+
+export interface PostMutationResponse {
+  id: number;
+}
+
+export interface DictTypeSummaryDto {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  status: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface DictTypeDetailDto extends DictTypeSummaryDto {
+  updatedAt: string;
+}
+
+export type PagedDictTypeSummary = PagedResult<DictTypeSummaryDto>;
+
+export interface CreateDictTypeRequest {
+  code: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  status: string;
+}
+
+export interface UpdateDictTypeRequest {
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  status: string;
+}
+
+export interface DictValueDto {
+  id: number;
+  typeId: number;
+  typeCode: string;
+  label: string;
+  value: string;
+  description?: string | null;
+  sortOrder: number;
+  isDefault: boolean;
+  status: string;
+}
+
+export type DictValueList = DictValueDto[];
+
+export interface CreateDictValueRequest {
+  label: string;
+  value: string;
+  description?: string | null;
+  sortOrder: number;
+  isDefault: boolean;
+  status: string;
+}
+
+export type UpdateDictValueRequest = CreateDictValueRequest;
+
+export interface DictMutationResponse {
+  id: number;
+}
+
 export interface DepartmentTreeDto {
   id: number;
   parentId?: number | null;

@@ -13,7 +13,11 @@ const routeComponentMap: Record<string, () => Promise<Component>> = {
   "system/menu/index": () => import("@/views/system/menus/MenusView.vue"),
   "system/menus/index": () => import("@/views/system/menus/MenusView.vue"),
   "system/dept/index": () => import("@/views/system/depts/DepartmentsView.vue"),
-  "system/depts/index": () => import("@/views/system/depts/DepartmentsView.vue")
+  "system/depts/index": () => import("@/views/system/depts/DepartmentsView.vue"),
+  "system/post/index": () => import("@/views/system/posts/PostsView.vue"),
+  "system/posts/index": () => import("@/views/system/posts/PostsView.vue"),
+  "system/dict/index": () => import("@/views/system/dicts/DictsView.vue"),
+  "system/dicts/index": () => import("@/views/system/dicts/DictsView.vue")
 };
 
 const dynamicRouteNames = new Set<string>();
