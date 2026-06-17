@@ -9,7 +9,11 @@ const routeComponentMap: Record<string, () => Promise<Component>> = {
   "system/role/index": () => import("@/views/system/roles/RolesView.vue"),
   "system/roles/index": () => import("@/views/system/roles/RolesView.vue"),
   "system/permission/index": () => import("@/views/system/permissions/PermissionsView.vue"),
-  "system/permissions/index": () => import("@/views/system/permissions/PermissionsView.vue")
+  "system/permissions/index": () => import("@/views/system/permissions/PermissionsView.vue"),
+  "system/menu/index": () => import("@/views/system/menus/MenusView.vue"),
+  "system/menus/index": () => import("@/views/system/menus/MenusView.vue"),
+  "system/dept/index": () => import("@/views/system/depts/DepartmentsView.vue"),
+  "system/depts/index": () => import("@/views/system/depts/DepartmentsView.vue")
 };
 
 const dynamicRouteNames = new Set<string>();

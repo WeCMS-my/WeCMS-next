@@ -14,6 +14,8 @@ const DashboardView = () => import("@/views/DashboardView.vue");
 const UsersView = () => import("@/views/system/users/UsersView.vue");
 const RolesView = () => import("@/views/system/roles/RolesView.vue");
 const PermissionsView = () => import("@/views/system/permissions/PermissionsView.vue");
+const MenusView = () => import("@/views/system/menus/MenusView.vue");
+const DepartmentsView = () => import("@/views/system/depts/DepartmentsView.vue");
 
 export const staticRoutes: RouteRecordRaw[] = [
   {
@@ -62,6 +64,24 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "权限管理",
       requiresAuth: true,
       permissions: ["sys:permission:list"]
+    }
+  },
+  {
+    path: "/system/menus",
+    component: MenusView,
+    meta: {
+      title: "菜单管理",
+      requiresAuth: true,
+      permissions: ["sys:menu:list"]
+    }
+  },
+  {
+    path: "/system/depts",
+    component: DepartmentsView,
+    meta: {
+      title: "部门管理",
+      requiresAuth: true,
+      permissions: ["sys:dept:list"]
     }
   }
 ];

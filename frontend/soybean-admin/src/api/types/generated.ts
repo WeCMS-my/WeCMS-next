@@ -53,6 +53,47 @@ export interface MenuTreeDto {
 
 export type MenuTreeList = MenuTreeDto[];
 
+export interface MenuDetailDto extends MenuTreeDto {
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMenuRequest {
+  parentId?: number | null;
+  type: string;
+  code: string;
+  path: string;
+  component?: string | null;
+  title: string;
+  i18nKey?: string | null;
+  icon?: string | null;
+  sort: number;
+  hidden: boolean;
+  keepAlive: boolean;
+  externalUrl?: string | null;
+  permissionCode?: string | null;
+  status: string;
+}
+
+export interface UpdateMenuRequest {
+  parentId?: number | null;
+  type: string;
+  path: string;
+  component?: string | null;
+  title: string;
+  i18nKey?: string | null;
+  icon?: string | null;
+  sort: number;
+  hidden: boolean;
+  keepAlive: boolean;
+  externalUrl?: string | null;
+  status: string;
+}
+
+export interface MenuMutationResponse {
+  id: number;
+}
+
 export interface UserSummaryDto {
   id: number;
   username: string;
@@ -213,6 +254,30 @@ export interface DepartmentTreeDto {
 }
 
 export type DepartmentTreeList = DepartmentTreeDto[];
+
+export interface DepartmentDetailDto extends DepartmentTreeDto {
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepartmentRequest {
+  parentId?: number | null;
+  code: string;
+  name: string;
+  sortOrder: number;
+  status: string;
+}
+
+export interface UpdateDepartmentRequest {
+  parentId?: number | null;
+  name: string;
+  sortOrder: number;
+  status: string;
+}
+
+export interface DepartmentMutationResponse {
+  id: number;
+}
 
 export interface AuthMeResponse {
   user: AuthUserDto;
