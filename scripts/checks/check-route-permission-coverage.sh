@@ -9,10 +9,30 @@ if [[ ! -f "${STATIC_ROUTES}" ]]; then
   exit 1
 fi
 
-SYSTEM_ROUTE_COUNT="$(grep -c 'path: "/system/' "${STATIC_ROUTES}" || true)"
-SYSTEM_PERMISSION_COUNT="$(grep -c 'sys:.*:.*' "${STATIC_ROUTES}" || true)"
+violations="$(
+  awk '
+    /path: "\/system\// {
+      route=$0
+      in_route=1
+      has_permission=0
+      next
+    }
+    in_route && /permissions: \["sys:[^"]+"/ {
+      has_permission=1
+      next
+    }
+    in_route && /^  }/ {
+      if (!has_permission) {
+        print route
+      }
+      in_route=0
+      has_permission=0
+    }
+  ' "${STATIC_ROUTES}"
+)"
 
-if [[ "${SYSTEM_ROUTE_COUNT}" -gt "${SYSTEM_PERMISSION_COUNT}" ]]; then
+if [[ -n "${violations}" ]]; then
   echo "All system routes must declare permission metadata." >&2
+  echo "${violations}" >&2
   exit 1
 fi
