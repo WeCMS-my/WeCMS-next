@@ -5,7 +5,11 @@ import type { MenuTreeDto } from "@/api/types/generated";
 const routeComponentMap: Record<string, () => Promise<Component>> = {
   "dashboard/index": () => import("@/views/DashboardView.vue"),
   "system/user/index": () => import("@/views/system/users/UsersView.vue"),
-  "system/users/index": () => import("@/views/system/users/UsersView.vue")
+  "system/users/index": () => import("@/views/system/users/UsersView.vue"),
+  "system/role/index": () => import("@/views/system/roles/RolesView.vue"),
+  "system/roles/index": () => import("@/views/system/roles/RolesView.vue"),
+  "system/permission/index": () => import("@/views/system/permissions/PermissionsView.vue"),
+  "system/permissions/index": () => import("@/views/system/permissions/PermissionsView.vue")
 };
 
 const dynamicRouteNames = new Set<string>();

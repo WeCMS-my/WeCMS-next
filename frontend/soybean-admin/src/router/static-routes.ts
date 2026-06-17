@@ -12,6 +12,8 @@ declare module "vue-router" {
 const LoginView = () => import("@/views/LoginView.vue");
 const DashboardView = () => import("@/views/DashboardView.vue");
 const UsersView = () => import("@/views/system/users/UsersView.vue");
+const RolesView = () => import("@/views/system/roles/RolesView.vue");
+const PermissionsView = () => import("@/views/system/permissions/PermissionsView.vue");
 
 export const staticRoutes: RouteRecordRaw[] = [
   {
@@ -42,6 +44,24 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "用户管理",
       requiresAuth: true,
       permissions: ["sys:user:list"]
+    }
+  },
+  {
+    path: "/system/roles",
+    component: RolesView,
+    meta: {
+      title: "角色管理",
+      requiresAuth: true,
+      permissions: ["sys:role:list"]
+    }
+  },
+  {
+    path: "/system/permissions",
+    component: PermissionsView,
+    meta: {
+      title: "权限管理",
+      requiresAuth: true,
+      permissions: ["sys:permission:list"]
     }
   }
 ];

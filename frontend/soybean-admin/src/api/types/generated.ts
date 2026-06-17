@@ -121,6 +121,76 @@ export interface RoleSummaryDto {
 
 export type PagedRoleSummary = PagedResult<RoleSummaryDto>;
 
+export interface RoleDetailDto extends RoleSummaryDto {
+  permissionIds: number[];
+  menuIds: number[];
+  updatedAt: string;
+}
+
+export interface CreateRoleRequest {
+  code: string;
+  name: string;
+  permissionIds?: number[] | null;
+  menuIds?: number[] | null;
+}
+
+export interface UpdateRoleRequest {
+  name: string;
+}
+
+export interface AssignRolePermissionsRequest {
+  permissionIds: number[];
+}
+
+export interface AssignRoleMenusRequest {
+  menuIds: number[];
+}
+
+export interface RoleMutationResponse {
+  id: number;
+}
+
+export interface PermissionSummaryDto {
+  id: number;
+  code: string;
+  name: string;
+  module: string;
+  description?: string | null;
+  status: string;
+  isBuiltin: boolean;
+  isRoleBound: boolean;
+}
+
+export interface PermissionDetailDto extends PermissionSummaryDto {
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PermissionTreeDto {
+  module: string;
+  permissions: PermissionSummaryDto[];
+}
+
+export type PermissionTreeList = PermissionTreeDto[];
+export type PermissionSummaryList = PermissionSummaryDto[];
+
+export interface CreatePermissionRequest {
+  code: string;
+  name: string;
+  module: string;
+  description?: string | null;
+}
+
+export interface UpdatePermissionRequest {
+  name: string;
+  module: string;
+  description?: string | null;
+}
+
+export interface PermissionMutationResponse {
+  id: number;
+}
+
 export interface PostSummaryDto {
   id: number;
   code: string;
