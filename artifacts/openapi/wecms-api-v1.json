@@ -76,16 +76,6 @@
               }
             }
           }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LogoutRequest"
-              }
-            }
-          }
         }
       }
     },
@@ -152,16 +142,6 @@
                     }
                   ]
                 }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
               }
             }
           }
@@ -3856,33 +3836,10 @@
           }
         }
       },
-      "RefreshTokenRequest": {
-        "type": "object",
-        "required": [
-          "refreshToken"
-        ],
-        "properties": {
-          "refreshToken": {
-            "type": "string"
-          }
-        }
-      },
-      "LogoutRequest": {
-        "type": "object",
-        "required": [
-          "refreshToken"
-        ],
-        "properties": {
-          "refreshToken": {
-            "type": "string"
-          }
-        }
-      },
       "LoginResponse": {
         "type": "object",
         "required": [
           "accessToken",
-          "refreshToken",
           "expiresAt",
           "user",
           "roles",
@@ -3891,9 +3848,6 @@
         ],
         "properties": {
           "accessToken": {
-            "type": "string"
-          },
-          "refreshToken": {
             "type": "string"
           },
           "expiresAt": {
@@ -4997,6 +4951,12 @@
             "type": "boolean"
           },
           "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "permissionCode": {
             "type": [
               "string",
               "null"

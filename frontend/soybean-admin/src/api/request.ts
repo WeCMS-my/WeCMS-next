@@ -68,22 +68,12 @@ async function refreshSession(): Promise<LoginResponse> {
 }
 
 async function refreshAccessToken(): Promise<LoginResponse> {
-  const tokenSet = readTokenSet();
-  if (!tokenSet?.refreshToken) {
-    clearTokenSet();
-    redirectToLogin();
-    throw new Error("Missing refresh token.");
-  }
-
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
     method: "POST",
+    credentials: "include",
     headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      refreshToken: tokenSet.refreshToken
-    })
+      "Accept": "application/json"
+    }
   });
 
   const result = await readApiResult<LoginResponse>(response);
@@ -95,7 +85,6 @@ async function refreshAccessToken(): Promise<LoginResponse> {
 
   saveTokenSet({
     accessToken: result.data.accessToken,
-    refreshToken: result.data.refreshToken,
     expiresAt: result.data.expiresAt
   });
 

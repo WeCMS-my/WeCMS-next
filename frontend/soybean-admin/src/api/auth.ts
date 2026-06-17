@@ -3,33 +3,32 @@ import type {
   ApiResult,
   AuthMeResponse,
   LoginRequest,
-  LoginResponse,
-  LogoutRequest,
-  RefreshTokenRequest
+  LoginResponse
 } from "./types/generated";
 
 export function loginApi(request: LoginRequest): Promise<ApiResult<LoginResponse>> {
   return requestJson<LoginResponse>("/api/v1/auth/login", {
     method: "POST",
     body: JSON.stringify(request),
+    credentials: "include",
     skipAuth: true,
     skipRefresh: true
   });
 }
 
-export function refreshApi(request: RefreshTokenRequest): Promise<ApiResult<LoginResponse>> {
+export function refreshApi(): Promise<ApiResult<LoginResponse>> {
   return requestJson<LoginResponse>("/api/v1/auth/refresh", {
     method: "POST",
-    body: JSON.stringify(request),
+    credentials: "include",
     skipAuth: true,
     skipRefresh: true
   });
 }
 
-export function logoutApi(request: LogoutRequest): Promise<ApiResult<unknown>> {
+export function logoutApi(): Promise<ApiResult<unknown>> {
   return requestJson<unknown>("/api/v1/auth/logout", {
     method: "POST",
-    body: JSON.stringify(request),
+    credentials: "include",
     skipAuth: true,
     skipRefresh: true
   });

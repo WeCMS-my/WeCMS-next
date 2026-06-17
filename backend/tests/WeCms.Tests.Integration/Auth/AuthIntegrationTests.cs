@@ -56,30 +56,29 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
-            Assert.NotEmpty(login.AccessToken);
+            Assert.NotEmpty(login.Response.AccessToken);
             Assert.NotEmpty(login.RefreshToken);
-            Assert.Equal(["super_admin"], login.Roles);
+            Assert.Equal(["super_admin"], login.Response.Roles);
             Assert.Equal(
                 Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission"),
-                login.Permissions.Count);
-            Assert.Contains("sys:system:secure-ping", login.Permissions);
-            Assert.Contains("sys:user:list", login.Permissions);
+                login.Response.Permissions.Count);
+            Assert.Contains("sys:system:secure-ping", login.Response.Permissions);
+            Assert.Contains("sys:user:list", login.Response.Permissions);
             Assert.NotEqual(login.RefreshToken, Scalar<string>(db, "SELECT token_hash FROM sys_refresh_token LIMIT 1"));
-            Assert.NotEmpty(login.Menus);
+            Assert.NotEmpty(login.Response.Menus);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND last_login_at IS NOT NULL AND last_login_ip = '192.168.101.199'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'login' AND result = 'success'"));
 
-            var principal = accessTokenService.Validate(login.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
+            var principal = accessTokenService.Validate(login.Response.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
             Assert.NotNull(principal);
 
             var me = await service.MeAsync(principal.UserId, CancellationToken.None);
             Assert.Equal("admin", me.User.Username);
             Assert.Equal(["super_admin"], me.Roles);
-            Assert.Equal(login.Permissions, me.Permissions);
+            Assert.Equal(login.Response.Permissions, me.Permissions);
             Assert.NotEmpty(me.Menus);
 
-            var refreshed = await service.RefreshAsync(
-                new RefreshTokenRequest(login.RefreshToken),
+            var refreshed = await service.RefreshAsync(login.RefreshToken,
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var oldRefreshHash = refreshTokenService.Hash(login.RefreshToken);
@@ -102,8 +101,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'refresh' AND result = 'success'"));
 
             var reused = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, reused.Code);
@@ -124,8 +122,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 new SugarParameter("@expiresAt", new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc)),
                 new SugarParameter("@tokenHash", expiredHash));
             var expired = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(expiredLogin.RefreshToken),
+                () => service.RefreshAsync(expiredLogin.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, expired.Code);
@@ -138,8 +135,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 CancellationToken.None);
             db.Ado.ExecuteCommand("UPDATE sys_user SET status = 'disabled' WHERE username = 'admin'");
             var disabled = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(disabledLogin.RefreshToken),
+                () => service.RefreshAsync(disabledLogin.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, disabled.Code);
@@ -186,8 +182,8 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
-            Assert.DoesNotContain("sys:menu:tree", login.Permissions);
-            Assert.NotEmpty(login.Menus);
+            Assert.DoesNotContain("sys:menu:tree", login.Response.Permissions);
+            Assert.NotEmpty(login.Response.Menus);
 
             var me = await service.MeAsync(userId, CancellationToken.None);
             Assert.DoesNotContain("sys:menu:tree", me.Permissions);
@@ -255,13 +251,12 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             Assert.Equal(ApiCodes.Unauthorized, loginAfterDelete.Code);
 
             var refreshAfterDelete = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshAfterDelete.Code);
 
-            var principal = accessTokenService.Validate(login.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 0, 59, TimeSpan.Zero));
+            var principal = accessTokenService.Validate(login.Response.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 0, 59, TimeSpan.Zero));
             Assert.NotNull(principal);
             var meAfterDelete = await Assert.ThrowsAsync<DomainException>(
                 () => service.MeAsync(principal!.UserId, CancellationToken.None));
@@ -315,8 +310,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 CancellationToken.None);
 
             var refreshError = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
@@ -380,8 +374,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 CancellationToken.None);
 
             var refreshError = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
@@ -434,8 +427,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 CancellationToken.None);
 
             var refreshError = await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
@@ -551,8 +543,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 "SELECT family_id FROM sys_refresh_token WHERE token_hash = @tokenHash",
                 new SugarParameter("@tokenHash", loginRefreshHash));
 
-            await service.LogoutAsync(
-                new LogoutRequest(login.RefreshToken),
+            await service.LogoutAsync(login.RefreshToken,
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
@@ -568,8 +559,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'logout' AND result = 'success'"));
 
             await Assert.ThrowsAsync<DomainException>(
-                () => service.RefreshAsync(
-                    new RefreshTokenRequest(login.RefreshToken),
+                () => service.RefreshAsync(login.RefreshToken,
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
         }
@@ -604,8 +594,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                 "SELECT family_id FROM sys_refresh_token WHERE token_hash = @tokenHash",
                 new SugarParameter("@tokenHash", loginRefreshHash));
 
-            await service.LogoutAsync(
-                new LogoutRequest("invalid-refresh-token"),
+            await service.LogoutAsync("invalid-refresh-token",
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
@@ -797,8 +786,7 @@ public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
     {
         try
         {
-            await service.RefreshAsync(
-                new RefreshTokenRequest(refreshToken),
+            await service.RefreshAsync(refreshToken,
                 new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 

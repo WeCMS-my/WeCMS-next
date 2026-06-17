@@ -9,6 +9,8 @@ namespace WeCms.Modules.System.Auth;
 
 public static class AuthEndpoints
 {
+    private const string RefreshCookieName = "__Host-wecms_refresh";
+
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/auth");
@@ -19,36 +21,37 @@ public static class AuthEndpoints
                 [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
-                var response = await authService.LoginAsync(request, CreateRequestContext(context), cancellationToken);
-                return Results.Ok(ApiResult<LoginResponse>.Ok(response));
+                var session = await authService.LoginAsync(request, CreateRequestContext(context), cancellationToken);
+                AppendRefreshTokenCookie(context, session);
+                return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LoginRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
             .AllowAnonymous();
 
         group.MapPost("/refresh", async (
-                RefreshTokenRequest request,
                 HttpContext context,
                 [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
-                var response = await authService.RefreshAsync(request, CreateRequestContext(context), cancellationToken);
-                return Results.Ok(ApiResult<LoginResponse>.Ok(response));
+                var refreshToken = ReadRefreshTokenCookie(context);
+                var session = await authService.RefreshAsync(refreshToken, CreateRequestContext(context), cancellationToken);
+                AppendRefreshTokenCookie(context, session);
+                return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
             })
-            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(RefreshTokenRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
             .AllowAnonymous();
 
         group.MapPost("/logout", async (
-                LogoutRequest request,
                 HttpContext context,
                 [FromServices] IAuthService authService,
                 CancellationToken cancellationToken) =>
             {
-                await authService.LogoutAsync(request, CreateRequestContext(context), cancellationToken);
+                var refreshToken = ReadRefreshTokenCookie(context);
+                await authService.LogoutAsync(refreshToken, CreateRequestContext(context), cancellationToken);
+                DeleteRefreshTokenCookie(context);
                 return Results.Ok(ApiResult<object?>.Ok(null));
             })
-            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LogoutRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(object)))
             .AllowAnonymous();
 
@@ -70,6 +73,41 @@ public static class AuthEndpoints
             .RequireAuthorization();
 
         return endpoints;
+    }
+
+    private static string ReadRefreshTokenCookie(HttpContext context)
+    {
+        if (!context.Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken)
+            || string.IsNullOrWhiteSpace(refreshToken))
+        {
+            throw new DomainException(ApiCodes.Unauthorized, "Invalid refresh token.");
+        }
+
+        return refreshToken;
+    }
+
+    private static void AppendRefreshTokenCookie(HttpContext context, AuthSessionResult session)
+    {
+        context.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/",
+            Expires = session.RefreshTokenExpiresAt,
+            MaxAge = session.RefreshTokenMaxAge
+        });
+    }
+
+    private static void DeleteRefreshTokenCookie(HttpContext context)
+    {
+        context.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/"
+        });
     }
 
     private static AuthRequestContext CreateRequestContext(HttpContext context)

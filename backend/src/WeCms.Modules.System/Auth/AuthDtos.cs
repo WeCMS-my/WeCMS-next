@@ -4,20 +4,21 @@ namespace WeCms.Modules.System.Auth;
 
 public sealed record LoginRequest(string Username, string Password);
 
-public sealed record RefreshTokenRequest(string RefreshToken);
-
-public sealed record LogoutRequest(string RefreshToken);
-
 public sealed record AuthUserDto(long Id, string Username, string DisplayName, bool IsSuperAdmin);
 
 public sealed record LoginResponse(
     string AccessToken,
-    string RefreshToken,
     DateTimeOffset ExpiresAt,
     AuthUserDto User,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
     IReadOnlyList<MenuTreeDto> Menus);
+
+public sealed record AuthSessionResult(
+    LoginResponse Response,
+    string RefreshToken,
+    DateTimeOffset RefreshTokenExpiresAt,
+    TimeSpan RefreshTokenMaxAge);
 
 public sealed record AuthMeResponse(
     AuthUserDto User,

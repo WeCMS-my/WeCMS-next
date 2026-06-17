@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { authMeApi, loginApi, logoutApi } from "@/api/auth";
+import { authMeApi, loginApi, logoutApi, refreshApi } from "@/api/auth";
 import type { AuthUserDto, LoginRequest, LoginResponse, MenuTreeDto } from "@/api/types/generated";
 import { useMenuStore } from "@/stores/menu";
 import { usePermissionStore } from "@/stores/permission";
@@ -25,16 +25,20 @@ export const useAuthStore = defineStore("auth", () => {
       return;
     }
 
-    if (!tokenSet.value?.accessToken) {
-      initialized.value = true;
-      return;
-    }
-
     if (!restorePromise) {
-      restorePromise = authMeApi()
-        .then((result) => {
-          applyAuthState(result.data.user, result.data.roles, result.data.permissions, result.data.menus);
-        })
+      restorePromise = tokenSet.value?.accessToken
+        ? authMeApi().then((result) => {
+            applyAuthState(result.data.user, result.data.roles, result.data.permissions, result.data.menus);
+          })
+        : refreshApi().then((result) => {
+            setTokenSet({
+              accessToken: result.data.accessToken,
+              expiresAt: result.data.expiresAt
+            });
+            applyAuthState(result.data.user, result.data.roles, result.data.permissions, result.data.menus);
+          });
+
+      restorePromise = restorePromise
         .catch(() => {
           clearSession();
         })
@@ -48,11 +52,8 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function logout(): Promise<void> {
-    const refreshToken = tokenSet.value?.refreshToken;
     try {
-      if (refreshToken) {
-        await logoutApi({ refreshToken });
-      }
+      await logoutApi();
     } finally {
       clearSession();
     }
@@ -61,7 +62,6 @@ export const useAuthStore = defineStore("auth", () => {
   function applyLoginResponse(response: LoginResponse): void {
     setTokenSet({
       accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
       expiresAt: response.expiresAt
     });
     applyAuthState(response.user, response.roles, response.permissions, response.menus);

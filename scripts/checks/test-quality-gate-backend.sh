@@ -8,6 +8,7 @@ dotnet_log="$tmp_dir/dotnet.log"
 strict_output="$tmp_dir/strict.out"
 fallback_output="$tmp_dir/fallback.out"
 ci_fallback_output="$tmp_dir/ci-fallback.out"
+real_git="$(command -v git)"
 
 cleanup() {
   rm -rf "$tmp_dir"
@@ -46,6 +47,19 @@ fi
 EOF
 
 chmod +x "$fake_bin/dotnet"
+
+cat >"$fake_bin/git" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "\${1:-}" == "-C" && "\${3:-}" == "status" && "\${4:-}" == "--short" && "\${5:-}" == "--" && "\${6:-}" == "frontend" ]]; then
+  exit 0
+fi
+
+exec "$real_git" "\$@"
+EOF
+
+chmod +x "$fake_bin/git"
 
 assert_contains() {
   local file="$1"

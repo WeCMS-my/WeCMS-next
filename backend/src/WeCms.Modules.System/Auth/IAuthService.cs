@@ -2,18 +2,18 @@ namespace WeCms.Modules.System.Auth;
 
 public interface IAuthService
 {
-    Task<LoginResponse> LoginAsync(
+    Task<AuthSessionResult> LoginAsync(
         LoginRequest request,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken);
 
-    Task<LoginResponse> RefreshAsync(
-        RefreshTokenRequest request,
+    Task<AuthSessionResult> RefreshAsync(
+        string refreshToken,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken);
 
     Task LogoutAsync(
-        LogoutRequest request,
+        string refreshToken,
         AuthRequestContext requestContext,
         CancellationToken cancellationToken);
 

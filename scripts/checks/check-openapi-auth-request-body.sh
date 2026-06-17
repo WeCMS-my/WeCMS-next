@@ -17,13 +17,16 @@ document = json.loads(path.read_text(encoding="utf-8"))
 paths = document.get("paths", {})
 schemas = document.get("components", {}).get("schemas", {})
 
-required = {
+body_required = {
     "/api/v1/auth/login": "LoginRequest",
-    "/api/v1/auth/refresh": "RefreshTokenRequest",
-    "/api/v1/auth/logout": "LogoutRequest",
 }
 
-for route, schema_name in required.items():
+body_forbidden = (
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/logout",
+)
+
+for route, schema_name in body_required.items():
     operation = paths.get(route, {}).get("post")
     if operation is None:
         raise SystemExit(f"check-openapi-auth-request-body: missing POST {route}")
@@ -47,9 +50,21 @@ for route, schema_name in required.items():
             f"check-openapi-auth-request-body: POST {route} requestBody ref expected {schema_name}, got {schema_ref}"
         )
 
-for schema_name in ("LoginRequest", "RefreshTokenRequest", "LogoutRequest", "LoginResponse", "AuthMeResponse"):
+for route in body_forbidden:
+    operation = paths.get(route, {}).get("post")
+    if operation is None:
+        raise SystemExit(f"check-openapi-auth-request-body: missing POST {route}")
+
+    if "requestBody" in operation:
+        raise SystemExit(f"check-openapi-auth-request-body: POST {route} must not declare requestBody")
+
+for schema_name in ("LoginRequest", "LoginResponse", "AuthMeResponse"):
     if schema_name not in schemas:
         raise SystemExit(f"check-openapi-auth-request-body: missing schema {schema_name}")
+
+for schema_name in ("RefreshTokenRequest", "LogoutRequest"):
+    if schema_name in schemas:
+        raise SystemExit(f"check-openapi-auth-request-body: obsolete schema {schema_name} must not be exported")
 
 print("check-openapi-auth-request-body: ok")
 PY
