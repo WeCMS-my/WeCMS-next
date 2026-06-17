@@ -12,9 +12,7 @@ export interface AuthUserDto {
   id: number;
   username: string;
   displayName: string;
-  email?: string | null;
-  phone?: string | null;
-  status: string;
+  isSuperAdmin: boolean;
 }
 
 export interface AuthMenuDto {
@@ -37,4 +35,17 @@ export interface LoginResponse extends AuthMeResponse {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface LogoutRequest {
+  refreshToken: string;
 }

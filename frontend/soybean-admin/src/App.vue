@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
-import { NConfigProvider, NLayout, NLayoutContent, NLayoutHeader, NSpace, NText } from "naive-ui";
+import { NButton, NConfigProvider, NLayout, NLayoutContent, NLayoutHeader, NSpace, NText } from "naive-ui";
+import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
+const authStore = useAuthStore();
 const title = computed(() => String(route.meta.title ?? "WeCMS Next"));
+
+async function handleLogout(): Promise<void> {
+  await authStore.logout();
+  window.location.assign("/login");
+}
 </script>
 
 <template>
@@ -15,7 +22,12 @@ const title = computed(() => String(route.meta.title ?? "WeCMS Next"));
           <RouterLink class="text-lg font-semibold text-gray-950 no-underline" to="/dashboard">
             WeCMS Next
           </RouterLink>
-          <NText depth="3">{{ title }}</NText>
+          <NSpace align="center">
+            <NText depth="3">{{ title }}</NText>
+            <NButton v-if="authStore.isAuthenticated" size="small" secondary @click="handleLogout">
+              退出
+            </NButton>
+          </NSpace>
         </NSpace>
       </NLayoutHeader>
       <NLayoutContent class="px-6 py-6">
