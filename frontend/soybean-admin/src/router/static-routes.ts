@@ -18,6 +18,10 @@ const MenusView = () => import("@/views/system/menus/MenusView.vue");
 const DepartmentsView = () => import("@/views/system/depts/DepartmentsView.vue");
 const PostsView = () => import("@/views/system/posts/PostsView.vue");
 const DictsView = () => import("@/views/system/dicts/DictsView.vue");
+const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
+const LoginLogsView = () => import("@/views/system/logs/LoginLogsView.vue");
+const AuditLogsView = () => import("@/views/system/logs/AuditLogsView.vue");
+const SecurityEventsView = () => import("@/views/system/logs/SecurityEventsView.vue");
 
 export const staticRoutes: RouteRecordRaw[] = [
   {
@@ -102,6 +106,42 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "字典管理",
       requiresAuth: true,
       permissions: ["sys:dict-type:list"]
+    }
+  },
+  {
+    path: "/system/settings",
+    component: SettingsView,
+    meta: {
+      title: "系统设置",
+      requiresAuth: true,
+      permissions: ["sys:setting:list"]
+    }
+  },
+  {
+    path: "/system/logs/login",
+    component: LoginLogsView,
+    meta: {
+      title: "登录日志",
+      requiresAuth: true,
+      permissions: ["sys:login-log:list"]
+    }
+  },
+  {
+    path: "/system/logs/audit",
+    component: AuditLogsView,
+    meta: {
+      title: "操作审计日志",
+      requiresAuth: true,
+      permissions: ["sys:audit-log:list"]
+    }
+  },
+  {
+    path: "/system/logs/security",
+    component: SecurityEventsView,
+    meta: {
+      title: "安全事件",
+      requiresAuth: true,
+      permissions: ["sys:security-event:list"]
     }
   }
 ];

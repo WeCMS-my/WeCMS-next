@@ -325,6 +325,79 @@ export interface DictMutationResponse {
   id: number;
 }
 
+export interface SettingSummaryDto {
+  key: string;
+  value?: string | null;
+  valueType: string;
+  groupCode: string;
+  name: string;
+  description?: string | null;
+  isSensitive: boolean;
+  isSystem: boolean;
+  updatedAt: string;
+  updatedBy?: number | null;
+}
+
+export type SettingDetailDto = SettingSummaryDto;
+export type PagedSettingSummary = PagedResult<SettingSummaryDto>;
+
+export interface UpdateSettingRequest {
+  value?: string | null;
+}
+
+export interface SettingMutationResponse {
+  key: string;
+}
+
+export interface LoginLogSummaryDto {
+  id: number;
+  username: string;
+  userId?: number | null;
+  ip: string;
+  result: string;
+  reason?: string | null;
+  createdAt: string;
+  userAgent?: string | null;
+}
+
+export type LoginLogDetailDto = LoginLogSummaryDto;
+export type PagedLoginLogSummary = PagedResult<LoginLogSummaryDto>;
+
+export interface AuditLogSummaryDto {
+  id: number;
+  userId?: number | null;
+  username?: string | null;
+  module: string;
+  resource: string;
+  action: string;
+  targetId?: string | null;
+  result: string;
+  createdAt: string;
+  requestMethod?: string | null;
+  requestPath?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  traceId?: string | null;
+  detail?: string | null;
+}
+
+export type AuditLogDetailDto = AuditLogSummaryDto;
+export type PagedAuditLogSummary = PagedResult<AuditLogSummaryDto>;
+
+export interface SecurityEventSummaryDto {
+  id: number;
+  eventType: string;
+  userId?: number | null;
+  username?: string | null;
+  ip?: string | null;
+  severity: string;
+  message: string;
+  createdAt: string;
+}
+
+export type SecurityEventDetailDto = SecurityEventSummaryDto;
+export type PagedSecurityEventSummary = PagedResult<SecurityEventSummaryDto>;
+
 export interface DepartmentTreeDto {
   id: number;
   parentId?: number | null;
