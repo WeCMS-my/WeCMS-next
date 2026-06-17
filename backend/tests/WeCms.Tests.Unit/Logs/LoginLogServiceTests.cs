@@ -43,9 +43,9 @@ public sealed class LoginLogServiceTests
         var from = DateTimeOffset.UnixEpoch;
         var to = from.AddDays(1);
 
-        await service.ListLoginLogsAsync(new LoginLogListQuery(2, 30, " admin ", " 127.0.0.1 ", " success ", from, to), CancellationToken.None);
+        await service.ListLoginLogsAsync(new LoginLogListQuery(2, 30, " admin ", " 192.168.101.199 ", " success ", from, to), CancellationToken.None);
 
-        Assert.Equal(new LoginLogListCriteria(2, 30, "admin", "127.0.0.1", "success", from, to), repository.LastCriteria);
+        Assert.Equal(new LoginLogListCriteria(2, 30, "admin", "192.168.101.199", "success", from, to), repository.LastCriteria);
     }
 
     private sealed class FakeLogRepository : ILogRepository
@@ -66,15 +66,15 @@ public sealed class LoginLogServiceTests
                 return Task.FromResult<LoginLogDetailDto?>(null);
             }
 
-            return Task.FromResult<LoginLogDetailDto?>(new LoginLogDetailDto(id, "admin", 1, "127.0.0.1", "unit-test", "success", null, DateTimeOffset.UnixEpoch));
+            return Task.FromResult<LoginLogDetailDto?>(new LoginLogDetailDto(id, "admin", 1, "192.168.101.199", "unit-test", "success", null, DateTimeOffset.UnixEpoch));
         }
 
         public Task<PagedResult<AuditLogSummaryDto>> ListAuditLogsAsync(AuditLogListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<AuditLogSummaryDto>([], criteria.Page, criteria.PageSize, 0));
 
-        public Task<AuditLogDetailDto?> GetAuditLogAsync(long id, CancellationToken cancellationToken) => Task.FromResult<AuditLogDetailDto?>(new AuditLogDetailDto(id, 1, "admin", "system", "user", "create", "1", "POST", "/api/v1/system/users", "127.0.0.1", "unit-test", "trace", "success", "created", DateTimeOffset.UnixEpoch));
+        public Task<AuditLogDetailDto?> GetAuditLogAsync(long id, CancellationToken cancellationToken) => Task.FromResult<AuditLogDetailDto?>(new AuditLogDetailDto(id, 1, "admin", "system", "user", "create", "1", "POST", "/api/v1/system/users", "192.168.101.199", "unit-test", "trace", "success", "created", DateTimeOffset.UnixEpoch));
 
         public Task<PagedResult<SecurityEventSummaryDto>> ListSecurityEventsAsync(SecurityEventListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<SecurityEventSummaryDto>([], criteria.Page, criteria.PageSize, 0));
 
-        public Task<SecurityEventDetailDto?> GetSecurityEventAsync(long id, CancellationToken cancellationToken) => Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "127.0.0.1", "high", "message", DateTimeOffset.UnixEpoch));
+        public Task<SecurityEventDetailDto?> GetSecurityEventAsync(long id, CancellationToken cancellationToken) => Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "message", DateTimeOffset.UnixEpoch));
     }
 }

@@ -13,22 +13,25 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Auth;
 
-public sealed class AuthIntegrationTests
+public sealed class AuthIntegrationTests : global::Xunit.IAsyncLifetime
 {
+
+    public Task InitializeAsync()
+    {
+        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [DbFact]
     public async Task AuthService_LoginFailureAndSuccessPersistExpectedAuditAndTokenState()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_auth_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -40,7 +43,7 @@ public sealed class AuthIntegrationTests
             var failed = await Assert.ThrowsAsync<DomainException>(
                 () => service.LoginAsync(
                     new LoginRequest("admin", "wrong"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
 
             Assert.Equal(ApiCodes.Unauthorized, failed.Code);
@@ -50,7 +53,7 @@ public sealed class AuthIntegrationTests
 
             var login = await service.LoginAsync(
                 new LoginRequest("admin", "Admin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             Assert.NotEmpty(login.AccessToken);
@@ -62,7 +65,7 @@ public sealed class AuthIntegrationTests
             Assert.Contains("sys:system:secure-ping", login.Permissions);
             Assert.Contains("sys:user:list", login.Permissions);
             Assert.NotEqual(login.RefreshToken, Scalar<string>(db, "SELECT token_hash FROM sys_refresh_token LIMIT 1"));
-            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND last_login_at IS NOT NULL AND last_login_ip = '127.0.0.1'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND last_login_at IS NOT NULL AND last_login_ip = '192.168.101.199'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'login' AND result = 'success'"));
 
             var principal = accessTokenService.Validate(login.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
@@ -76,7 +79,7 @@ public sealed class AuthIntegrationTests
 
             var refreshed = await service.RefreshAsync(
                 new RefreshTokenRequest(login.RefreshToken),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var oldRefreshHash = refreshTokenService.Hash(login.RefreshToken);
             var newRefreshHash = refreshTokenService.Hash(refreshed.RefreshToken);
@@ -100,7 +103,7 @@ public sealed class AuthIntegrationTests
             var reused = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, reused.Code);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
@@ -112,7 +115,7 @@ public sealed class AuthIntegrationTests
 
             var expiredLogin = await service.LoginAsync(
                 new LoginRequest("admin", "Admin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var expiredHash = refreshTokenService.Hash(expiredLogin.RefreshToken);
             db.Ado.ExecuteCommand(
@@ -122,7 +125,7 @@ public sealed class AuthIntegrationTests
             var expired = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(expiredLogin.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, expired.Code);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_expired'"));
@@ -130,13 +133,13 @@ public sealed class AuthIntegrationTests
 
             var disabledLogin = await service.LoginAsync(
                 new LoginRequest("admin", "Admin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             db.Ado.ExecuteCommand("UPDATE sys_user SET status = 'disabled' WHERE username = 'admin'");
             var disabled = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(disabledLogin.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, disabled.Code);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_user_disabled'"));
@@ -145,7 +148,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -153,15 +155,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_SoftDeletedUserCannotLoginRefreshMeOrUsePermissions()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_auth_soft_delete_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -178,7 +176,7 @@ public sealed class AuthIntegrationTests
 
             var login = await service.LoginAsync(
                 new LoginRequest("soft_deleted_target", "SoftDeleted@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             var userService = new UserService(userRepository, new PasswordHasher(), new SqlSugarUnitOfWork(db));
@@ -187,7 +185,7 @@ public sealed class AuthIntegrationTests
                 new UserRequestContext(
                     adminUserId,
                     "admin",
-                    "127.0.0.1",
+                    "192.168.101.199",
                     "integration",
                     "integration-soft-delete",
                     new DateTimeOffset(2026, 6, 16, 0, 0, 30, TimeSpan.Zero)),
@@ -205,14 +203,14 @@ public sealed class AuthIntegrationTests
             var loginAfterDelete = await Assert.ThrowsAsync<DomainException>(
                 () => service.LoginAsync(
                     new LoginRequest("soft_deleted_target", "SoftDeleted@123"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, loginAfterDelete.Code);
 
             var refreshAfterDelete = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshAfterDelete.Code);
 
@@ -228,7 +226,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -236,15 +233,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_ResetPasswordRevokesExistingRefreshToken()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_auth_reset_pwd_revoke_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -257,7 +250,7 @@ public sealed class AuthIntegrationTests
             var userId = await CreateUserAsync(db, "reset_target", targetPassword, now);
             var login = await service.LoginAsync(
                 new LoginRequest("reset_target", targetPassword),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             var oldRefreshHash = tokenService.Hash(login.RefreshToken);
@@ -268,7 +261,7 @@ public sealed class AuthIntegrationTests
                 new UserRequestContext(
                     actorUserId,
                     "admin",
-                    "127.0.0.1",
+                    "192.168.101.199",
                     "integration",
                     "integration-reset-pass",
                     now),
@@ -277,7 +270,7 @@ public sealed class AuthIntegrationTests
             var refreshError = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
             Assert.Equal(1, Scalar<int>(
@@ -289,17 +282,16 @@ public sealed class AuthIntegrationTests
             await Assert.ThrowsAsync<DomainException>(
                 () => service.LoginAsync(
                     new LoginRequest("reset_target", targetPassword),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             var newLogin = await service.LoginAsync(
                 new LoginRequest("reset_target", "NewAdmin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             Assert.NotNull(newLogin);
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -307,15 +299,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_DisabledUserRefreshTokenIsRevoked()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_auth_disable_revoke_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -328,7 +316,7 @@ public sealed class AuthIntegrationTests
             var userId = await CreateUserAsync(db, "disabled_target", targetPassword, now);
             var login = await service.LoginAsync(
                 new LoginRequest("disabled_target", targetPassword),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var oldRefreshHash = tokenService.Hash(login.RefreshToken);
 
@@ -338,7 +326,7 @@ public sealed class AuthIntegrationTests
                 new UserRequestContext(
                     actorUserId,
                     "admin",
-                    "127.0.0.1",
+                    "192.168.101.199",
                     "integration",
                     "integration-disable",
                     now),
@@ -347,7 +335,7 @@ public sealed class AuthIntegrationTests
             var refreshError = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
             Assert.Equal(1, Scalar<int>(
@@ -358,7 +346,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -366,15 +353,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_DeletedUserRefreshTokenIsRevoked()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_auth_delete_revoke_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -387,7 +370,7 @@ public sealed class AuthIntegrationTests
             var userId = await CreateUserAsync(db, "deleted_target", targetPassword, now);
             var login = await service.LoginAsync(
                 new LoginRequest("deleted_target", targetPassword),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var oldRefreshHash = tokenService.Hash(login.RefreshToken);
 
@@ -397,7 +380,7 @@ public sealed class AuthIntegrationTests
                 new UserRequestContext(
                     actorUserId,
                     "admin",
-                    "127.0.0.1",
+                    "192.168.101.199",
                     "integration",
                     "integration-delete",
                     now),
@@ -406,7 +389,7 @@ public sealed class AuthIntegrationTests
             var refreshError = await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
             Assert.Equal(1, Scalar<int>(
@@ -421,7 +404,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -429,15 +411,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_ProductionAdminSeedRequiresPasswordRotationBeforeLogin()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_admin_password_change_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Production", "AdminRotation123!"));
 
@@ -451,7 +429,7 @@ public sealed class AuthIntegrationTests
             var exception = await Assert.ThrowsAsync<DomainException>(
                 () => service.LoginAsync(
                     new LoginRequest("admin", "AdminRotation123!"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
 
             Assert.Equal(ApiCodes.BusinessError, exception.Code);
@@ -461,7 +439,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -469,16 +446,11 @@ public sealed class AuthIntegrationTests
     public async Task RefreshAsync_ConcurrentRefreshAllowsOnlyOneSuccess()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_refresh_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            var connectionString = WithDatabase(baseConnectionString, databaseName);
-            using var setupDb = new SqlSugarClientFactory(connectionString).Create();
+            using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -486,11 +458,11 @@ public sealed class AuthIntegrationTests
             var login = await CreateService(setupDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero))
                 .LoginAsync(
                     new LoginRequest("admin", "Admin@123"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None);
 
-            using var firstDb = new SqlSugarClientFactory(connectionString).Create();
-            using var secondDb = new SqlSugarClientFactory(connectionString).Create();
+            using var firstDb = new SqlSugarClientFactory(baseConnectionString).Create();
+            using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
             var firstService = CreateService(firstDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
             var secondService = CreateService(secondDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
 
@@ -502,7 +474,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -510,15 +481,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_LogoutRevokesRefreshTokenFamily()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_logout_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -528,7 +495,7 @@ public sealed class AuthIntegrationTests
 
             var login = await service.LoginAsync(
                 new LoginRequest("admin", "Admin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             var loginRefreshHash = tokenService.Hash(login.RefreshToken);
@@ -539,7 +506,7 @@ public sealed class AuthIntegrationTests
 
             await service.LogoutAsync(
                 new LogoutRequest(login.RefreshToken),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             Assert.Equal(0, Scalar<int>(
@@ -556,12 +523,11 @@ public sealed class AuthIntegrationTests
             await Assert.ThrowsAsync<DomainException>(
                 () => service.RefreshAsync(
                     new RefreshTokenRequest(login.RefreshToken),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -569,15 +535,11 @@ public sealed class AuthIntegrationTests
     public async Task AuthService_LogoutUnknownTokenDoesNotAffectFamily()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_logout_unknown_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -587,7 +549,7 @@ public sealed class AuthIntegrationTests
 
             var login = await service.LoginAsync(
                 new LoginRequest("admin", "Admin@123"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
             var loginRefreshHash = tokenService.Hash(login.RefreshToken);
             var familyId = Scalar<string>(
@@ -597,7 +559,7 @@ public sealed class AuthIntegrationTests
 
             await service.LogoutAsync(
                 new LogoutRequest("invalid-refresh-token"),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             Assert.Equal(1, Scalar<int>(
@@ -613,7 +575,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -621,16 +582,11 @@ public sealed class AuthIntegrationTests
     public async Task RefreshAsync_ConcurrentRefreshLongAfterWindowRevokesFamily()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_refresh_revoke_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            var connectionString = WithDatabase(baseConnectionString, databaseName);
-            using var setupDb = new SqlSugarClientFactory(connectionString).Create();
+            using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -642,7 +598,7 @@ public sealed class AuthIntegrationTests
                     new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero))
                 .LoginAsync(
                     new LoginRequest("admin", "Admin@123"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None);
 
             var oldRefreshHash = tokenService.Hash(login.RefreshToken);
@@ -651,8 +607,8 @@ public sealed class AuthIntegrationTests
                 "SELECT family_id FROM sys_refresh_token WHERE token_hash = @tokenHash",
                 new SugarParameter("@tokenHash", oldRefreshHash));
 
-            using var firstDb = new SqlSugarClientFactory(connectionString).Create();
-            using var secondDb = new SqlSugarClientFactory(connectionString).Create();
+            using var firstDb = new SqlSugarClientFactory(baseConnectionString).Create();
+            using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
             var firstService = CreateService(firstDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero));
             var secondService = CreateService(secondDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 10, 0, TimeSpan.Zero));
 
@@ -670,7 +626,6 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
@@ -678,16 +633,11 @@ public sealed class AuthIntegrationTests
     public async Task RefreshAsync_ConcurrentRefreshWithinWindowKeepsFamilyPartiallyActive()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_refresh_replay_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            var connectionString = WithDatabase(baseConnectionString, databaseName);
-            using var setupDb = new SqlSugarClientFactory(connectionString).Create();
+            using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
             await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
@@ -699,7 +649,7 @@ public sealed class AuthIntegrationTests
                     new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero))
                 .LoginAsync(
                     new LoginRequest("admin", "Admin@123"),
-                    new AuthRequestContext("127.0.0.1", "integration"),
+                    new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None);
 
             var oldRefreshHash = tokenService.Hash(login.RefreshToken);
@@ -708,8 +658,8 @@ public sealed class AuthIntegrationTests
                 "SELECT family_id FROM sys_refresh_token WHERE token_hash = @tokenHash",
                 new SugarParameter("@tokenHash", oldRefreshHash));
 
-            using var firstDb = new SqlSugarClientFactory(connectionString).Create();
-            using var secondDb = new SqlSugarClientFactory(connectionString).Create();
+            using var firstDb = new SqlSugarClientFactory(baseConnectionString).Create();
+            using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
             var firstService = CreateService(firstDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
             var secondService = CreateService(secondDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 1, TimeSpan.Zero));
 
@@ -729,10 +679,8 @@ public sealed class AuthIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     private static T Scalar<T>(SqlSugar.ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {
         var scalar = db.Ado.GetScalar(sql, parameters);
@@ -777,7 +725,6 @@ public sealed class AuthIntegrationTests
 
         return (T)Convert.ChangeType(scalar, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
     }
-
     private static AuthService CreateService(
         SqlSugar.ISqlSugarClient db,
         AuthTokenOptions tokenOptions,
@@ -791,7 +738,6 @@ public sealed class AuthIntegrationTests
             new FixedAuthClock(now),
             new SqlSugarUnitOfWork(db));
     }
-
     private static AuthTokenOptions TokenOptions()
     {
         return new AuthTokenOptions(
@@ -800,14 +746,13 @@ public sealed class AuthIntegrationTests
             TimeSpan.FromMinutes(15),
             TimeSpan.FromDays(7));
     }
-
     private static async Task<bool> TryRefreshAsync(AuthService service, string refreshToken)
     {
         try
         {
             await service.RefreshAsync(
                 new RefreshTokenRequest(refreshToken),
-                new AuthRequestContext("127.0.0.1", "integration"),
+                new AuthRequestContext("192.168.101.199", "integration"),
                 CancellationToken.None);
 
             return true;
@@ -817,7 +762,6 @@ public sealed class AuthIntegrationTests
             return false;
         }
     }
-
     private static async Task<long> CreateUserAsync(
         SqlSugar.ISqlSugarClient db,
         string username,
@@ -864,22 +808,10 @@ public sealed class AuthIntegrationTests
             "SELECT id FROM sys_user WHERE username = @username",
             new SugarParameter("@username", username));
     }
-
     private static string RequiredConnectionString()
     {
         return IntegrationTestDatabase.GetConnectionString();
     }
-
-    private static string WithDatabase(string connectionString, string databaseName)
-    {
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(part => !part.StartsWith("database=", StringComparison.OrdinalIgnoreCase)
-                && !part.StartsWith("initial catalog=", StringComparison.OrdinalIgnoreCase))
-            .Append($"database={databaseName}");
-
-        return string.Join(';', parts);
-    }
-
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

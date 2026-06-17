@@ -578,7 +578,7 @@ public sealed class AuthServiceTests
 
     private static AuthRequestContext RequestContext()
     {
-        return new AuthRequestContext("127.0.0.1", "unit-test");
+        return new AuthRequestContext("192.168.101.199", "unit-test");
     }
 
     private static async Task<LoginResponse?> TryRefreshAsync(AuthService service, string refreshToken)

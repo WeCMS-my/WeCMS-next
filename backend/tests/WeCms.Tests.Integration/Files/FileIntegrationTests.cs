@@ -11,25 +11,28 @@ using WeCms.Shared;
 
 namespace WeCms.Tests.Integration.Files;
 
-public sealed class FileIntegrationTests
+public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
 {
+
+    public Task InitializeAsync()
+    {
+        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [DbFact]
     public async Task CreateAsync_StoresAndDownloadsFileWithValidatedMetadata()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_file_upload_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         var fixedClock = new FixedClock(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
         var storageDirectory = Path.Combine(AppContext.BaseDirectory, "storage", "files");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
 
             var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
@@ -56,7 +59,7 @@ public sealed class FileIntegrationTests
             var result = await service.CreateAsync(
                 request,
                 formFile,
-                new FileRequestContext(actorUserId, "admin", "127.0.0.1", "integration", "it", fixedClock.UtcNow),
+                new FileRequestContext(actorUserId, "admin", "192.168.101.199", "integration", "it", fixedClock.UtcNow),
                 CancellationToken.None);
 
             Assert.True(result.Id > 0);
@@ -68,12 +71,12 @@ public sealed class FileIntegrationTests
             Assert.Equal("active", storedStatus);
             Assert.True(Directory.Exists(storageDirectory));
 
-            var payload = await service.GetDownloadPayloadAsync(result.Id, false, new FileRequestContext(actorUserId, "admin", "127.0.0.1", "integration", "it", fixedClock.UtcNow), CancellationToken.None);
+            var payload = await service.GetDownloadPayloadAsync(result.Id, false, new FileRequestContext(actorUserId, "admin", "192.168.101.199", "integration", "it", fixedClock.UtcNow), CancellationToken.None);
             using var memory = new MemoryStream();
             await payload.Content.CopyToAsync(memory, CancellationToken.None);
             Assert.Equal(content.Length, memory.Length);
 
-            await service.DeleteAsync(result.Id, new FileRequestContext(actorUserId, "admin", "127.0.0.1", "integration", "it", fixedClock.UtcNow), CancellationToken.None);
+            await service.DeleteAsync(result.Id, new FileRequestContext(actorUserId, "admin", "192.168.101.199", "integration", "it", fixedClock.UtcNow), CancellationToken.None);
             var deletedStatus = Scalar<string>(db, "SELECT status FROM sys_file WHERE id = @id", new SugarParameter("@id", result.Id));
             Assert.Equal("deleted", deletedStatus);
             Assert.Equal(0L, Scalar<long>(db, "SELECT COUNT(1) FROM sys_file WHERE id = @id AND deleted_at IS NULL", new SugarParameter("@id", result.Id)));
@@ -91,24 +94,17 @@ public sealed class FileIntegrationTests
             {
                 // Ignore cleanup failures to keep environment stable.
             }
-
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     [DbFact]
     public async Task CreateAsync_RejectsSha256MismatchWithoutPersistingMetadata()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_file_upload_reject_{Guid.NewGuid():N}";
 
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
 
             var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
@@ -131,7 +127,7 @@ public sealed class FileIntegrationTests
                 service.CreateAsync(
                     new CreateFileRequest("invoice.pdf", "application/pdf", content.Length, new string('a', 64)),
                     formFile,
-                    new FileRequestContext(actorUserId, "admin", "127.0.0.1", "integration", "it", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero)),
+                    new FileRequestContext(actorUserId, "admin", "192.168.101.199", "integration", "it", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero)),
                     CancellationToken.None));
 
             Assert.Equal(ApiCodes.ValidationError, exception.Code);
@@ -139,25 +135,12 @@ public sealed class FileIntegrationTests
         }
         finally
         {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
-
     private static string RequiredConnectionString()
     {
         return IntegrationTestDatabase.GetConnectionString();
     }
-
-    private static string WithDatabase(string connectionString, string databaseName)
-    {
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(part => !part.StartsWith("database=", StringComparison.OrdinalIgnoreCase)
-                && !part.StartsWith("initial catalog=", StringComparison.OrdinalIgnoreCase))
-            .Append($"database={databaseName}");
-
-        return string.Join(';', parts);
-    }
-
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -174,7 +157,6 @@ public sealed class FileIntegrationTests
 
         throw new DirectoryNotFoundException("Could not locate repository root.");
     }
-
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {
         var scalar = db.Ado.GetScalar(sql, parameters);
@@ -195,14 +177,12 @@ public sealed class FileIntegrationTests
 
         return (T)Convert.ChangeType(scalar, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
     }
-
     private static string ComputeSha256(byte[] bytes)
     {
         using var sha = SHA256.Create();
         var hash = sha.ComputeHash(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
-
     private static IFormFile CreateFormFile(string fileName, byte[] content)
     {
         return new FormFile(new MemoryStream(content), 0, content.Length, "file", fileName)

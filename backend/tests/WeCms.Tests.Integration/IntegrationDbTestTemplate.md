@@ -9,43 +9,32 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Feature;
 
-public sealed class ExampleIntegrationTests
+public sealed class ExampleIntegrationTests : global::Xunit.IAsyncLifetime
 {
+    public Task InitializeAsync()
+    {
+        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [DbFact]
     public async Task Example_CanDoSomethingWithDatabase()
     {
         var baseConnectionString = RequiredConnectionString();
-        var databaseName = $"wecms_example_{Guid.NewGuid():N}";
-
-        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
-        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
-        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
         try
         {
-            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
             await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
             // test logic
-        }
-        finally
-        {
-            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
         }
     }
 
     private static string RequiredConnectionString()
         => IntegrationTestDatabase.GetConnectionString();
-
-    private static string WithDatabase(string connectionString, string databaseName)
-    {
-        var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(part => !part.StartsWith("database=", StringComparison.OrdinalIgnoreCase)
-                && !part.StartsWith("initial catalog=", StringComparison.OrdinalIgnoreCase))
-            .Append($"database={databaseName}");
-
-        return string.Join(';', parts);
-    }
 
     private static string RepoPath(params string[] segments)
     {
@@ -71,6 +60,7 @@ public sealed class ExampleIntegrationTests
 - Keep tests stable in non-DB local environments.
 - All DB integration tests in this suite should use `[DbFact]` so unavailable environments mark tests as `SKIP`.
 - `DbFact` depends on `IntegrationTestDatabase.IsDatabaseAvailable(out reason)`.
+- `InitializeAsync` should call `IntegrationTestDatabase.ResetDatabaseAsync(...)` and tests should use shared schema table cleanup strategy.
 
 ## 3. Do not use
 

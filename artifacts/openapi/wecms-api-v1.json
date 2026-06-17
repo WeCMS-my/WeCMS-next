@@ -4905,9 +4905,19 @@
           "code",
           "path",
           "title",
+          "sort",
+          "hidden",
+          "keepAlive",
           "status"
         ],
         "properties": {
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "type": {
             "type": "string"
           },
@@ -4917,8 +4927,48 @@
           "path": {
             "type": "string"
           },
+          "component": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
+          },
+          "i18nKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "keepAlive": {
+            "type": "boolean"
+          },
+          "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "permissionCode": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string"
@@ -4931,17 +4981,61 @@
           "type",
           "path",
           "title",
+          "sort",
+          "hidden",
+          "keepAlive",
           "status"
         ],
         "properties": {
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "type": {
             "type": "string"
           },
           "path": {
             "type": "string"
           },
+          "component": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
+          },
+          "i18nKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "keepAlive": {
+            "type": "boolean"
+          },
+          "externalUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "type": "string"
@@ -5099,6 +5193,12 @@
           },
           "module": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5114,6 +5214,12 @@
           },
           "module": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5269,14 +5375,26 @@
         "required": [
           "code",
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "code": {
             "type": "string"
           },
           "name": {
             "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5287,11 +5405,23 @@
         "type": "object",
         "required": [
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "name": {
             "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5416,6 +5546,7 @@
         "required": [
           "code",
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
@@ -5424,6 +5555,10 @@
           },
           "name": {
             "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5434,11 +5569,16 @@
         "type": "object",
         "required": [
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
           "name": {
             "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5583,6 +5723,7 @@
         "required": [
           "code",
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
@@ -5591,6 +5732,16 @@
           },
           "name": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5601,11 +5752,22 @@
         "type": "object",
         "required": [
           "name",
+          "sortOrder",
           "status"
         ],
         "properties": {
           "name": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -5671,6 +5833,8 @@
         "required": [
           "label",
           "value",
+          "sortOrder",
+          "isDefault",
           "status"
         ],
         "properties": {
@@ -5679,6 +5843,19 @@
           },
           "value": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isDefault": {
+            "type": "boolean"
           },
           "status": {
             "type": "string"
@@ -5690,6 +5867,8 @@
         "required": [
           "label",
           "value",
+          "sortOrder",
+          "isDefault",
           "status"
         ],
         "properties": {
@@ -5698,6 +5877,19 @@
           },
           "value": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isDefault": {
+            "type": "boolean"
           },
           "status": {
             "type": "string"

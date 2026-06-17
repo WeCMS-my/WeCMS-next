@@ -64,7 +64,7 @@ public sealed class MenuServiceTests
 
     private static MenuRequestContext Context()
     {
-        return new MenuRequestContext(1, "admin", "127.0.0.1", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+        return new MenuRequestContext(1, "admin", "192.168.101.199", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
     }
 
     private sealed class FakeMenuRepository : IMenuRepository

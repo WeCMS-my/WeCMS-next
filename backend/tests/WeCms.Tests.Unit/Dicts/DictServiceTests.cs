@@ -35,7 +35,7 @@ public sealed class DictServiceTests
         Assert.Equal(ApiCodes.Conflict, exception.Code);
     }
 
-    private static DictRequestContext Context() => new(1, "admin", "127.0.0.1", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+    private static DictRequestContext Context() => new(1, "admin", "192.168.101.199", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
 
     private sealed class FakeDictRepository : IDictRepository
     {

@@ -107,7 +107,7 @@ public sealed class FileServiceTests
         Assert.Equal("a.pdf", detail.OriginalName);
     }
 
-    private static FileRequestContext Context() => new(1, "admin", "127.0.0.1", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+    private static FileRequestContext Context() => new(1, "admin", "192.168.101.199", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
     private static IFormFile CreateFormFile(string fileName, string contentType, byte[] content) => new FormFile(new MemoryStream(content), 0, content.Length, "file", fileName)
     {
         Headers = new HeaderDictionary()
