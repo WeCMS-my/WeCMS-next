@@ -32,6 +32,7 @@ public sealed record MenuUpdateRecord(
     bool Hidden,
     bool KeepAlive,
     string? ExternalUrl,
+    string? PermissionCode,
     string Status,
     DateTimeOffset Now);
 

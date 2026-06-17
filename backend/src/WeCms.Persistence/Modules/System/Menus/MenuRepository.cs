@@ -165,6 +165,7 @@ public sealed class MenuRepository : IMenuRepository
                 hidden = @hidden,
                 keep_alive = @keepAlive,
                 external_url = @externalUrl,
+                permission_code = @permissionCode,
                 status = @status,
                 updated_at = @updatedAt
             WHERE id = @id
@@ -183,6 +184,7 @@ public sealed class MenuRepository : IMenuRepository
             new SugarParameter("@hidden", record.Hidden),
             new SugarParameter("@keepAlive", record.KeepAlive),
             new SugarParameter("@externalUrl", record.ExternalUrl),
+            new SugarParameter("@permissionCode", record.PermissionCode),
             new SugarParameter("@status", record.Status),
             new SugarParameter("@updatedAt", record.Now.UtcDateTime));
     }

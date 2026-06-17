@@ -57,7 +57,7 @@ public sealed class MenuServiceTests
         var service = new MenuService(new FakeMenuRepository { IsBuiltin = false, ParentIsDescendant = true });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
-            () => service.UpdateAsync(1, new UpdateMenuRequest(2, "Menu", "/new", "component", "Title", null, null, 1, false, false, null, "enabled"), Context(), CancellationToken.None));
+            () => service.UpdateAsync(1, new UpdateMenuRequest(2, "Menu", "/new", "component", "Title", null, null, 1, false, false, null, null, "enabled"), Context(), CancellationToken.None));
 
         Assert.Equal(ApiCodes.BusinessError, exception.Code);
     }
