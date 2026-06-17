@@ -50,6 +50,16 @@ public sealed class OpenApiContractCompletenessTests
         Assert.Contains("\"sys:file:download\"", permissionCoverage, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SystemCoverageScript_DoesNotRequireRequestBodyForBodylessCommandPosts()
+    {
+        var openApiCoverage = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "checks", "check-system-openapi-coverage.sh"));
+
+        Assert.DoesNotContain("if method in {\"post\", \"put\"} and \"requestBody\" not in operation", openApiCoverage, StringComparison.Ordinal);
+        Assert.Contains("request_body_required = {", openApiCoverage, StringComparison.Ordinal);
+        Assert.Contains("(\"/api/v1/system/users/{id:long}/disable\", \"post\")", openApiCoverage, StringComparison.Ordinal);
+    }
+
     private static void AssertSchemaProperties(JsonElement schema, string[] required, string[] optional)
     {
         var actualRequired = schema.GetProperty("required")

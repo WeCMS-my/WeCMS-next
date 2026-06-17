@@ -73,6 +73,47 @@ for route, methods in expected.items():
     if missing:
         raise SystemExit(f"check-system-openapi-coverage: missing {','.join(sorted(missing)).upper()} {route}")
 
+request_body_required = {
+    ("/api/v1/system/users", "post"),
+    ("/api/v1/system/users/{id:long}", "put"),
+    ("/api/v1/system/users/{id:long}/reset-password", "post"),
+    ("/api/v1/system/users/{id:long}/roles", "put"),
+    ("/api/v1/system/users/{id:long}/posts", "put"),
+    ("/api/v1/system/roles", "post"),
+    ("/api/v1/system/roles/{id:long}", "put"),
+    ("/api/v1/system/roles/{id:long}/permissions", "put"),
+    ("/api/v1/system/roles/{id:long}/menus", "put"),
+    ("/api/v1/system/menus", "post"),
+    ("/api/v1/system/menus/{id:long}", "put"),
+    ("/api/v1/system/permissions", "post"),
+    ("/api/v1/system/permissions/{id:long}", "put"),
+    ("/api/v1/system/depts", "post"),
+    ("/api/v1/system/depts/{id:long}", "put"),
+    ("/api/v1/system/posts", "post"),
+    ("/api/v1/system/posts/{id:long}", "put"),
+    ("/api/v1/system/dict-types", "post"),
+    ("/api/v1/system/dict-types/{id:long}", "put"),
+    ("/api/v1/system/dict-types/{typeCode}/values", "post"),
+    ("/api/v1/system/dict-values/{id:long}", "put"),
+    ("/api/v1/system/settings/{key}", "put"),
+    ("/api/v1/system/files", "post"),
+}
+
+request_body_forbidden = {
+    ("/api/v1/system/users/{id:long}/enable", "post"),
+    ("/api/v1/system/users/{id:long}/disable", "post"),
+    ("/api/v1/system/roles/{id:long}/enable", "post"),
+    ("/api/v1/system/roles/{id:long}/disable", "post"),
+    ("/api/v1/system/menus/{id:long}/enable", "post"),
+    ("/api/v1/system/menus/{id:long}/disable", "post"),
+    ("/api/v1/system/permissions/{id:long}/enable", "post"),
+    ("/api/v1/system/permissions/{id:long}/disable", "post"),
+    ("/api/v1/system/depts/{id:long}/enable", "post"),
+    ("/api/v1/system/depts/{id:long}/disable", "post"),
+    ("/api/v1/system/posts/{id:long}/enable", "post"),
+    ("/api/v1/system/posts/{id:long}/disable", "post"),
+}
+
 for route, methods in expected.items():
     for method in methods:
         operation = paths[route][method]
@@ -80,8 +121,10 @@ for route, methods in expected.items():
             raise SystemExit(f"check-system-openapi-coverage: {method.upper()} {route} missing bearerAuth security")
         if not operation.get("x-wecms-permission"):
             raise SystemExit(f"check-system-openapi-coverage: {method.upper()} {route} missing permission metadata")
-        if method in {"post", "put"} and "requestBody" not in operation:
+        if (route, method) in request_body_required and "requestBody" not in operation:
             raise SystemExit(f"check-system-openapi-coverage: {method.upper()} {route} missing requestBody")
+        if (route, method) in request_body_forbidden and "requestBody" in operation:
+            raise SystemExit(f"check-system-openapi-coverage: {method.upper()} {route} must not declare requestBody")
 
 list_routes = {
     "/api/v1/system/users", "/api/v1/system/roles", "/api/v1/system/posts", "/api/v1/system/dict-types",
