@@ -3,10 +3,10 @@ import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NInput, NModal, NSpace } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { getAuditLogApi, getAuditLogsApi } from "@/api/system/logs";
-import type { AuditLogSummaryDto } from "@/api/types/generated";
+import type { AuditLogDetailDto, AuditLogSummaryDto } from "@/api/types/generated";
 
 const rows = ref<AuditLogSummaryDto[]>([]);
-const detail = ref<AuditLogSummaryDto | null>(null);
+const detail = ref<AuditLogDetailDto | null>(null);
 const loading = ref(false);
 const detailVisible = ref(false);
 const query = reactive({ page: 1, pageSize: 20, user: "", module: "", resource: "", action: "", result: "" });

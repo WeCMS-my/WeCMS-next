@@ -508,7 +508,7 @@ public static class OpenApiExtensions
                     ["user"] = SchemaRef("AuthUserDto"),
                     ["roles"] = ArrayOf(StringSchema()),
                     ["permissions"] = ArrayOf(StringSchema()),
-                    ["menus"] = ArrayOf(SchemaRef("AuthMenuDto"))
+                    ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)))
                 }
             },
             ["AuthMeResponse"] = new JsonObject
@@ -520,7 +520,7 @@ public static class OpenApiExtensions
                     ["user"] = SchemaRef("AuthUserDto"),
                     ["roles"] = ArrayOf(StringSchema()),
                     ["permissions"] = ArrayOf(StringSchema()),
-                    ["menus"] = ArrayOf(SchemaRef("AuthMenuDto"))
+                    ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)))
                 }
             },
             ["AuthUserDto"] = new JsonObject
@@ -533,20 +533,6 @@ public static class OpenApiExtensions
                     ["username"] = StringSchema(),
                     ["displayName"] = StringSchema(),
                     ["isSuperAdmin"] = BooleanSchema()
-                }
-            },
-            ["AuthMenuDto"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "type", "name", "path", "title"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["parentId"] = IntegerSchema(nullable: true),
-                    ["type"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["path"] = StringSchema(),
-                    ["title"] = StringSchema()
                 }
             },
             ["SystemLiveResponse"] = ObjectSchema(("status", "string")),

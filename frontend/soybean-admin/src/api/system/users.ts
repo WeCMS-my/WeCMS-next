@@ -47,14 +47,14 @@ export function deleteUserApi(id: number): Promise<ApiResult<unknown>> {
   });
 }
 
-export function enableUserApi(id: number): Promise<ApiResult<UserMutationResponse>> {
-  return requestJson<UserMutationResponse>(`/api/v1/system/users/${id}/enable`, {
+export function enableUserApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/enable`, {
     method: "POST"
   });
 }
 
-export function disableUserApi(id: number): Promise<ApiResult<UserMutationResponse>> {
-  return requestJson<UserMutationResponse>(`/api/v1/system/users/${id}/disable`, {
+export function disableUserApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/disable`, {
     method: "POST"
   });
 }
@@ -62,8 +62,8 @@ export function disableUserApi(id: number): Promise<ApiResult<UserMutationRespon
 export function resetUserPasswordApi(
   id: number,
   request: ResetUserPasswordRequest
-): Promise<ApiResult<UserMutationResponse>> {
-  return requestJson<UserMutationResponse>(`/api/v1/system/users/${id}/reset-password`, {
+): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/reset-password`, {
     method: "POST",
     body: JSON.stringify(request)
   });
@@ -72,8 +72,8 @@ export function resetUserPasswordApi(
 export function assignUserRolesApi(
   id: number,
   request: AssignUserRolesRequest
-): Promise<ApiResult<UserMutationResponse>> {
-  return requestJson<UserMutationResponse>(`/api/v1/system/users/${id}/roles`, {
+): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/roles`, {
     method: "PUT",
     body: JSON.stringify(request)
   });
@@ -82,8 +82,8 @@ export function assignUserRolesApi(
 export function assignUserPostsApi(
   id: number,
   request: AssignUserPostsRequest
-): Promise<ApiResult<UserMutationResponse>> {
-  return requestJson<UserMutationResponse>(`/api/v1/system/users/${id}/posts`, {
+): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/posts`, {
     method: "PUT",
     body: JSON.stringify(request)
   });

@@ -19,7 +19,7 @@ public sealed class MenuService : IMenuService
     public async Task<IReadOnlyList<MenuTreeDto>> TreeAsync(CancellationToken cancellationToken)
     {
         var menus = await _repository.ListAsync(cancellationToken);
-        return BuildTree(menus, null);
+        return MenuTreeBuilder.Build(menus);
     }
 
     public async Task<MenuDetailDto> GetAsync(long id, CancellationToken cancellationToken)
@@ -168,33 +168,6 @@ public sealed class MenuService : IMenuService
         return _repository.RecordAuditAsync(
             new MenuAuditRecord(context.ActorUserId, context.ActorUsername, action, targetMenuId, context.Ip, context.UserAgent, context.TraceId, result, detail, context.Now),
             cancellationToken);
-    }
-
-    private static IReadOnlyList<MenuTreeDto> BuildTree(IReadOnlyList<MenuSummaryDto> menus, long? parentId)
-    {
-        return menus
-            .Where(menu => menu.ParentId == parentId)
-            .OrderBy(menu => menu.Sort)
-            .ThenBy(menu => menu.Id)
-            .Select(menu => new MenuTreeDto(
-                menu.Id,
-                menu.ParentId,
-                menu.Type,
-                menu.Code,
-                menu.Path,
-                menu.Component,
-                menu.Title,
-                menu.I18nKey,
-                menu.Icon,
-                menu.Sort,
-                menu.Hidden,
-                menu.KeepAlive,
-                menu.ExternalUrl,
-                menu.PermissionCode,
-                menu.Status,
-                menu.IsBuiltin,
-                BuildTree(menus, menu.Id)))
-            .ToArray();
     }
 
     private static string NormalizeType(string value)

@@ -106,7 +106,7 @@ export const staticRoutes: RouteRecordRaw[] = [
     meta: {
       title: "字典管理",
       requiresAuth: true,
-      permissions: ["sys:dict-type:list"]
+      permissions: ["sys:dict:type:list"]
     }
   },
   {

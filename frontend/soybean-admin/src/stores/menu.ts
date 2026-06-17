@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { getMenuTreeApi } from "@/api/menu";
 import { usePermissionStore } from "@/stores/permission";
-import type { AuthMenuDto, MenuTreeDto } from "@/api/types/generated";
+import type { MenuTreeDto } from "@/api/types/generated";
 
 export interface NavigationItem {
   id: string;
@@ -11,26 +11,18 @@ export interface NavigationItem {
 }
 
 export const useMenuStore = defineStore("menu", () => {
-  const menus = ref<AuthMenuDto[]>([]);
+  const menus = ref<MenuTreeDto[]>([]);
   const menuTree = ref<MenuTreeDto[]>([]);
   const menuTreeLoaded = ref(false);
+  const effectiveMenuTree = computed<MenuTreeDto[]>(() => (
+    menuTreeLoaded.value ? menuTree.value : menus.value
+  ));
 
   const navigationItems = computed<NavigationItem[]>(() => {
-    const treeItems = flattenTreeNavigation(menuTree.value);
-    if (treeItems.length > 0) {
-      return treeItems;
-    }
-
-    return menus.value
-      .filter((menu) => menu.type !== "button" && Boolean(menu.path))
-      .map((menu) => ({
-        id: String(menu.id),
-        title: menu.title,
-        path: menu.path
-      }));
+    return flattenTreeNavigation(effectiveMenuTree.value);
   });
 
-  function setMenus(nextMenus: AuthMenuDto[]): void {
+  function setMenus(nextMenus: MenuTreeDto[]): void {
     menus.value = nextMenus;
   }
 
@@ -55,6 +47,7 @@ export const useMenuStore = defineStore("menu", () => {
     menus,
     menuTree,
     menuTreeLoaded,
+    effectiveMenuTree,
     navigationItems,
     setMenus,
     loadMenuTreeIfAllowed,

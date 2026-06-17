@@ -1,5 +1,6 @@
 using SqlSugar;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Menus;
 
 namespace WeCms.Persistence.Modules.System.Auth;
 
@@ -151,6 +152,105 @@ public sealed class AuthRepository : IAuthRepository
             new SugarParameter("@userId", userId));
 
         return rows;
+    }
+
+    public async Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var rows = isSuperAdmin
+            ? await _db.Ado.SqlQueryAsync<AuthMenuRow>(
+                """
+                SELECT m.id AS Id,
+                       m.parent_id AS ParentId,
+                       m.type AS Type,
+                       m.name AS Code,
+                       m.path AS Path,
+                       m.component AS Component,
+                       m.title AS Title,
+                       m.i18n_key AS I18nKey,
+                       m.icon AS Icon,
+                       m.sort AS Sort,
+                       m.hidden AS Hidden,
+                       m.keep_alive AS KeepAlive,
+                       m.external_url AS ExternalUrl,
+                       m.permission_code AS PermissionCode,
+                       m.status AS Status,
+                       m.is_builtin AS IsBuiltin
+                FROM sys_menu m
+                WHERE m.deleted_at IS NULL
+                  AND m.status = 'enabled'
+                ORDER BY m.parent_id IS NOT NULL, m.parent_id, m.sort, m.id
+                """)
+            : await ListVisibleMenuRowsForUserAsync(userId);
+
+        return rows.Select(row => row.ToSummaryDto()).ToArray();
+    }
+
+    private async Task<IReadOnlyList<AuthMenuRow>> ListVisibleMenuRowsForUserAsync(long userId)
+    {
+        var allMenus = await _db.Ado.SqlQueryAsync<AuthMenuRow>(
+            """
+            SELECT m.id AS Id,
+                   m.parent_id AS ParentId,
+                   m.type AS Type,
+                   m.name AS Code,
+                   m.path AS Path,
+                   m.component AS Component,
+                   m.title AS Title,
+                   m.i18n_key AS I18nKey,
+                   m.icon AS Icon,
+                   m.sort AS Sort,
+                   m.hidden AS Hidden,
+                   m.keep_alive AS KeepAlive,
+                   m.external_url AS ExternalUrl,
+                   m.permission_code AS PermissionCode,
+                   m.status AS Status,
+                   m.is_builtin AS IsBuiltin
+            FROM sys_menu m
+            WHERE m.deleted_at IS NULL
+              AND m.status = 'enabled'
+            ORDER BY m.parent_id IS NOT NULL, m.parent_id, m.sort, m.id
+            """);
+
+        var directMenuIds = await _db.Ado.SqlQueryAsync<long>(
+            """
+            SELECT DISTINCT m.id
+            FROM sys_menu m
+            INNER JOIN sys_role_menu rm ON rm.menu_id = m.id
+            INNER JOIN sys_user_role ur ON ur.role_id = rm.role_id
+            INNER JOIN sys_role r ON r.id = ur.role_id
+            WHERE ur.user_id = @userId
+              AND r.deleted_at IS NULL
+              AND r.status = 'enabled'
+              AND m.deleted_at IS NULL
+              AND m.status = 'enabled'
+            """,
+            new SugarParameter("@userId", userId));
+
+        var menusById = allMenus.ToDictionary(menu => menu.Id);
+        var visibleMenuIds = new HashSet<long>(directMenuIds);
+        foreach (var directMenuId in directMenuIds)
+        {
+            var currentId = directMenuId;
+            while (menusById.TryGetValue(currentId, out var menu) && menu.ParentId is { } parentId)
+            {
+                if (!visibleMenuIds.Add(parentId))
+                {
+                    break;
+                }
+
+                currentId = parentId;
+            }
+        }
+
+        return allMenus
+            .Where(menu => visibleMenuIds.Contains(menu.Id))
+            .OrderBy(menu => menu.ParentId.HasValue)
+            .ThenBy(menu => menu.ParentId)
+            .ThenBy(menu => menu.Sort)
+            .ThenBy(menu => menu.Id)
+            .ToArray();
     }
 
     public async Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
@@ -340,6 +440,47 @@ public sealed class AuthRepository : IAuthRepository
         public AuthUserRecord ToRecord()
         {
             return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword, SecurityStamp);
+        }
+    }
+
+    private sealed class AuthMenuRow
+    {
+        public long Id { get; set; }
+        public long? ParentId { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
+        public string? Component { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? I18nKey { get; set; }
+        public string? Icon { get; set; }
+        public int Sort { get; set; }
+        public bool Hidden { get; set; }
+        public bool KeepAlive { get; set; }
+        public string? ExternalUrl { get; set; }
+        public string? PermissionCode { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public bool IsBuiltin { get; set; }
+
+        public MenuSummaryDto ToSummaryDto()
+        {
+            return new MenuSummaryDto(
+                Id,
+                ParentId,
+                Type,
+                Code,
+                Path,
+                Component,
+                Title,
+                I18nKey,
+                Icon,
+                Sort,
+                Hidden,
+                KeepAlive,
+                ExternalUrl,
+                PermissionCode,
+                Status,
+                IsBuiltin);
         }
     }
 }

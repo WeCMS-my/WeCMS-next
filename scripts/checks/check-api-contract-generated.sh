@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OPENAPI_FILE="${ROOT_DIR}/artifacts/openapi/wecms-api-v1.json"
 TYPES_FILE="${ROOT_DIR}/frontend/soybean-admin/src/api/types/generated.ts"
+GENERATOR="${ROOT_DIR}/scripts/generate-openapi-types.py"
 
 if [[ ! -f "${OPENAPI_FILE}" ]]; then
   echo "Missing OpenAPI artifact: ${OPENAPI_FILE}" >&2
@@ -15,48 +16,30 @@ if [[ ! -f "${TYPES_FILE}" ]]; then
   exit 1
 fi
 
-if ! grep -q 'OpenAPI-aligned placeholder' "${TYPES_FILE}"; then
-  echo "generated.ts must declare its current OpenAPI alignment status." >&2
+if [[ ! -f "${GENERATOR}" ]]; then
+  echo "Missing OpenAPI type generator: ${GENERATOR}" >&2
   exit 1
 fi
 
-if ! grep -q 'LoginResponse' "${TYPES_FILE}" || ! grep -q 'AuthMeResponse' "${TYPES_FILE}"; then
-  echo "generated.ts must include current auth response contracts." >&2
+if grep -q 'OpenAPI-aligned placeholder' "${TYPES_FILE}"; then
+  echo "generated.ts must be generated from OpenAPI, not accepted as a placeholder." >&2
   exit 1
 fi
 
-required_schemas=(
-  AuthMeResponse
-  LoginResponse
-  UserSummaryDto
-  UserDetailDto
-  RoleSummaryDto
-  RoleDetailDto
-  PermissionSummaryDto
-  MenuTreeDto
-  DepartmentTreeDto
-  PostSummaryDto
-  DictTypeSummaryDto
-  DictValueDto
-  SettingSummaryDto
-  LoginLogSummaryDto
-  AuditLogSummaryDto
-  SecurityEventSummaryDto
-  FileSummaryDto
-  FileDetailDto
-)
+generated_tmp="$(mktemp)"
+cleanup() {
+  rm -f "${generated_tmp}"
+}
+trap cleanup EXIT
 
-for schema in "${required_schemas[@]}"; do
-  if ! grep -q "\"${schema}\":" "${OPENAPI_FILE}"; then
-    echo "OpenAPI artifact is missing required schema: ${schema}" >&2
-    exit 1
-  fi
+python3 "${GENERATOR}" "${OPENAPI_FILE}" "${generated_tmp}"
 
-  if ! grep -Eq "(interface|type) ${schema}\\b" "${TYPES_FILE}"; then
-    echo "Frontend generated.ts is missing required schema declaration: ${schema}" >&2
-    exit 1
-  fi
-done
+if ! diff -u "${generated_tmp}" "${TYPES_FILE}" >/dev/null; then
+  echo "generated.ts is stale or hand-edited. Regenerate it with:" >&2
+  echo "python3 scripts/generate-openapi-types.py artifacts/openapi/wecms-api-v1.json frontend/soybean-admin/src/api/types/generated.ts" >&2
+  diff -u "${generated_tmp}" "${TYPES_FILE}" >&2 || true
+  exit 1
+fi
 
 required_api_clients=(
   auth.ts
