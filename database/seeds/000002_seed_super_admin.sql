@@ -1,8 +1,16 @@
-INSERT INTO sys_role (code, name, status, is_builtin, created_at, updated_at, deleted_at)
-SELECT 'super_admin', 'Super Administrator', 'enabled', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL
+INSERT INTO sys_role (code, name, status, is_builtin, is_locked, created_at, updated_at, deleted_at)
+SELECT 'super_admin', 'Super Administrator', 'enabled', TRUE, TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM sys_role WHERE code = 'super_admin'
 );
+
+UPDATE sys_role
+SET status = 'enabled',
+    is_builtin = TRUE,
+    is_locked = TRUE,
+    updated_at = UTC_TIMESTAMP(6),
+    deleted_at = NULL
+WHERE code = 'super_admin';
 
 INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, created_at, updated_at)
 SELECT 'admin', 'Administrator', '{{ADMIN_PASSWORD_HASH}}', 'enabled', TRUE, {{ADMIN_MUST_CHANGE_PASSWORD}}, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)

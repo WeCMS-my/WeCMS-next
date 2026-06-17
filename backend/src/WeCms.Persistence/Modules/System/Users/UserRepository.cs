@@ -201,12 +201,15 @@ public sealed class UserRepository : IUserRepository
             new SugarParameter("@id", record.Id));
     }
 
-    public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        return ExpectOneAsync(
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await ExpectOneAsync(
             """
             UPDATE sys_user
             SET deleted_at = @deletedAt,
+                status = 'disabled',
                 updated_at = @updatedAt
             WHERE id = @id
               AND deleted_at IS NULL
@@ -233,6 +236,21 @@ public sealed class UserRepository : IUserRepository
             new SugarParameter("@id", id));
     }
 
+    public Task RevokeUserRefreshTokensAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return _db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_refresh_token
+            SET revoked_at = @revokedAt
+            WHERE user_id = @userId
+              AND revoked_at IS NULL
+            """,
+            new SugarParameter("@revokedAt", now.UtcDateTime),
+            new SugarParameter("@userId", userId));
+    }
+
     public Task ResetPasswordAsync(long id, string passwordHash, DateTimeOffset now, CancellationToken cancellationToken)
     {
         return ExpectOneAsync(
@@ -254,73 +272,89 @@ public sealed class UserRepository : IUserRepository
     public async Task ReplaceRolesAsync(long id, IReadOnlyList<long> roleIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _db.Ado.BeginTran();
-        try
-        {
-            await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_role WHERE user_id = @id", new SugarParameter("@id", id));
-            foreach (var roleId in roleIds)
-            {
-                await _db.Ado.ExecuteCommandAsync(
-                    "INSERT INTO sys_user_role (user_id, role_id, created_at) VALUES (@id, @roleId, @createdAt)",
-                    new SugarParameter("@id", id),
-                    new SugarParameter("@roleId", roleId),
-                    new SugarParameter("@createdAt", now.UtcDateTime));
-            }
 
-            await BumpPermissionVersionAsync(id, now);
-            _db.Ado.CommitTran();
-        }
-        catch
+        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_role WHERE user_id = @id", new SugarParameter("@id", id));
+        foreach (var roleId in roleIds)
         {
-            _db.Ado.RollbackTran();
-            throw;
+            await _db.Ado.ExecuteCommandAsync(
+                "INSERT INTO sys_user_role (user_id, role_id, created_at) VALUES (@id, @roleId, @createdAt)",
+                new SugarParameter("@id", id),
+                new SugarParameter("@roleId", roleId),
+                new SugarParameter("@createdAt", now.UtcDateTime));
         }
+
+        await BumpPermissionVersionAsync(id, now);
     }
 
     public async Task ReplacePostsAsync(long id, IReadOnlyList<long> postIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _db.Ado.BeginTran();
-        try
-        {
-            await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_post WHERE user_id = @id", new SugarParameter("@id", id));
-            foreach (var postId in postIds)
-            {
-                await _db.Ado.ExecuteCommandAsync(
-                    "INSERT INTO sys_user_post (user_id, post_id, created_at) VALUES (@id, @postId, @createdAt)",
-                    new SugarParameter("@id", id),
-                    new SugarParameter("@postId", postId),
-                    new SugarParameter("@createdAt", now.UtcDateTime));
-            }
 
-            _db.Ado.CommitTran();
-        }
-        catch
+        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_post WHERE user_id = @id", new SugarParameter("@id", id));
+        foreach (var postId in postIds)
         {
-            _db.Ado.RollbackTran();
-            throw;
+            await _db.Ado.ExecuteCommandAsync(
+                "INSERT INTO sys_user_post (user_id, post_id, created_at) VALUES (@id, @postId, @createdAt)",
+                new SugarParameter("@id", id),
+                new SugarParameter("@postId", postId),
+                new SugarParameter("@createdAt", now.UtcDateTime));
         }
     }
 
-    public async Task<int> CountActiveSuperAdminsExceptAsync(long? exceptUserId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<long>> ListLockedRoleIdsByUserAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sql = """
-            SELECT COUNT(1)
-            FROM sys_user
-            WHERE is_super_admin = TRUE
-              AND status = 'enabled'
-              AND deleted_at IS NULL
-            """;
-        var parameters = new List<SugarParameter>();
-        if (exceptUserId is not null)
+        return await _db.Ado.SqlQueryAsync<long>(
+            """
+            SELECT r.id
+            FROM sys_role r
+            INNER JOIN sys_user_role ur ON ur.role_id = r.id
+            WHERE ur.user_id = @userId
+              AND r.is_locked = TRUE
+              AND r.deleted_at IS NULL
+            ORDER BY r.id
+            """,
+            new SugarParameter("@userId", userId));
+    }
+
+    public async Task<IReadOnlySet<long>> ExistingLockedRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (roleIds.Count == 0)
         {
-            sql += " AND id <> @exceptUserId";
-            parameters.Add(new SugarParameter("@exceptUserId", exceptUserId.Value));
+            return new HashSet<long>();
         }
 
-        return Convert.ToInt32(await _db.Ado.GetScalarAsync(sql, parameters), global::System.Globalization.CultureInfo.InvariantCulture);
+        var parameters = roleIds.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
+        var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            $"""
+            SELECT id
+            FROM sys_role
+            WHERE id IN ({placeholders})
+              AND is_locked = TRUE
+              AND deleted_at IS NULL
+            """,
+            parameters);
+
+        return rows.ToHashSet();
+    }
+
+    public async Task<int> CountEnabledUsersByRoleAsync(long roleId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Convert.ToInt32(await _db.Ado.GetScalarAsync(
+            """
+            SELECT COUNT(1)
+            FROM sys_user u
+            INNER JOIN sys_user_role ur ON ur.user_id = u.id
+            WHERE ur.role_id = @roleId
+              AND u.status = 'enabled'
+              AND u.deleted_at IS NULL
+            """,
+            new SugarParameter("@roleId", roleId)), global::System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken)

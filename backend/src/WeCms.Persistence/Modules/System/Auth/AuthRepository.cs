@@ -24,9 +24,11 @@ public sealed class AuthRepository : IAuthRepository
                    password_hash AS PasswordHash,
                    status AS Status,
                    is_super_admin AS IsSuperAdmin,
-                   must_change_password AS MustChangePassword
+                   must_change_password AS MustChangePassword,
+                   security_stamp AS SecurityStamp
             FROM sys_user
             WHERE username = @username
+              AND deleted_at IS NULL
             LIMIT 1
             """,
             new SugarParameter("@username", username));
@@ -46,9 +48,11 @@ public sealed class AuthRepository : IAuthRepository
                    password_hash AS PasswordHash,
                    status AS Status,
                    is_super_admin AS IsSuperAdmin,
-                   must_change_password AS MustChangePassword
+                   must_change_password AS MustChangePassword,
+                   security_stamp AS SecurityStamp
             FROM sys_user
             WHERE id = @userId
+              AND deleted_at IS NULL
             LIMIT 1
             """,
             new SugarParameter("@userId", userId));
@@ -71,12 +75,14 @@ public sealed class AuthRepository : IAuthRepository
                    u.must_change_password AS MustChangePassword,
                    rt.token_hash,
                    rt.family_id,
+                   u.security_stamp AS SecurityStamp,
                    rt.expires_at,
                    rt.revoked_at,
                    rt.replaced_by_token_hash
             FROM sys_refresh_token rt
             INNER JOIN sys_user u ON u.id = rt.user_id
             WHERE rt.token_hash = @tokenHash
+              AND u.deleted_at IS NULL
             LIMIT 1
             """,
             new SugarParameter("@tokenHash", tokenHash));
@@ -105,7 +111,8 @@ public sealed class AuthRepository : IAuthRepository
             row["replaced_by_token_hash"] == DBNull.Value
                 ? null
                 : Convert.ToString(row["replaced_by_token_hash"], global::System.Globalization.CultureInfo.InvariantCulture),
-            Convert.ToBoolean(row["MustChangePassword"], global::System.Globalization.CultureInfo.InvariantCulture));
+            Convert.ToBoolean(row["MustChangePassword"], global::System.Globalization.CultureInfo.InvariantCulture),
+            Convert.ToString(row["SecurityStamp"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
     }
 
     public async Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
@@ -328,9 +335,11 @@ public sealed class AuthRepository : IAuthRepository
 
         public bool MustChangePassword { get; set; }
 
+        public string SecurityStamp { get; set; } = string.Empty;
+
         public AuthUserRecord ToRecord()
         {
-            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword);
+            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword, SecurityStamp);
         }
     }
 }

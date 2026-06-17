@@ -1,0 +1,43 @@
+using WeCms.Modules.System.Files;
+
+namespace WeCms.Tests.Unit.Files;
+
+public sealed class FileEndpointHttpTests
+{
+    [Fact]
+    public void FileEndpoints_SourceDeclaresExpectedRoutesPermissionsAndAntiforgeryMetadata()
+    {
+        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"));
+
+        Assert.Contains("group.MapGet(\"/files\", ListAsync).RequirePermission(FilePermissions.List);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}\", DetailAsync).RequirePermission(FilePermissions.Detail);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}/download\", DownloadAsync).RequirePermission(FilePermissions.Download);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}/preview\", PreviewAsync).RequirePermission(FilePermissions.Download);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapDelete(\"/files/{id:long}\", DeleteAsync).RequirePermission(FilePermissions.Delete);", source, StringComparison.Ordinal);
+        Assert.Contains(".DisableAntiforgery()", source, StringComparison.Ordinal);
+        Assert.Contains(".RequirePermission(FilePermissions.Upload)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FilePermissions_SourceDeclaresDownloadPermission()
+    {
+        Assert.Equal("sys:file:download", FilePermissions.Download);
+    }
+
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (Directory.Exists(Path.Combine(directory.FullName, "backend"))
+                && File.Exists(Path.Combine(directory.FullName, "backend", "src", "WeCms.Api", "WeCms.Api.csproj")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
+    }
+}

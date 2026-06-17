@@ -40,6 +40,7 @@ public sealed class OpenApiExportTests
             Assert.False(logoutPath.GetProperty("post").TryGetProperty("security", out _));
             Assert.True(schemas.TryGetProperty("ApiResult", out _));
             Assert.True(schemas.TryGetProperty("LoginResponse", out _));
+            AssertRoleSchemasExposeLockedFlag(schemas);
 
             Assert.True(paths.TryGetProperty("/health/live", out _));
             Assert.True(paths.TryGetProperty("/health/ready", out _));
@@ -57,6 +58,19 @@ public sealed class OpenApiExportTests
                 File.Delete(outputPath);
             }
         }
+    }
+
+    private static void AssertRoleSchemasExposeLockedFlag(JsonElement schemas)
+    {
+        var summary = schemas.GetProperty(nameof(RoleSummaryDto));
+        var summaryRequired = summary.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToHashSet();
+        Assert.Contains("isLocked", summaryRequired);
+        Assert.Equal("boolean", summary.GetProperty("properties").GetProperty("isLocked").GetProperty("type").GetString());
+
+        var detail = schemas.GetProperty(nameof(RoleDetailDto));
+        var detailRequired = detail.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToHashSet();
+        Assert.Contains("isLocked", detailRequired);
+        Assert.Equal("boolean", detail.GetProperty("properties").GetProperty("isLocked").GetProperty("type").GetString());
     }
 
     [Fact]
@@ -139,9 +153,12 @@ public sealed class OpenApiExportTests
             {
                 var operation = paths.GetProperty(registered.Path).GetProperty(registered.Method);
                 var requestBody = operation.GetProperty("requestBody");
+                var contentType = registered.Path == "/api/v1/system/files" && registered.Method == "post"
+                    ? "multipart/form-data"
+                    : "application/json";
                 var schemaRef = requestBody
                     .GetProperty("content")
-                    .GetProperty("application/json")
+                    .GetProperty(contentType)
                     .GetProperty("schema")
                     .GetProperty("$ref")
                     .GetString();
@@ -372,6 +389,8 @@ public sealed class OpenApiExportTests
             { ("/api/v1/system/files", "get"), (true, FilePermissions.List) },
             { ("/api/v1/system/files/{id:long}", "get"), (true, FilePermissions.Detail) },
             { ("/api/v1/system/files", "post"), (true, FilePermissions.Upload) },
+            { ("/api/v1/system/files/{id:long}/download", "get"), (true, FilePermissions.Download) },
+            { ("/api/v1/system/files/{id:long}/preview", "get"), (true, FilePermissions.Download) },
             { ("/api/v1/system/files/{id:long}", "delete"), (true, FilePermissions.Delete) }
         };
 
@@ -664,6 +683,8 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/files", "get", FilePermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/files/{id:long}", "get", FilePermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/files", "post", FilePermissions.Upload, true, nameof(CreateFileRequest)),
+        new RegisteredEndpoint("/api/v1/system/files/{id:long}/download", "get", FilePermissions.Download, true, null),
+        new RegisteredEndpoint("/api/v1/system/files/{id:long}/preview", "get", FilePermissions.Download, true, null),
         new RegisteredEndpoint("/api/v1/system/files/{id:long}", "delete", FilePermissions.Delete, true, null)
     ];
 

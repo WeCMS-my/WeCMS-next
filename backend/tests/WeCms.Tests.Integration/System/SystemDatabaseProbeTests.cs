@@ -1,12 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Modules.System.System;
+using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.SystemApi;
 
 public sealed class SystemDatabaseProbeTests
 {
-    [Fact]
+
+    [DbFact]
     public async Task CheckAsync_ReturnsAvailableForReachableDatabase()
     {
         var connectionString = RequiredConnectionString();
@@ -19,7 +21,7 @@ public sealed class SystemDatabaseProbeTests
         Assert.Null(result.FailureCode);
     }
 
-    [Fact]
+    [DbFact]
     public async Task CheckAsync_ReturnsUnavailableWithoutLeakingExceptionMessage()
     {
         using var db = new SqlSugarClientFactory("server=127.0.0.1;port=1;database=missing;uid=missing;pwd=missing;").Create();
@@ -33,11 +35,6 @@ public sealed class SystemDatabaseProbeTests
 
     private static string RequiredConnectionString()
     {
-        var connectionString = Environment.GetEnvironmentVariable("WECMS_TEST_MYSQL_CONNECTION_STRING");
-        Assert.False(
-            string.IsNullOrWhiteSpace(connectionString),
-            "Set WECMS_TEST_MYSQL_CONNECTION_STRING to run MySQL integration tests.");
-
-        return connectionString;
+        return IntegrationTestDatabase.GetConnectionString();
     }
 }

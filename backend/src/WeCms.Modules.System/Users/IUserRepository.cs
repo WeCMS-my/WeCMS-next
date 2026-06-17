@@ -30,11 +30,17 @@ public interface IUserRepository
 
     Task ResetPasswordAsync(long id, string passwordHash, DateTimeOffset now, CancellationToken cancellationToken);
 
+    Task RevokeUserRefreshTokensAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken);
+
     Task ReplaceRolesAsync(long id, IReadOnlyList<long> roleIds, DateTimeOffset now, CancellationToken cancellationToken);
 
     Task ReplacePostsAsync(long id, IReadOnlyList<long> postIds, DateTimeOffset now, CancellationToken cancellationToken);
 
-    Task<int> CountActiveSuperAdminsExceptAsync(long? exceptUserId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<long>> ListLockedRoleIdsByUserAsync(long userId, CancellationToken cancellationToken);
+
+    Task<IReadOnlySet<long>> ExistingLockedRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken);
+
+    Task<int> CountEnabledUsersByRoleAsync(long roleId, CancellationToken cancellationToken);
 
     Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken);
 }

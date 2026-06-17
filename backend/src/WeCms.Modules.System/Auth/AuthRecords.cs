@@ -45,7 +45,8 @@ public sealed record AuthUserRecord(
     string PasswordHash,
     string Status,
     bool IsSuperAdmin,
-    bool MustChangePassword = false);
+    bool MustChangePassword = false,
+    string SecurityStamp = "");
 
 public sealed record FailedLoginRecord(
     string Username,
@@ -99,7 +100,8 @@ public sealed record RefreshTokenRecord(
     DateTimeOffset ExpiresAt,
     DateTimeOffset? RevokedAt,
     string? ReplacedByTokenHash,
-    bool MustChangePassword = false);
+    bool MustChangePassword = false,
+    string SecurityStamp = "");
 
 public sealed record RefreshRotationRecord(
     long OldRefreshTokenId,
@@ -120,7 +122,7 @@ public sealed class RefreshTokenAlreadyRevokedException : Exception
     public string FamilyId { get; }
 }
 
-public sealed record AccessTokenPrincipal(long UserId, string Username, DateTimeOffset ExpiresAt);
+public sealed record AccessTokenPrincipal(long UserId, string Username, string SecurityStamp, DateTimeOffset ExpiresAt);
 
 public sealed record IssuedAccessToken(string Token, DateTimeOffset ExpiresAt);
 

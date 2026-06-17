@@ -1,5 +1,6 @@
 ALTER TABLE sys_role
   ADD COLUMN is_builtin BOOLEAN NOT NULL DEFAULT FALSE AFTER status,
+  ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT FALSE AFTER is_builtin,
   ADD COLUMN deleted_at DATETIME(6) NULL AFTER updated_at,
   ADD KEY ix_sys_role_deleted_at (deleted_at);
 

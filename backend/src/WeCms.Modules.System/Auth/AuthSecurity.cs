@@ -135,6 +135,7 @@ public sealed class AccessTokenService : IAccessTokenService
             _options.Issuer,
             user.Id.ToString(CultureInfo.InvariantCulture),
             Base64UrlEncode(Encoding.UTF8.GetBytes(user.Username)),
+            Base64UrlEncode(Encoding.UTF8.GetBytes(user.SecurityStamp)),
             expiresAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
         var payloadBytes = Encoding.UTF8.GetBytes(payload);
         var encodedPayload = Base64UrlEncode(payloadBytes);
@@ -165,10 +166,10 @@ public sealed class AccessTokenService : IAccessTokenService
 
             var payload = Encoding.UTF8.GetString(Base64UrlDecode(parts[2]));
             var fields = payload.Split(':');
-            if (fields.Length != 4
+            if (fields.Length != 5
                 || fields[0] != _options.Issuer
                 || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out var userId)
-                || !long.TryParse(fields[3], NumberStyles.None, CultureInfo.InvariantCulture, out var expiresUnix))
+                || !long.TryParse(fields[4], NumberStyles.None, CultureInfo.InvariantCulture, out var expiresUnix))
             {
                 return null;
             }
@@ -180,8 +181,9 @@ public sealed class AccessTokenService : IAccessTokenService
             }
 
             var username = Encoding.UTF8.GetString(Base64UrlDecode(fields[2]));
+            var securityStamp = Encoding.UTF8.GetString(Base64UrlDecode(fields[3]));
 
-            return new AccessTokenPrincipal(userId, username, expiresAt);
+            return new AccessTokenPrincipal(userId, username, securityStamp, expiresAt);
         }
         catch (FormatException)
         {

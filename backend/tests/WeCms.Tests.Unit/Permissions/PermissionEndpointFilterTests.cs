@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Files;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Permissions;
@@ -47,6 +48,30 @@ public sealed class PermissionEndpointFilterTests
     }
 
     [Fact]
+    public async Task InvokeAsync_ReturnsPermissionDeniedWhenPermissionIsMissing()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, userId: 42);
+        var filter = new PermissionEndpointFilter();
+
+        var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
+        var response = await ExecuteResultAsync(result, httpContext);
+
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), response.StatusCode);
+        Assert.Equal("Permission denied.", response.Message);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ReturnsForbiddenWhenFileDownloadPermissionMissing()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, FilePermissions.Download, userId: 42);
+        var filter = new PermissionEndpointFilter();
+
+        var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
+
+        Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), await ExecuteStatusCodeAsync(result, httpContext));
+    }
+
+    [Fact]
     public async Task InvokeAsync_CallsNextWhenPermissionIsAllowed()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, userId: 42);
@@ -68,8 +93,38 @@ public sealed class PermissionEndpointFilterTests
         Assert.Equal(SystemPermissions.SecurePing, checker.LastPermissionCode);
     }
 
+    [Fact]
+    public async Task InvokeAsync_CallsNextWhenFilePermissionIsAllowed()
+    {
+        var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, FilePermissions.Download, userId: 42);
+        var filter = new PermissionEndpointFilter();
+        var called = false;
+
+        var result = await filter.InvokeAsync(filterContext, _ =>
+        {
+            called = true;
+
+            return ValueTask.FromResult<object?>("allowed");
+        });
+
+        Assert.True(called);
+        Assert.Equal("allowed", result);
+        var checker = Assert.IsType<FakePermissionChecker>(
+            httpContext.RequestServices.GetRequiredService<IPermissionChecker>());
+        Assert.Equal(42, checker.LastUserId);
+        Assert.Equal(FilePermissions.Download, checker.LastPermissionCode);
+    }
+
     private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContext(
         PermissionCheckResult result,
+        long? userId)
+    {
+        return CreateContext(result, SystemPermissions.SecurePing, userId);
+    }
+
+    private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContext(
+        PermissionCheckResult result,
+        string permissionCode,
         long? userId)
     {
         var services = new ServiceCollection()
@@ -85,7 +140,7 @@ public sealed class PermissionEndpointFilterTests
         httpContext.Response.Body = new MemoryStream();
         httpContext.SetEndpoint(new Endpoint(
             _ => Task.CompletedTask,
-            new EndpointMetadataCollection(new PermissionMetadata(SystemPermissions.SecurePing)),
+            new EndpointMetadataCollection(new PermissionMetadata(permissionCode)),
             "secure-ping-test"));
 
         if (userId is not null)

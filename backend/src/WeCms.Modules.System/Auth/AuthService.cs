@@ -230,7 +230,8 @@ public sealed class AuthService : IAuthService
             existingToken.DisplayName,
             PasswordHash: string.Empty,
             existingToken.UserStatus,
-            existingToken.IsSuperAdmin);
+            existingToken.IsSuperAdmin,
+            SecurityStamp: existingToken.SecurityStamp);
         var accessToken = _accessTokenService.Issue(user, now);
         var newRefreshToken = _refreshTokenService.Issue(now) with { FamilyId = existingToken.FamilyId };
 

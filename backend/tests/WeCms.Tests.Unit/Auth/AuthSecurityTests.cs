@@ -9,6 +9,31 @@ namespace WeCms.Tests.Unit.Auth;
 public sealed class AuthSecurityTests
 {
     [Fact]
+    public void IssueAndValidate_IncludeSecurityStamp()
+    {
+        var options = CreateTokenOptions();
+        var service = new AccessTokenService(options);
+        var now = new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero);
+        var user = new AuthUserRecord(
+            1,
+            "admin",
+            "Administrator",
+            string.Empty,
+            "enabled",
+            false,
+            false,
+            "stamp-1");
+        var token = service.Issue(user, now);
+
+        var principal = service.Validate(token.Token, now.AddMinutes(1));
+
+        Assert.NotNull(principal);
+        Assert.Equal(1, principal.UserId);
+        Assert.Equal("admin", principal.Username);
+        Assert.Equal("stamp-1", principal.SecurityStamp);
+    }
+
+    [Fact]
     public void Validate_ReturnsNull_WhenPayloadSegmentCannotBeBase64Decoded()
     {
         var options = CreateTokenOptions();

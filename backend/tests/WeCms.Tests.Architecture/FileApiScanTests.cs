@@ -11,11 +11,14 @@ public sealed class FileApiScanTests
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/files\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/files/{id:long}\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/files/{id:long}/download\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/files/{id:long}/preview\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/files\"", source, StringComparison.Ordinal);
         Assert.Contains("MapDelete(\"/files/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(FilePermissions.List)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(FilePermissions.Detail)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(FilePermissions.Upload)", source, StringComparison.Ordinal);
+        Assert.Contains("RequirePermission(FilePermissions.Download)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(FilePermissions.Delete)", source, StringComparison.Ordinal);
     }
 }

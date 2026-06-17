@@ -86,6 +86,7 @@ public sealed class M1SystemSeedScanTests
         "sys:file:list",
         "sys:file:detail",
         "sys:file:upload",
+        "sys:file:download",
         "sys:file:delete"
     ];
 
