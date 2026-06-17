@@ -24,6 +24,28 @@ export interface AuthMenuDto {
   title: string;
 }
 
+export interface MenuTreeDto {
+  id: number;
+  parentId?: number | null;
+  type: string;
+  code: string;
+  path: string;
+  component?: string | null;
+  title: string;
+  i18nKey?: string | null;
+  icon?: string | null;
+  sort: number;
+  hidden: boolean;
+  keepAlive: boolean;
+  externalUrl?: string | null;
+  permissionCode?: string | null;
+  status: string;
+  isBuiltin: boolean;
+  children?: MenuTreeDto[];
+}
+
+export type MenuTreeList = MenuTreeDto[];
+
 export interface AuthMeResponse {
   user: AuthUserDto;
   roles: string[];

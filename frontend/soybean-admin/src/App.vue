@@ -3,9 +3,11 @@ import { computed } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import { NButton, NConfigProvider, NLayout, NLayoutContent, NLayoutHeader, NSpace, NText } from "naive-ui";
 import { useAuthStore } from "@/stores/auth";
+import { useMenuStore } from "@/stores/menu";
 
 const route = useRoute();
 const authStore = useAuthStore();
+const menuStore = useMenuStore();
 const title = computed(() => String(route.meta.title ?? "WeCMS Next"));
 
 async function handleLogout(): Promise<void> {
@@ -31,7 +33,29 @@ async function handleLogout(): Promise<void> {
         </NSpace>
       </NLayoutHeader>
       <NLayoutContent class="px-6 py-6">
-        <RouterView />
+        <div class="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <nav
+            v-if="authStore.isAuthenticated"
+            class="rounded border border-gray-200 bg-white p-3"
+            aria-label="系统菜单"
+          >
+            <RouterLink
+              class="block rounded px-3 py-2 text-sm text-gray-700 no-underline hover:bg-gray-100"
+              to="/dashboard"
+            >
+              工作台
+            </RouterLink>
+            <RouterLink
+              v-for="item in menuStore.navigationItems"
+              :key="item.id"
+              class="block rounded px-3 py-2 text-sm text-gray-700 no-underline hover:bg-gray-100"
+              :to="item.path"
+            >
+              {{ item.title }}
+            </RouterLink>
+          </nav>
+          <RouterView />
+        </div>
       </NLayoutContent>
     </NLayout>
   </NConfigProvider>
