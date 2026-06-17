@@ -341,20 +341,24 @@ public sealed class UserRepository : IUserRepository
         return rows.ToHashSet();
     }
 
-    public async Task<int> CountEnabledUsersByRoleAsync(long roleId, CancellationToken cancellationToken)
+    public async Task<int> CountEnabledUsersByRoleForUpdateAsync(long roleId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        return Convert.ToInt32(await _db.Ado.GetScalarAsync(
+        var rows = await _db.Ado.SqlQueryAsync<long>(
             """
-            SELECT COUNT(1)
+            SELECT u.id
             FROM sys_user u
             INNER JOIN sys_user_role ur ON ur.user_id = u.id
             WHERE ur.role_id = @roleId
               AND u.status = 'enabled'
               AND u.deleted_at IS NULL
+            ORDER BY u.id
+            FOR UPDATE
             """,
-            new SugarParameter("@roleId", roleId)), global::System.Globalization.CultureInfo.InvariantCulture);
+            new SugarParameter("@roleId", roleId));
+
+        return rows.Count;
     }
 
     public Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken)

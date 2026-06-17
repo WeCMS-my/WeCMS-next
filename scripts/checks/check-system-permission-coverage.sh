@@ -24,7 +24,7 @@ expected = {
     "sys:login-log:page", "sys:login-log:list", "sys:login-log:detail",
     "sys:audit-log:page", "sys:audit-log:list", "sys:audit-log:detail",
     "sys:security-event:page", "sys:security-event:list", "sys:security-event:detail",
-    "sys:file:page", "sys:file:list", "sys:file:detail", "sys:file:upload", "sys:file:delete",
+    "sys:file:page", "sys:file:list", "sys:file:detail", "sys:file:upload", "sys:file:download", "sys:file:delete",
 }
 
 actual = set(re.findall(r"'(sys:[^']+)'", seed))

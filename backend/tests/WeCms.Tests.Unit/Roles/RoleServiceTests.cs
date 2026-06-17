@@ -76,6 +76,18 @@ public sealed class RoleServiceTests
     }
 
     [Fact]
+    public async Task EnableAsync_RejectsLockedRole()
+    {
+        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.EnableAsync(2, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.BusinessError, exception.Code);
+        Assert.Equal("Locked role cannot be enabled.", exception.Message);
+    }
+
+    [Fact]
     public async Task AssignPermissionsAsync_RejectsLockedRole()
     {
         var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());

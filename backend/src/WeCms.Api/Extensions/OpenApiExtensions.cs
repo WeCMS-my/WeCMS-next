@@ -626,8 +626,34 @@ public static class OpenApiExtensions
                     ["updatedAt"] = DateTimeSchema()
                 }
             },
-            [nameof(CreateUserRequest)] = ObjectSchema(("username", "string"), ("displayName", "string"), ("password", "string")),
-            [nameof(UpdateUserRequest)] = ObjectSchema(("displayName", "string")),
+            [nameof(CreateUserRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("username", "displayName", "password"),
+                ["properties"] = new JsonObject
+                {
+                    ["username"] = StringSchema(),
+                    ["displayName"] = StringSchema(),
+                    ["password"] = StringSchema(),
+                    ["email"] = NullableStringSchema(),
+                    ["phone"] = NullableStringSchema(),
+                    ["deptId"] = IntegerSchema(nullable: true),
+                    ["roleIds"] = NullableArrayOf(IntegerSchema()),
+                    ["postIds"] = NullableArrayOf(IntegerSchema())
+                }
+            },
+            [nameof(UpdateUserRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("displayName"),
+                ["properties"] = new JsonObject
+                {
+                    ["displayName"] = StringSchema(),
+                    ["email"] = NullableStringSchema(),
+                    ["phone"] = NullableStringSchema(),
+                    ["deptId"] = IntegerSchema(nullable: true)
+                }
+            },
             [nameof(ResetUserPasswordRequest)] = ObjectSchema(("password", "string")),
             [nameof(AssignUserRolesRequest)] = new JsonObject
             {
@@ -688,7 +714,18 @@ public static class OpenApiExtensions
                     ["updatedAt"] = DateTimeSchema()
                 }
             },
-            [nameof(CreateRoleRequest)] = ObjectSchema(("code", "string"), ("name", "string")),
+            [nameof(CreateRoleRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("code", "name"),
+                ["properties"] = new JsonObject
+                {
+                    ["code"] = StringSchema(),
+                    ["name"] = StringSchema(),
+                    ["permissionIds"] = NullableArrayOf(IntegerSchema()),
+                    ["menuIds"] = NullableArrayOf(IntegerSchema())
+                }
+            },
             [nameof(UpdateRoleRequest)] = ObjectSchema(("name", "string")),
             [nameof(AssignRolePermissionsRequest)] = new JsonObject
             {
@@ -1276,6 +1313,15 @@ public static class OpenApiExtensions
         return new JsonObject
         {
             ["type"] = "array",
+            ["items"] = itemSchema
+        };
+    }
+
+    private static JsonObject NullableArrayOf(JsonObject itemSchema)
+    {
+        return new JsonObject
+        {
+            ["type"] = new JsonArray("array", "null"),
             ["items"] = itemSchema
         };
     }

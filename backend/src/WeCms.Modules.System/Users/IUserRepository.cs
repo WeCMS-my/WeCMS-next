@@ -40,7 +40,7 @@ public interface IUserRepository
 
     Task<IReadOnlySet<long>> ExistingLockedRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken);
 
-    Task<int> CountEnabledUsersByRoleAsync(long roleId, CancellationToken cancellationToken);
+    Task<int> CountEnabledUsersByRoleForUpdateAsync(long roleId, CancellationToken cancellationToken);
 
     Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken);
 }

@@ -41,6 +41,21 @@ public sealed partial class PersistenceBoundaryTests
         Assert.True(violations.Length == 0, $"Module files contain SQL keywords:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
     }
 
+    [Fact]
+    public void UserRepository_LocksEnabledLockedRoleHoldersWhenCounting()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            TestPaths.SourceRoot,
+            "WeCms.Persistence",
+            "Modules",
+            "System",
+            "Users",
+            "UserRepository.cs"));
+
+        Assert.Contains("CountEnabledUsersByRoleForUpdateAsync", source, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", source, StringComparison.Ordinal);
+    }
+
     private static IEnumerable<string> ProductionFiles()
     {
         return Directory.EnumerateFiles(TestPaths.SourceRoot, "*.*", SearchOption.AllDirectories)

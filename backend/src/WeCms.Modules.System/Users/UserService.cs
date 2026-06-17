@@ -105,12 +105,12 @@ public sealed class UserService : IUserService
 
     public async Task DeleteAsync(long id, UserRequestContext context, CancellationToken cancellationToken)
     {
-        var user = await GetAsync(id, cancellationToken);
+        _ = await GetAsync(id, cancellationToken);
         EnsureNotSelf(id, context.ActorUserId, "delete");
-        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
         await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
             await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "delete", id, "success", "User deleted.", cancellationToken);
@@ -132,12 +132,12 @@ public sealed class UserService : IUserService
 
     public async Task DisableAsync(long id, UserRequestContext context, CancellationToken cancellationToken)
     {
-        var user = await GetAsync(id, cancellationToken);
+        _ = await GetAsync(id, cancellationToken);
         EnsureNotSelf(id, context.ActorUserId, "disable");
-        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
         await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
             await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "disable", id, "success", "User disabled.", cancellationToken);
@@ -173,10 +173,10 @@ public sealed class UserService : IUserService
     {
         _ = await GetAsync(id, cancellationToken);
         var roleIds = await EnsureExistingIdsAsync(request.RoleIds, _repository.ExistingRoleIdsAsync, "roleIds", cancellationToken);
-        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, roleIds, cancellationToken);
         await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            await EnsureLockedRolesStillHaveEnabledHolderAsync(id, roleIds, cancellationToken);
             await _repository.ReplaceRolesAsync(id, roleIds, context.Now, cancellationToken);
             await AuditAsync(context, "assign-role", id, "success", "User roles assigned.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -290,7 +290,7 @@ public sealed class UserService : IUserService
 
         foreach (var roleId in affectedLockedRoleIds)
         {
-            if (await _repository.CountEnabledUsersByRoleAsync(roleId, cancellationToken) <= 1)
+            if (await _repository.CountEnabledUsersByRoleForUpdateAsync(roleId, cancellationToken) <= 1)
             {
                 throw new DomainException(ApiCodes.BusinessError, "Locked role must have at least one enabled user.");
             }
