@@ -14,6 +14,7 @@ public sealed record RoleSummaryDto(
     string Name,
     string Status,
     bool IsBuiltin,
+    bool IsLocked,
     DateTimeOffset CreatedAt);
 
 public sealed record RoleDetailDto(
@@ -22,6 +23,7 @@ public sealed record RoleDetailDto(
     string Name,
     string Status,
     bool IsBuiltin,
+    bool IsLocked,
     IReadOnlyList<long> PermissionIds,
     IReadOnlyList<long> MenuIds,
     DateTimeOffset CreatedAt,

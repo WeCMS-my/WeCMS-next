@@ -14,6 +14,7 @@ public sealed class AccessTokenAuthenticationHandler : AuthenticationHandler<Aut
     public const string SchemeName = "WeCmsAccessToken";
 
     private readonly IAccessTokenService _accessTokenService;
+    private readonly IAuthRepository _authRepository;
     private readonly IAuthClock _clock;
 
     public AccessTokenAuthenticationHandler(
@@ -21,10 +22,12 @@ public sealed class AccessTokenAuthenticationHandler : AuthenticationHandler<Aut
         ILoggerFactory logger,
         UrlEncoder encoder,
         IAccessTokenService accessTokenService,
+        IAuthRepository authRepository,
         IAuthClock clock)
         : base(options, logger, encoder)
     {
         _accessTokenService = accessTokenService;
+        _authRepository = authRepository;
         _clock = clock;
     }
 
@@ -37,10 +40,23 @@ public sealed class AccessTokenAuthenticationHandler : AuthenticationHandler<Aut
         }
 
         var token = header["Bearer ".Length..].Trim();
+        return HandleBearerTokenAsync(token);
+    }
+
+    private async Task<AuthenticateResult> HandleBearerTokenAsync(string token)
+    {
         var principal = _accessTokenService.Validate(token, _clock.UtcNow);
         if (principal is null)
         {
-            return Task.FromResult(AuthenticateResult.Fail("Invalid access token."));
+            return AuthenticateResult.Fail("Invalid access token.");
+        }
+
+        var user = await _authRepository.FindUserByIdAsync(principal.UserId, Context.RequestAborted);
+        if (user is null
+            || !string.Equals(user.Status, "enabled", StringComparison.Ordinal)
+            || !string.Equals(user.SecurityStamp, principal.SecurityStamp, StringComparison.Ordinal))
+        {
+            return AuthenticateResult.Fail("Authentication is required.");
         }
 
         var claims = new[]
@@ -51,7 +67,7 @@ public sealed class AccessTokenAuthenticationHandler : AuthenticationHandler<Aut
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name);
 
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+        return AuthenticateResult.Success(ticket);
     }
 
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)

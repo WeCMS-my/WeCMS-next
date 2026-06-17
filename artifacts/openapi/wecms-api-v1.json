@@ -1213,7 +1213,7 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/CreateFileRequest"
               }
@@ -1300,6 +1300,82 @@
           }
         ],
         "x-wecms-permission": "sys:file:detail"
+      }
+    },
+    "/api/v1/system/files/{id:long}/download": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "GET /api/v1/system/files/{id:long}/download",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Object"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-permission": "sys:file:download"
+      }
+    },
+    "/api/v1/system/files/{id:long}/preview": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "GET /api/v1/system/files/{id:long}/preview",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Object"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-permission": "sys:file:download"
       }
     },
     "/api/v1/system/login-logs": {
@@ -4424,6 +4500,7 @@
           "name",
           "status",
           "isBuiltin",
+          "isLocked",
           "createdAt"
         ],
         "properties": {
@@ -4443,6 +4520,9 @@
           "isBuiltin": {
             "type": "boolean"
           },
+          "isLocked": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -4457,6 +4537,7 @@
           "name",
           "status",
           "isBuiltin",
+          "isLocked",
           "permissionIds",
           "menuIds",
           "createdAt",
@@ -4477,6 +4558,9 @@
             "type": "string"
           },
           "isBuiltin": {
+            "type": "boolean"
+          },
+          "isLocked": {
             "type": "boolean"
           },
           "permissionIds": {
@@ -6374,7 +6458,8 @@
           "originalName",
           "mimeType",
           "sizeBytes",
-          "sha256"
+          "sha256",
+          "file"
         ],
         "properties": {
           "originalName": {
@@ -6389,6 +6474,10 @@
           },
           "sha256": {
             "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
           }
         }
       },

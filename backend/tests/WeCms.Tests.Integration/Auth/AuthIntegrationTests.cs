@@ -1,16 +1,22 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Users;
+using WeCms.Modules.System.Permissions;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
 using WeCms.Persistence.Modules.System.Auth;
+using WeCms.Persistence.Modules.System.Permissions;
+using WeCms.Persistence.Modules.System.Users;
 using WeCms.Shared;
 using SqlSugar;
 using System.Text;
+using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Auth;
 
 public sealed class AuthIntegrationTests
 {
-    [Fact]
+
+    [DbFact]
     public async Task AuthService_LoginFailureAndSuccessPersistExpectedAuditAndTokenState()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -143,7 +149,283 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
+    public async Task AuthService_SoftDeletedUserCannotLoginRefreshMeOrUsePermissions()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_auth_soft_delete_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var tokenOptions = TokenOptions();
+            var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+            var accessTokenService = new AccessTokenService(tokenOptions);
+            var userRepository = new UserRepository(db);
+            var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
+            var targetUserId = await CreateUserAsync(
+                db,
+                "soft_deleted_target",
+                "SoftDeleted@123",
+                new DateTimeOffset(2026, 6, 16, 0, 0, 10, TimeSpan.Zero));
+
+            var login = await service.LoginAsync(
+                new LoginRequest("soft_deleted_target", "SoftDeleted@123"),
+                new AuthRequestContext("127.0.0.1", "integration"),
+                CancellationToken.None);
+
+            var userService = new UserService(userRepository, new PasswordHasher(), new SqlSugarUnitOfWork(db));
+            await userService.DeleteAsync(
+                targetUserId,
+                new UserRequestContext(
+                    adminUserId,
+                    "admin",
+                    "127.0.0.1",
+                    "integration",
+                    "integration-soft-delete",
+                    new DateTimeOffset(2026, 6, 16, 0, 0, 30, TimeSpan.Zero)),
+                CancellationToken.None);
+
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_user WHERE id = @userId AND status = 'disabled' AND deleted_at IS NOT NULL",
+                new SugarParameter("@userId", targetUserId)));
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_refresh_token WHERE user_id = @userId AND revoked_at IS NOT NULL",
+                new SugarParameter("@userId", targetUserId)));
+
+            var loginAfterDelete = await Assert.ThrowsAsync<DomainException>(
+                () => service.LoginAsync(
+                    new LoginRequest("soft_deleted_target", "SoftDeleted@123"),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, loginAfterDelete.Code);
+
+            var refreshAfterDelete = await Assert.ThrowsAsync<DomainException>(
+                () => service.RefreshAsync(
+                    new RefreshTokenRequest(login.RefreshToken),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, refreshAfterDelete.Code);
+
+            var principal = accessTokenService.Validate(login.AccessToken, new DateTimeOffset(2026, 6, 16, 0, 0, 59, TimeSpan.Zero));
+            Assert.NotNull(principal);
+            var meAfterDelete = await Assert.ThrowsAsync<DomainException>(
+                () => service.MeAsync(principal!.UserId, CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, meAfterDelete.Code);
+
+            var checker = new PermissionChecker(new PermissionRepository(db));
+            var permissionResult = await checker.CheckAsync(targetUserId, SystemPermissions.SecurePing, CancellationToken.None);
+            Assert.Equal(PermissionCheckResult.UserDisabled, permissionResult);
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
+    [DbFact]
+    public async Task AuthService_ResetPasswordRevokesExistingRefreshToken()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_auth_reset_pwd_revoke_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var tokenOptions = TokenOptions();
+            var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+            var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
+            var now = new DateTimeOffset(2026, 6, 16, 0, 0, 10, TimeSpan.Zero);
+            var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
+            var targetPassword = "Reset@123";
+            var userId = await CreateUserAsync(db, "reset_target", targetPassword, now);
+            var login = await service.LoginAsync(
+                new LoginRequest("reset_target", targetPassword),
+                new AuthRequestContext("127.0.0.1", "integration"),
+                CancellationToken.None);
+
+            var oldRefreshHash = tokenService.Hash(login.RefreshToken);
+            var userService = new UserService(new UserRepository(db), new PasswordHasher(), new SqlSugarUnitOfWork(db));
+            await userService.ResetPasswordAsync(
+                userId,
+                new ResetUserPasswordRequest("NewAdmin@123"),
+                new UserRequestContext(
+                    actorUserId,
+                    "admin",
+                    "127.0.0.1",
+                    "integration",
+                    "integration-reset-pass",
+                    now),
+                CancellationToken.None);
+
+            var refreshError = await Assert.ThrowsAsync<DomainException>(
+                () => service.RefreshAsync(
+                    new RefreshTokenRequest(login.RefreshToken),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_refresh_token WHERE user_id = @userId AND token_hash = @tokenHash AND revoked_at IS NOT NULL",
+                    new SugarParameter("@userId", userId),
+                    new SugarParameter("@tokenHash", oldRefreshHash)));
+
+            await Assert.ThrowsAsync<DomainException>(
+                () => service.LoginAsync(
+                    new LoginRequest("reset_target", targetPassword),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            var newLogin = await service.LoginAsync(
+                new LoginRequest("reset_target", "NewAdmin@123"),
+                new AuthRequestContext("127.0.0.1", "integration"),
+                CancellationToken.None);
+            Assert.NotNull(newLogin);
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
+    [DbFact]
+    public async Task AuthService_DisabledUserRefreshTokenIsRevoked()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_auth_disable_revoke_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var tokenOptions = TokenOptions();
+            var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+            var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
+            var now = new DateTimeOffset(2026, 6, 16, 0, 0, 20, TimeSpan.Zero);
+            var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
+            var targetPassword = "Disabled@123";
+            var userId = await CreateUserAsync(db, "disabled_target", targetPassword, now);
+            var login = await service.LoginAsync(
+                new LoginRequest("disabled_target", targetPassword),
+                new AuthRequestContext("127.0.0.1", "integration"),
+                CancellationToken.None);
+            var oldRefreshHash = tokenService.Hash(login.RefreshToken);
+
+            var userService = new UserService(new UserRepository(db), new PasswordHasher(), new SqlSugarUnitOfWork(db));
+            await userService.DisableAsync(
+                userId,
+                new UserRequestContext(
+                    actorUserId,
+                    "admin",
+                    "127.0.0.1",
+                    "integration",
+                    "integration-disable",
+                    now),
+                CancellationToken.None);
+
+            var refreshError = await Assert.ThrowsAsync<DomainException>(
+                () => service.RefreshAsync(
+                    new RefreshTokenRequest(login.RefreshToken),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_refresh_token WHERE user_id = @userId AND token_hash = @tokenHash AND revoked_at IS NOT NULL",
+                new SugarParameter("@userId", userId),
+                new SugarParameter("@tokenHash", oldRefreshHash)));
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
+    [DbFact]
+    public async Task AuthService_DeletedUserRefreshTokenIsRevoked()
+    {
+        var baseConnectionString = RequiredConnectionString();
+        var databaseName = $"wecms_auth_delete_revoke_{Guid.NewGuid():N}";
+
+        using var serverClient = new SqlSugarClientFactory(baseConnectionString).Create();
+        serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        serverClient.Ado.ExecuteCommand($"CREATE DATABASE `{databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(WithDatabase(baseConnectionString, databaseName)).Create();
+            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+
+            var tokenOptions = TokenOptions();
+            var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+            var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
+            var now = new DateTimeOffset(2026, 6, 16, 0, 0, 30, TimeSpan.Zero);
+            var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
+            var targetPassword = "Deleted@123";
+            var userId = await CreateUserAsync(db, "deleted_target", targetPassword, now);
+            var login = await service.LoginAsync(
+                new LoginRequest("deleted_target", targetPassword),
+                new AuthRequestContext("127.0.0.1", "integration"),
+                CancellationToken.None);
+            var oldRefreshHash = tokenService.Hash(login.RefreshToken);
+
+            var userService = new UserService(new UserRepository(db), new PasswordHasher(), new SqlSugarUnitOfWork(db));
+            await userService.DeleteAsync(
+                userId,
+                new UserRequestContext(
+                    actorUserId,
+                    "admin",
+                    "127.0.0.1",
+                    "integration",
+                    "integration-delete",
+                    now),
+                CancellationToken.None);
+
+            var refreshError = await Assert.ThrowsAsync<DomainException>(
+                () => service.RefreshAsync(
+                    new RefreshTokenRequest(login.RefreshToken),
+                    new AuthRequestContext("127.0.0.1", "integration"),
+                    CancellationToken.None));
+            Assert.Equal(ApiCodes.Unauthorized, refreshError.Code);
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_refresh_token WHERE user_id = @userId AND token_hash = @tokenHash AND revoked_at IS NOT NULL",
+                new SugarParameter("@userId", userId),
+                new SugarParameter("@tokenHash", oldRefreshHash)));
+            Assert.Equal(1, Scalar<int>(
+                db,
+                "SELECT COUNT(1) FROM sys_user WHERE id = @userId AND deleted_at IS NOT NULL",
+                new SugarParameter("@userId", userId)));
+        }
+        finally
+        {
+            serverClient.Ado.ExecuteCommand($"DROP DATABASE IF EXISTS `{databaseName}`");
+        }
+    }
+
+    [DbFact]
     public async Task AuthService_ProductionAdminSeedRequiresPasswordRotationBeforeLogin()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -183,7 +465,7 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
     public async Task RefreshAsync_ConcurrentRefreshAllowsOnlyOneSuccess()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -224,7 +506,7 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
     public async Task AuthService_LogoutRevokesRefreshTokenFamily()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -283,7 +565,7 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
     public async Task AuthService_LogoutUnknownTokenDoesNotAffectFamily()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -335,7 +617,7 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
     public async Task RefreshAsync_ConcurrentRefreshLongAfterWindowRevokesFamily()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -392,7 +674,7 @@ public sealed class AuthIntegrationTests
         }
     }
 
-    [Fact]
+    [DbFact]
     public async Task RefreshAsync_ConcurrentRefreshWithinWindowKeepsFamilyPartiallyActive()
     {
         var baseConnectionString = RequiredConnectionString();
@@ -536,14 +818,56 @@ public sealed class AuthIntegrationTests
         }
     }
 
+    private static async Task<long> CreateUserAsync(
+        SqlSugar.ISqlSugarClient db,
+        string username,
+        string password,
+        DateTimeOffset now)
+    {
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO sys_user (
+                username,
+                display_name,
+                password_hash,
+                status,
+                is_super_admin,
+                must_change_password,
+                security_stamp,
+                permission_version,
+                created_at,
+                updated_at,
+                deleted_at
+            )
+            VALUES (
+                @username,
+                @displayName,
+                @passwordHash,
+                'enabled',
+                FALSE,
+                FALSE,
+                @securityStamp,
+                0,
+                @now,
+                @now,
+                NULL
+            )
+            """,
+            new SugarParameter("@username", username),
+            new SugarParameter("@displayName", $"{username} user"),
+            new SugarParameter("@passwordHash", new PasswordHasher().Hash(password)),
+            new SugarParameter("@securityStamp", System.Guid.NewGuid().ToString("N")),
+            new SugarParameter("@now", now.UtcDateTime));
+
+        return Scalar<long>(
+            db,
+            "SELECT id FROM sys_user WHERE username = @username",
+            new SugarParameter("@username", username));
+    }
+
     private static string RequiredConnectionString()
     {
-        var connectionString = Environment.GetEnvironmentVariable("WECMS_TEST_MYSQL_CONNECTION_STRING");
-        Assert.False(
-            string.IsNullOrWhiteSpace(connectionString),
-            "Set WECMS_TEST_MYSQL_CONNECTION_STRING to run MySQL integration tests.");
-
-        return connectionString;
+        return IntegrationTestDatabase.GetConnectionString();
     }
 
     private static string WithDatabase(string connectionString, string databaseName)

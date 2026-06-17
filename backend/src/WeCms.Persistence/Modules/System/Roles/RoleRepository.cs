@@ -46,6 +46,7 @@ public sealed class RoleRepository : IRoleRepository
                    r.name AS Name,
                    r.status AS Status,
                    r.is_builtin AS IsBuiltin,
+                   r.is_locked AS IsLocked,
                    r.created_at AS CreatedAt
             FROM sys_role r
             {where}
@@ -72,6 +73,7 @@ public sealed class RoleRepository : IRoleRepository
                    r.name AS Name,
                    r.status AS Status,
                    r.is_builtin AS IsBuiltin,
+                   r.is_locked AS IsLocked,
                    r.created_at AS CreatedAt,
                    r.updated_at AS UpdatedAt
             FROM sys_role r
@@ -137,8 +139,8 @@ public sealed class RoleRepository : IRoleRepository
 
         await _db.Ado.ExecuteCommandAsync(
             """
-            INSERT INTO sys_role (code, name, status, is_builtin, created_at, updated_at, deleted_at)
-            VALUES (@code, @name, 'enabled', FALSE, @createdAt, @updatedAt, NULL)
+            INSERT INTO sys_role (code, name, status, is_builtin, is_locked, created_at, updated_at, deleted_at)
+            VALUES (@code, @name, 'enabled', FALSE, FALSE, @createdAt, @updatedAt, NULL)
             """,
             new SugarParameter("@code", record.Code),
             new SugarParameter("@name", record.Name),
@@ -199,53 +201,35 @@ public sealed class RoleRepository : IRoleRepository
     public async Task ReplacePermissionsAsync(long id, IReadOnlyList<long> permissionIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _db.Ado.BeginTran();
-        try
-        {
-            await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_permission WHERE role_id = @id", new SugarParameter("@id", id));
-            foreach (var permissionId in permissionIds)
-            {
-                await _db.Ado.ExecuteCommandAsync(
-                    "INSERT INTO sys_role_permission (role_id, permission_id, created_at) VALUES (@id, @permissionId, @createdAt)",
-                    new SugarParameter("@id", id),
-                    new SugarParameter("@permissionId", permissionId),
-                    new SugarParameter("@createdAt", now.UtcDateTime));
-            }
 
-            await BumpPermissionVersionForRoleUsersAsync(id, now);
-            _db.Ado.CommitTran();
-        }
-        catch
+        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_permission WHERE role_id = @id", new SugarParameter("@id", id));
+        foreach (var permissionId in permissionIds)
         {
-            _db.Ado.RollbackTran();
-            throw;
+            await _db.Ado.ExecuteCommandAsync(
+                "INSERT INTO sys_role_permission (role_id, permission_id, created_at) VALUES (@id, @permissionId, @createdAt)",
+                new SugarParameter("@id", id),
+                new SugarParameter("@permissionId", permissionId),
+                new SugarParameter("@createdAt", now.UtcDateTime));
         }
+
+        await BumpPermissionVersionForRoleUsersAsync(id, now);
     }
 
     public async Task ReplaceMenusAsync(long id, IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _db.Ado.BeginTran();
-        try
-        {
-            await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_menu WHERE role_id = @id", new SugarParameter("@id", id));
-            foreach (var menuId in menuIds)
-            {
-                await _db.Ado.ExecuteCommandAsync(
-                    "INSERT INTO sys_role_menu (role_id, menu_id, created_at) VALUES (@id, @menuId, @createdAt)",
-                    new SugarParameter("@id", id),
-                    new SugarParameter("@menuId", menuId),
-                    new SugarParameter("@createdAt", now.UtcDateTime));
-            }
 
-            await BumpPermissionVersionForRoleUsersAsync(id, now);
-            _db.Ado.CommitTran();
-        }
-        catch
+        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_menu WHERE role_id = @id", new SugarParameter("@id", id));
+        foreach (var menuId in menuIds)
         {
-            _db.Ado.RollbackTran();
-            throw;
+            await _db.Ado.ExecuteCommandAsync(
+                "INSERT INTO sys_role_menu (role_id, menu_id, created_at) VALUES (@id, @menuId, @createdAt)",
+                new SugarParameter("@id", id),
+                new SugarParameter("@menuId", menuId),
+                new SugarParameter("@createdAt", now.UtcDateTime));
         }
+
+        await BumpPermissionVersionForRoleUsersAsync(id, now);
     }
 
     public Task RecordAuditAsync(RoleAuditRecord record, CancellationToken cancellationToken)
@@ -332,11 +316,12 @@ public sealed class RoleRepository : IRoleRepository
         public string Name { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public bool IsBuiltin { get; set; }
+        public bool IsLocked { get; set; }
         public DateTime CreatedAt { get; set; }
 
         public RoleSummaryDto ToDto()
         {
-            return new RoleSummaryDto(Id, Code, Name, Status, IsBuiltin, ToOffset(CreatedAt)!.Value);
+            return new RoleSummaryDto(Id, Code, Name, Status, IsBuiltin, IsLocked, ToOffset(CreatedAt)!.Value);
         }
     }
 
@@ -352,6 +337,7 @@ public sealed class RoleRepository : IRoleRepository
                 Name,
                 Status,
                 IsBuiltin,
+                IsLocked,
                 permissionIds,
                 menuIds,
                 ToOffset(CreatedAt)!.Value,

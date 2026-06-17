@@ -83,6 +83,7 @@ FROM (
   SELECT 'sys:file:list', 'File list', 'List files' UNION ALL
   SELECT 'sys:file:detail', 'File detail', 'View file details' UNION ALL
   SELECT 'sys:file:upload', 'File upload', 'Upload file metadata' UNION ALL
+  SELECT 'sys:file:download', 'File download', 'Download and preview files' UNION ALL
   SELECT 'sys:file:delete', 'File delete', 'Delete files'
 ) v
 WHERE NOT EXISTS (

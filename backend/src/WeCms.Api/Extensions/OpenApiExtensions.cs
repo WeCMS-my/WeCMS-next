@@ -224,6 +224,8 @@ public static class OpenApiExtensions
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events/{id:long}", true, LogPermissions.SecurityEventDetail, null, nameof(SecurityEventDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files", true, FilePermissions.List, null, "PagedFileSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files/{id:long}", true, FilePermissions.Detail, null, nameof(FileDetailDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/files/{id:long}/download", true, FilePermissions.Download, null, "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/files/{id:long}/preview", true, FilePermissions.Download, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/files", true, FilePermissions.Upload, nameof(CreateFileRequest), nameof(FileMutationResponse)),
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/files/{id:long}", true, FilePermissions.Delete, null, "Object"),
     ];
@@ -346,10 +348,14 @@ public static class OpenApiExtensions
 
         if (requestRef is not null)
         {
+            var mediaType = path == "/api/v1/system/files" && string.Equals(method, "post", StringComparison.OrdinalIgnoreCase)
+                ? "multipart/form-data"
+                : "application/json";
+
             operation["requestBody"] = new JsonObject
             {
                 ["required"] = true,
-                ["content"] = JsonContent(SchemaRef(requestRef))
+                ["content"] = JsonContent(SchemaRef(requestRef), mediaType)
             };
         }
 
@@ -652,7 +658,7 @@ public static class OpenApiExtensions
             [nameof(RoleSummaryDto)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "createdAt"),
+                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "isLocked", "createdAt"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
@@ -660,13 +666,14 @@ public static class OpenApiExtensions
                     ["name"] = StringSchema(),
                     ["status"] = StringSchema(),
                     ["isBuiltin"] = BooleanSchema(),
+                    ["isLocked"] = BooleanSchema(),
                     ["createdAt"] = DateTimeSchema()
                 }
             },
             [nameof(RoleDetailDto)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "permissionIds", "menuIds", "createdAt", "updatedAt"),
+                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "isLocked", "permissionIds", "menuIds", "createdAt", "updatedAt"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
@@ -674,6 +681,7 @@ public static class OpenApiExtensions
                     ["name"] = StringSchema(),
                     ["status"] = StringSchema(),
                     ["isBuiltin"] = BooleanSchema(),
+                    ["isLocked"] = BooleanSchema(),
                     ["permissionIds"] = ArrayOf(IntegerSchema()),
                     ["menuIds"] = ArrayOf(IntegerSchema()),
                     ["createdAt"] = DateTimeSchema(),
@@ -874,13 +882,18 @@ public static class OpenApiExtensions
             [nameof(CreateFileRequest)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("originalName", "mimeType", "sizeBytes", "sha256"),
+                ["required"] = Required("originalName", "mimeType", "sizeBytes", "sha256", "file"),
                 ["properties"] = new JsonObject
                 {
                     ["originalName"] = StringSchema(),
                     ["mimeType"] = StringSchema(),
                     ["sizeBytes"] = IntegerSchema(),
-                    ["sha256"] = StringSchema()
+                    ["sha256"] = StringSchema(),
+                    ["file"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["format"] = "binary"
+                    }
                 }
             },
             [nameof(FileMutationResponse)] = ObjectSchema(("id", "integer"))
@@ -1210,11 +1223,11 @@ public static class OpenApiExtensions
         };
     }
 
-    private static JsonObject JsonContent(JsonObject schema)
+    private static JsonObject JsonContent(JsonObject schema, string mediaType = "application/json")
     {
         return new JsonObject
         {
-            ["application/json"] = new JsonObject
+            [mediaType] = new JsonObject
             {
                 ["schema"] = schema
             }

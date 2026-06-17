@@ -82,6 +82,26 @@ public sealed class FileRepository : IFileRepository
         return row?.ToDetailDto();
     }
 
+    public async Task<FileDownloadRecord?> GetDownloadAsync(long id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var row = await _db.Ado.SqlQuerySingleAsync<FileDownloadRow>(
+            """
+            SELECT object_key AS ObjectKey,
+                   original_name AS OriginalName,
+                   mime_type AS MimeType,
+                   size_bytes AS SizeBytes,
+                   status AS Status
+            FROM sys_file
+            WHERE id = @id
+              AND deleted_at IS NULL
+            LIMIT 1
+            """,
+            new SugarParameter("@id", id));
+
+        return row?.ToDownloadRecord();
+    }
+
     public async Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -102,7 +122,11 @@ public sealed class FileRepository : IFileRepository
             new SugarParameter("@createdBy", record.CreatedBy),
             new SugarParameter("@createdAt", record.Now.UtcDateTime));
 
-        return Convert.ToInt64(await _db.Ado.GetScalarAsync("SELECT LAST_INSERT_ID()"), global::System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt64(
+            await _db.Ado.GetScalarAsync(
+                "SELECT id FROM sys_file WHERE object_key = @objectKey AND deleted_at IS NULL LIMIT 1",
+                new SugarParameter("@objectKey", record.ObjectKey)),
+            global::System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => ExpectOneAsync(
@@ -161,5 +185,16 @@ public sealed class FileRepository : IFileRepository
         public FileSummaryDto ToSummaryDto() => new(Id, OriginalName, FileExt, MimeType, SizeBytes, Sha256, Status, CreatedBy, ToOffset(CreatedAt));
         public FileDetailDto ToDetailDto() => new(Id, OriginalName, FileExt, MimeType, SizeBytes, Sha256, Status, CreatedBy, ToOffset(CreatedAt));
         private static DateTimeOffset ToOffset(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
+    }
+
+    private sealed class FileDownloadRow
+    {
+        public string ObjectKey { get; set; } = string.Empty;
+        public string OriginalName { get; set; } = string.Empty;
+        public string MimeType { get; set; } = string.Empty;
+        public long SizeBytes { get; set; }
+        public string Status { get; set; } = string.Empty;
+
+        public FileDownloadRecord ToDownloadRecord() => new(ObjectKey, OriginalName, MimeType, SizeBytes, Status);
     }
 }

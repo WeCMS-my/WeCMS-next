@@ -14,6 +14,8 @@ using WeCms.Modules.System.Settings;
 using WeCms.Modules.System.System;
 using WeCms.Modules.System.Users;
 using WeCms.Persistence.Data;
+using WeCms.Infrastructure.Files;
+using WeCms.Shared;
 
 if (await OpenApiExtensions.ExportOpenApiAsync(args))
 {
@@ -23,6 +25,7 @@ if (await OpenApiExtensions.ExportOpenApiAsync(args))
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Services.AddWeCmsPersistence(builder.Configuration);
+builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);
 builder.Services.AddWeCmsSystemDepartments();
 builder.Services.AddWeCmsSystemDicts();

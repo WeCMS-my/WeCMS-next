@@ -1,5 +1,6 @@
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
+using WeCms.Shared.Data;
 
 namespace WeCms.Modules.System.Users;
 
@@ -9,11 +10,13 @@ public sealed class UserService : IUserService
     private const int MaxAssignmentCount = 100;
     private readonly IUserRepository _repository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public UserService(IUserRepository repository, IPasswordHasher passwordHasher)
+    public UserService(IUserRepository repository, IPasswordHasher passwordHasher, IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
+        _unitOfWork = unitOfWork;
     }
 
     public Task<PagedResult<UserSummaryDto>> ListAsync(UserListQuery query, CancellationToken cancellationToken)
@@ -57,22 +60,32 @@ public sealed class UserService : IUserService
         var roleIds = await EnsureExistingIdsAsync(request.RoleIds ?? [], _repository.ExistingRoleIdsAsync, "roleIds", cancellationToken);
         var postIds = await EnsureExistingIdsAsync(request.PostIds ?? [], _repository.ExistingPostIdsAsync, "postIds", cancellationToken);
 
-        var userId = await _repository.CreateAsync(
-            new UserCreateRecord(username, displayName, _passwordHasher.Hash(password), email, phone, request.DeptId, context.Now),
-            cancellationToken);
-        if (roleIds.Count > 0)
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await _repository.ReplaceRolesAsync(userId, roleIds, context.Now, cancellationToken);
-        }
+            var userId = await _repository.CreateAsync(
+                new UserCreateRecord(username, displayName, _passwordHasher.Hash(password), email, phone, request.DeptId, context.Now),
+                cancellationToken);
+            if (roleIds.Count > 0)
+            {
+                await _repository.ReplaceRolesAsync(userId, roleIds, context.Now, cancellationToken);
+            }
 
-        if (postIds.Count > 0)
+            if (postIds.Count > 0)
+            {
+                await _repository.ReplacePostsAsync(userId, postIds, context.Now, cancellationToken);
+            }
+
+            await AuditAsync(context, "create", userId, "success", "User created.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return new UserMutationResponse(userId);
+        }
+        catch
         {
-            await _repository.ReplacePostsAsync(userId, postIds, context.Now, cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
-
-        await AuditAsync(context, "create", userId, "success", "User created.", cancellationToken);
-
-        return new UserMutationResponse(userId);
     }
 
     public async Task<UserMutationResponse> UpdateAsync(long id, UpdateUserRequest request, UserRequestContext context, CancellationToken cancellationToken)
@@ -94,9 +107,20 @@ public sealed class UserService : IUserService
     {
         var user = await GetAsync(id, cancellationToken);
         EnsureNotSelf(id, context.ActorUserId, "delete");
-        await EnsureNotLastSuperAdminAsync(user, id, cancellationToken);
-        await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
-        await AuditAsync(context, "delete", id, "success", "User deleted.", cancellationToken);
+        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
+            await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await AuditAsync(context, "delete", id, "success", "User deleted.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task EnableAsync(long id, UserRequestContext context, CancellationToken cancellationToken)
@@ -110,33 +134,76 @@ public sealed class UserService : IUserService
     {
         var user = await GetAsync(id, cancellationToken);
         EnsureNotSelf(id, context.ActorUserId, "disable");
-        await EnsureNotLastSuperAdminAsync(user, id, cancellationToken);
-        await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
-        await AuditAsync(context, "disable", id, "success", "User disabled.", cancellationToken);
+        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
+            await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await AuditAsync(context, "disable", id, "success", "User disabled.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task ResetPasswordAsync(long id, ResetUserPasswordRequest request, UserRequestContext context, CancellationToken cancellationToken)
     {
         _ = await GetAsync(id, cancellationToken);
         var password = NormalizeRequired(request.Password, "password", 128);
-        await _repository.ResetPasswordAsync(id, _passwordHasher.Hash(password), context.Now, cancellationToken);
-        await AuditAsync(context, "reset-password", id, "success", "User password reset.", cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.ResetPasswordAsync(id, _passwordHasher.Hash(password), context.Now, cancellationToken);
+            await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await AuditAsync(context, "reset-password", id, "success", "User password reset.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task AssignRolesAsync(long id, AssignUserRolesRequest request, UserRequestContext context, CancellationToken cancellationToken)
     {
         _ = await GetAsync(id, cancellationToken);
         var roleIds = await EnsureExistingIdsAsync(request.RoleIds, _repository.ExistingRoleIdsAsync, "roleIds", cancellationToken);
-        await _repository.ReplaceRolesAsync(id, roleIds, context.Now, cancellationToken);
-        await AuditAsync(context, "assign-role", id, "success", "User roles assigned.", cancellationToken);
+        await EnsureLockedRolesStillHaveEnabledHolderAsync(id, roleIds, cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.ReplaceRolesAsync(id, roleIds, context.Now, cancellationToken);
+            await AuditAsync(context, "assign-role", id, "success", "User roles assigned.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task AssignPostsAsync(long id, AssignUserPostsRequest request, UserRequestContext context, CancellationToken cancellationToken)
     {
         _ = await GetAsync(id, cancellationToken);
         var postIds = await EnsureExistingIdsAsync(request.PostIds, _repository.ExistingPostIdsAsync, "postIds", cancellationToken);
-        await _repository.ReplacePostsAsync(id, postIds, context.Now, cancellationToken);
-        await AuditAsync(context, "assign-post", id, "success", "User posts assigned.", cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.ReplacePostsAsync(id, postIds, context.Now, cancellationToken);
+            await AuditAsync(context, "assign-post", id, "success", "User posts assigned.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     private async Task EnsureUniqueAsync(string? username, string? email, string? phone, long? exceptUserId, CancellationToken cancellationToken)
@@ -199,11 +266,34 @@ public sealed class UserService : IUserService
         }
     }
 
-    private async Task EnsureNotLastSuperAdminAsync(UserDetailDto user, long targetUserId, CancellationToken cancellationToken)
+    private async Task EnsureLockedRolesStillHaveEnabledHolderAsync(
+        long targetUserId,
+        IReadOnlyList<long>? newRoleIds,
+        CancellationToken cancellationToken)
     {
-        if (user.IsSuperAdmin && await _repository.CountActiveSuperAdminsExceptAsync(targetUserId, cancellationToken) == 0)
+        var currentLockedRoleIds = await _repository.ListLockedRoleIdsByUserAsync(targetUserId, cancellationToken);
+        if (currentLockedRoleIds.Count == 0)
         {
-            throw new DomainException(ApiCodes.BusinessError, "Cannot modify the last super_admin user.");
+            return;
+        }
+
+        IReadOnlySet<long> affectedLockedRoleIds;
+        if (newRoleIds is null)
+        {
+            affectedLockedRoleIds = currentLockedRoleIds.ToHashSet();
+        }
+        else
+        {
+            var newLockedRoleIds = await _repository.ExistingLockedRoleIdsAsync(newRoleIds, cancellationToken);
+            affectedLockedRoleIds = currentLockedRoleIds.Except(newLockedRoleIds).ToHashSet();
+        }
+
+        foreach (var roleId in affectedLockedRoleIds)
+        {
+            if (await _repository.CountEnabledUsersByRoleAsync(roleId, cancellationToken) <= 1)
+            {
+                throw new DomainException(ApiCodes.BusinessError, "Locked role must have at least one enabled user.");
+            }
         }
     }
 

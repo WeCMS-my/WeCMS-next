@@ -1,4 +1,5 @@
 using WeCms.Shared;
+using WeCms.Shared.Data;
 
 namespace WeCms.Modules.System.Roles;
 
@@ -8,10 +9,12 @@ public sealed class RoleService : IRoleService
     private const int MaxAssignmentCount = 200;
     private const string SuperAdminCode = "super_admin";
     private readonly IRoleRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public RoleService(IRoleRepository repository)
+    public RoleService(IRoleRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     public Task<PagedResult<RoleSummaryDto>> ListAsync(RoleListQuery query, CancellationToken cancellationToken)
@@ -45,24 +48,36 @@ public sealed class RoleService : IRoleService
         var permissionIds = await EnsureExistingIdsAsync(request.PermissionIds ?? [], _repository.ExistingPermissionIdsAsync, "permissionIds", cancellationToken);
         var menuIds = await EnsureExistingIdsAsync(request.MenuIds ?? [], _repository.ExistingMenuIdsAsync, "menuIds", cancellationToken);
 
-        var roleId = await _repository.CreateAsync(new RoleCreateRecord(code, name, context.Now), cancellationToken);
-        if (permissionIds.Count > 0)
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await _repository.ReplacePermissionsAsync(roleId, permissionIds, context.Now, cancellationToken);
-        }
+            var roleId = await _repository.CreateAsync(new RoleCreateRecord(code, name, context.Now), cancellationToken);
+            if (permissionIds.Count > 0)
+            {
+                await _repository.ReplacePermissionsAsync(roleId, permissionIds, context.Now, cancellationToken);
+            }
 
-        if (menuIds.Count > 0)
+            if (menuIds.Count > 0)
+            {
+                await _repository.ReplaceMenusAsync(roleId, menuIds, context.Now, cancellationToken);
+            }
+
+            await AuditAsync(context, "create", roleId, "success", "Role created.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return new RoleMutationResponse(roleId);
+        }
+        catch
         {
-            await _repository.ReplaceMenusAsync(roleId, menuIds, context.Now, cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
-
-        await AuditAsync(context, "create", roleId, "success", "Role created.", cancellationToken);
-        return new RoleMutationResponse(roleId);
     }
 
     public async Task<RoleMutationResponse> UpdateAsync(long id, UpdateRoleRequest request, RoleRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role cannot be updated.");
         var name = NormalizeRequired(request.Name, "name", 120);
         await _repository.UpdateAsync(new RoleUpdateRecord(id, name, context.Now), cancellationToken);
         await AuditAsync(context, "update", id, "success", "Role updated.", cancellationToken);
@@ -72,6 +87,7 @@ public sealed class RoleService : IRoleService
     public async Task DeleteAsync(long id, RoleRequestContext context, CancellationToken cancellationToken)
     {
         var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role cannot be deleted.");
         EnsureCanDelete(role);
         await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "delete", id, "success", "Role deleted.", cancellationToken);
@@ -87,6 +103,7 @@ public sealed class RoleService : IRoleService
     public async Task DisableAsync(long id, RoleRequestContext context, CancellationToken cancellationToken)
     {
         var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role cannot be disabled.");
         EnsureNotSuperAdmin(role, "disable");
         await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Role disabled.", cancellationToken);
@@ -95,22 +112,44 @@ public sealed class RoleService : IRoleService
     public async Task AssignPermissionsAsync(long id, AssignRolePermissionsRequest request, RoleRequestContext context, CancellationToken cancellationToken)
     {
         var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role permissions cannot be modified.");
         var permissionIds = await EnsureExistingIdsAsync(request.PermissionIds, _repository.ExistingPermissionIdsAsync, "permissionIds", cancellationToken);
         if (IsSuperAdmin(role) && permissionIds.Count == 0)
         {
             throw new DomainException(ApiCodes.BusinessError, "Cannot remove all super_admin permissions.");
         }
 
-        await _repository.ReplacePermissionsAsync(id, permissionIds, context.Now, cancellationToken);
-        await AuditAsync(context, "assign-permission", id, "success", "Role permissions assigned.", cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.ReplacePermissionsAsync(id, permissionIds, context.Now, cancellationToken);
+            await AuditAsync(context, "assign-permission", id, "success", "Role permissions assigned.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task AssignMenusAsync(long id, AssignRoleMenusRequest request, RoleRequestContext context, CancellationToken cancellationToken)
     {
-        _ = await GetAsync(id, cancellationToken);
+        var role = await GetAsync(id, cancellationToken);
+        EnsureRoleNotLocked(role, "Locked role menus cannot be modified.");
         var menuIds = await EnsureExistingIdsAsync(request.MenuIds, _repository.ExistingMenuIdsAsync, "menuIds", cancellationToken);
-        await _repository.ReplaceMenusAsync(id, menuIds, context.Now, cancellationToken);
-        await AuditAsync(context, "assign-menu", id, "success", "Role menus assigned.", cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.ReplaceMenusAsync(id, menuIds, context.Now, cancellationToken);
+            await AuditAsync(context, "assign-menu", id, "success", "Role menus assigned.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     private async Task EnsureCodeUniqueAsync(string code, long? exceptRoleId, CancellationToken cancellationToken)
@@ -155,6 +194,14 @@ public sealed class RoleService : IRoleService
         }
 
         EnsureNotSuperAdmin(role, "delete");
+    }
+
+    private static void EnsureRoleNotLocked(RoleDetailDto role, string message)
+    {
+        if (role.IsLocked)
+        {
+            throw new DomainException(ApiCodes.BusinessError, message);
+        }
     }
 
     private static void EnsureNotSuperAdmin(RoleDetailDto role, string action)

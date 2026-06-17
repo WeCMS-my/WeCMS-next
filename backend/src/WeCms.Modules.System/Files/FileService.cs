@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Files;
@@ -6,13 +7,37 @@ public sealed class FileService : IFileService
 {
     private const int MaxPageSize = 100;
     private const long MaxSizeBytes = 10 * 1024 * 1024;
-    private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase) { "image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain" };
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt" };
-    private readonly IFileRepository _repository;
+    private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+        "text/plain"
+    };
 
-    public FileService(IFileRepository repository)
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+    };
+
+    private readonly IFileRepository _repository;
+    private readonly IFileStorage _storage;
+    private readonly IFileObjectKeyGenerator _objectKeyGenerator;
+
+    public FileService(
+        IFileRepository repository,
+        IFileStorage storage,
+        IFileObjectKeyGenerator objectKeyGenerator)
     {
         _repository = repository;
+        _storage = storage;
+        _objectKeyGenerator = objectKeyGenerator;
     }
 
     public Task<PagedResult<FileSummaryDto>> ListAsync(FileListQuery query, CancellationToken cancellationToken)
@@ -27,17 +52,22 @@ public sealed class FileService : IFileService
         return await _repository.GetAsync(id, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "File was not found.");
     }
 
-    public async Task<FileMutationResponse> CreateAsync(CreateFileRequest request, FileRequestContext context, CancellationToken cancellationToken)
+    public async Task<FileMutationResponse> CreateAsync(CreateFileRequest request, IFormFile file, FileRequestContext context, CancellationToken cancellationToken)
     {
         var originalName = NormalizeRequired(request.OriginalName, "originalName", 255);
-        var mimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
-        var sha256 = NormalizeSha256(request.Sha256);
+        var requestMimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
+        var requestSha256 = NormalizeSha256(request.Sha256);
         if (request.SizeBytes <= 0 || request.SizeBytes > MaxSizeBytes)
         {
             throw Validation($"sizeBytes must be between 1 and {MaxSizeBytes}.");
         }
 
-        if (!AllowedMimeTypes.Contains(mimeType))
+        if (file is null || file.Length <= 0)
+        {
+            throw Validation("file is required and must not be empty.");
+        }
+
+        if (!AllowedMimeTypes.Contains(requestMimeType))
         {
             throw Validation("mimeType is not allowed.");
         }
@@ -48,8 +78,48 @@ public sealed class FileService : IFileService
             throw Validation("file extension is not allowed.");
         }
 
-        var id = await _repository.CreateAsync(new FileCreateRecord("metadata", "system", sha256, originalName, fileExt.ToLowerInvariant(), mimeType, request.SizeBytes, sha256, "active", context.ActorUserId, context.Now), cancellationToken);
-        await AuditAsync(context, "upload", id, "File metadata created.", cancellationToken);
+        if (file.Length > MaxSizeBytes)
+        {
+            throw Validation($"sizeBytes must be between 1 and {MaxSizeBytes}.");
+        }
+
+        var objectKey = _objectKeyGenerator.GenerateObjectKey(context.Now, fileExt);
+        FileStorageResult stored;
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            stored = await _storage.StoreAsync(stream, objectKey, fileExt.ToLowerInvariant(), MaxSizeBytes, cancellationToken);
+        }
+        catch (DomainException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            await DeleteFileAsync(objectKey, cancellationToken);
+            throw new InvalidOperationException("Upload content cannot be stored.", exception);
+        }
+
+        if (stored.SizeBytes != request.SizeBytes)
+        {
+            await DeleteFileAsync(objectKey, cancellationToken);
+            throw Validation("sizeBytes does not match uploaded content.");
+        }
+
+        if (!string.Equals(stored.Sha256, requestSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            await DeleteFileAsync(objectKey, cancellationToken);
+            throw Validation("sha256 does not match uploaded content.");
+        }
+
+        if (!string.Equals(stored.MimeType, requestMimeType, StringComparison.OrdinalIgnoreCase))
+        {
+            await DeleteFileAsync(objectKey, cancellationToken);
+            throw Validation("mimeType does not match uploaded content.");
+        }
+
+        var id = await _repository.CreateAsync(new FileCreateRecord("local", "system", objectKey, originalName, fileExt.ToLowerInvariant(), stored.MimeType, stored.SizeBytes, stored.Sha256, "active", context.ActorUserId, context.Now), cancellationToken);
+        await AuditAsync(context, "upload", id, "File uploaded and metadata created.", cancellationToken);
         return new FileMutationResponse(id);
     }
 
@@ -58,6 +128,33 @@ public sealed class FileService : IFileService
         _ = await GetAsync(id, cancellationToken);
         await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "delete", id, "File metadata deleted.", cancellationToken);
+    }
+
+    public async Task<FileDownloadPayload> GetDownloadPayloadAsync(long id, bool inline, FileRequestContext context, CancellationToken cancellationToken)
+    {
+        var file = await _repository.GetDownloadAsync(id, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "File was not found.");
+        if (!string.Equals(file.Status, "active", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainException(ApiCodes.NotFound, "File was not found.");
+        }
+
+        var stream = await _storage.OpenReadAsync(file.ObjectKey, cancellationToken);
+        var action = inline ? "preview" : "download";
+        await AuditAsync(context, action, id, $"File {action} requested.", cancellationToken);
+
+        return new FileDownloadPayload(stream, file.MimeType, file.OriginalName, file.SizeBytes);
+    }
+
+    private async Task DeleteFileAsync(string objectKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _storage.DeleteAsync(objectKey, cancellationToken);
+        }
+        catch
+        {
+            // Keep cleanup best-effort.
+        }
     }
 
     private Task AuditAsync(FileRequestContext context, string action, long targetFileId, string detail, CancellationToken cancellationToken)

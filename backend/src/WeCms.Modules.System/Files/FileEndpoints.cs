@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
@@ -17,7 +18,11 @@ public static class FileEndpoints
 
         group.MapGet("/files", ListAsync).RequirePermission(FilePermissions.List);
         group.MapGet("/files/{id:long}", DetailAsync).RequirePermission(FilePermissions.Detail);
-        group.MapPost("/files", CreateAsync).RequirePermission(FilePermissions.Upload);
+        group.MapPost("/files", CreateAsync)
+            .DisableAntiforgery()
+            .RequirePermission(FilePermissions.Upload);
+        group.MapGet("/files/{id:long}/download", DownloadAsync).RequirePermission(FilePermissions.Download);
+        group.MapGet("/files/{id:long}/preview", PreviewAsync).RequirePermission(FilePermissions.Download);
         group.MapDelete("/files/{id:long}", DeleteAsync).RequirePermission(FilePermissions.Delete);
 
         return endpoints;
@@ -33,15 +38,37 @@ public static class FileEndpoints
         return ApiResult<FileDetailDto>.Ok(await service.GetAsync(id, cancellationToken));
     }
 
-    private static async Task<ApiResult<FileMutationResponse>> CreateAsync(CreateFileRequest request, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
+    private static async Task<ApiResult<FileMutationResponse>> CreateAsync([FromForm] CreateFileRequest request, [FromForm] IFormFile file, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
     {
-        return ApiResult<FileMutationResponse>.Ok(await service.CreateAsync(request, Context(httpContext, clock), cancellationToken));
+        return ApiResult<FileMutationResponse>.Ok(await service.CreateAsync(request, file, Context(httpContext, clock), cancellationToken));
     }
 
     private static async Task<ApiResult<object>> DeleteAsync(long id, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
     {
         await service.DeleteAsync(id, Context(httpContext, clock), cancellationToken);
         return ApiResult<object>.Ok(new { });
+    }
+
+    private static async Task<IResult> DownloadAsync(long id, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        return await FileTransferAsync(id, false, httpContext, service, clock, cancellationToken);
+    }
+
+    private static async Task<IResult> PreviewAsync(long id, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        return await FileTransferAsync(id, true, httpContext, service, clock, cancellationToken);
+    }
+
+    private static async Task<IResult> FileTransferAsync(long id, bool inline, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        var payload = await service.GetDownloadPayloadAsync(id, inline, Context(httpContext, clock), cancellationToken);
+        if (inline)
+        {
+            httpContext.Response.Headers.ContentDisposition = $"inline; filename=\"{payload.FileName}\"";
+            return Results.File(payload.Content, payload.ContentType, enableRangeProcessing: true);
+        }
+
+        return Results.File(payload.Content, payload.ContentType, payload.FileName);
     }
 
     private static FileRequestContext Context(HttpContext httpContext, IAuthClock clock)

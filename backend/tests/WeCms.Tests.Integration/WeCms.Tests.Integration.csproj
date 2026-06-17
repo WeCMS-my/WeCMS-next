@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WeCms.Persistence\WeCms.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

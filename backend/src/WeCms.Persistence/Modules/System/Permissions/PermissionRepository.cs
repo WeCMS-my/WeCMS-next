@@ -21,6 +21,7 @@ public sealed class PermissionRepository : IPermissionRepository
                    status AS Status
             FROM sys_user
             WHERE id = @userId
+              AND deleted_at IS NULL
             LIMIT 1
             """,
             new SugarParameter("@userId", userId));
