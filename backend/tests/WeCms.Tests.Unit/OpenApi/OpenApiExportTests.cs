@@ -178,6 +178,50 @@ public sealed class OpenApiExportTests
     }
 
     [Fact]
+    public async Task ExportOpenApiAsync_BodylessCommandOperationsDoNotDeclareRequestBody()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-bodyless-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var paths = document.RootElement.GetProperty("paths");
+            var bodylessOperations = new (string Path, string Method)[]
+            {
+                ("/api/v1/system/users/{id:long}/enable", "post"),
+                ("/api/v1/system/users/{id:long}/disable", "post"),
+                ("/api/v1/system/roles/{id:long}/enable", "post"),
+                ("/api/v1/system/roles/{id:long}/disable", "post"),
+                ("/api/v1/system/menus/{id:long}/enable", "post"),
+                ("/api/v1/system/menus/{id:long}/disable", "post"),
+                ("/api/v1/system/permissions/{id:long}/enable", "post"),
+                ("/api/v1/system/permissions/{id:long}/disable", "post"),
+                ("/api/v1/system/depts/{id:long}/enable", "post"),
+                ("/api/v1/system/depts/{id:long}/disable", "post"),
+                ("/api/v1/system/posts/{id:long}/enable", "post"),
+                ("/api/v1/system/posts/{id:long}/disable", "post")
+            };
+
+            foreach (var operationKey in bodylessOperations)
+            {
+                var operation = paths.GetProperty(operationKey.Path).GetProperty(operationKey.Method);
+                Assert.False(
+                    operation.TryGetProperty("requestBody", out _),
+                    $"{operationKey.Method.ToUpperInvariant()} {operationKey.Path} should not declare requestBody.");
+            }
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ExportOpenApiAsync_ListEndpointsDeclareQueryParameters()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-query-{Guid.NewGuid():N}.json");
@@ -617,8 +661,8 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/users", "post", UserPermissions.Create, true, nameof(CreateUserRequest)),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}", "put", UserPermissions.Update, true, nameof(UpdateUserRequest)),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}", "delete", UserPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/enable", "post", UserPermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/disable", "post", UserPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/enable", "post", UserPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/disable", "post", UserPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-password", "post", UserPermissions.ResetPassword, true, nameof(ResetUserPasswordRequest)),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}/roles", "put", UserPermissions.AssignRole, true, nameof(AssignUserRolesRequest)),
         new RegisteredEndpoint("/api/v1/system/users/{id:long}/posts", "put", UserPermissions.AssignPost, true, nameof(AssignUserPostsRequest)),
@@ -627,8 +671,8 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/roles", "post", RolePermissions.Create, true, nameof(CreateRoleRequest)),
         new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "put", RolePermissions.Update, true, nameof(UpdateRoleRequest)),
         new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "delete", RolePermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/enable", "post", RolePermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/disable", "post", RolePermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/enable", "post", RolePermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/roles/{id:long}/disable", "post", RolePermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/roles/{id:long}/permissions", "put", RolePermissions.AssignPermission, true, nameof(AssignRolePermissionsRequest)),
         new RegisteredEndpoint("/api/v1/system/roles/{id:long}/menus", "put", RolePermissions.AssignMenu, true, nameof(AssignRoleMenusRequest)),
         new RegisteredEndpoint("/api/v1/system/menus", "get", MenuPermissions.List, true, null),
@@ -637,31 +681,31 @@ public sealed class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/menus", "post", MenuPermissions.Create, true, nameof(CreateMenuRequest)),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "put", MenuPermissions.Update, true, nameof(UpdateMenuRequest)),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "delete", MenuPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/enable", "post", MenuPermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/disable", "post", MenuPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/enable", "post", MenuPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/menus/{id:long}/disable", "post", MenuPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/permissions", "get", PermissionManagementPermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/permissions/tree", "get", PermissionManagementPermissions.Tree, true, null),
         new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "get", PermissionManagementPermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/permissions", "post", PermissionManagementPermissions.Create, true, nameof(CreatePermissionRequest)),
         new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "put", PermissionManagementPermissions.Update, true, nameof(UpdatePermissionRequest)),
         new RegisteredEndpoint("/api/v1/system/permissions/{id:long}", "delete", PermissionManagementPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/enable", "post", PermissionManagementPermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/disable", "post", PermissionManagementPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/enable", "post", PermissionManagementPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/permissions/{id:long}/disable", "post", PermissionManagementPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/depts", "get", DepartmentPermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/depts/tree", "get", DepartmentPermissions.Tree, true, null),
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "get", DepartmentPermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/depts", "post", DepartmentPermissions.Create, true, nameof(CreateDepartmentRequest)),
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "put", DepartmentPermissions.Update, true, nameof(UpdateDepartmentRequest)),
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "delete", DepartmentPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/enable", "post", DepartmentPermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/disable", "post", DepartmentPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/enable", "post", DepartmentPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/depts/{id:long}/disable", "post", DepartmentPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/posts", "get", PostPermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "get", PostPermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/posts", "post", PostPermissions.Create, true, nameof(CreatePostRequest)),
         new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "put", PostPermissions.Update, true, nameof(UpdatePostRequest)),
         new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "delete", PostPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/enable", "post", PostPermissions.Enable, true, "Object"),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/disable", "post", PostPermissions.Disable, true, "Object"),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/enable", "post", PostPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/disable", "post", PostPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types", "get", DictPermissions.TypeList, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "get", DictPermissions.TypeList, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types", "post", DictPermissions.TypeCreate, true, nameof(CreateDictTypeRequest)),
