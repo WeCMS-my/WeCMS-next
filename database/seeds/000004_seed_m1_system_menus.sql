@@ -18,8 +18,9 @@ JOIN (
   SELECT 'menu', 'sys.settings', '/system/settings', 'system/settings/index', 'Settings', 'route.system.settings', 'material-symbols:tune', 180, 'sys:setting:page' UNION ALL
   SELECT 'menu', 'sys.loginLogs', '/system/login-logs', 'system/login-logs/index', 'Login Logs', 'route.system.loginLogs', 'material-symbols:login', 190, 'sys:login-log:page' UNION ALL
   SELECT 'menu', 'sys.auditLogs', '/system/audit-logs', 'system/audit-logs/index', 'Audit Logs', 'route.system.auditLogs', 'material-symbols:fact-check', 200, 'sys:audit-log:page' UNION ALL
-  SELECT 'menu', 'sys.securityEvents', '/system/security-events', 'system/security-events/index', 'Security Events', 'route.system.securityEvents', 'material-symbols:shield', 210, 'sys:security-event:page' UNION ALL
-  SELECT 'menu', 'sys.files', '/system/files', 'system/files/index', 'Files', 'route.system.files', 'material-symbols:folder', 220, 'sys:file:page'
+  SELECT 'menu', 'sys.security', '/system/security', 'system/security/index', 'Security Center', 'route.system.security', 'material-symbols:security', 210, 'sys:security:page' UNION ALL
+  SELECT 'menu', 'sys.securityEvents', '/system/security-events', 'system/security-events/index', 'Security Events', 'route.system.securityEvents', 'material-symbols:shield', 220, 'sys:security-event:page' UNION ALL
+  SELECT 'menu', 'sys.files', '/system/files', 'system/files/index', 'Files', 'route.system.files', 'material-symbols:folder', 230, 'sys:file:page'
 ) v ON root.name = 'sys.system'
 WHERE NOT EXISTS (
   SELECT 1 FROM sys_menu m WHERE m.name = v.name

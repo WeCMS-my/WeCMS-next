@@ -34,6 +34,9 @@ public sealed class AuthService : IAuthService
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IAuthClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILoginFailureLimiter _loginFailureLimiter;
+    private readonly IAuthSessionIssuer _sessionIssuer;
+    private readonly IAuthTwoFactorChallengeService _twoFactorChallengeService;
 
     public AuthService(
         IAuthRepository repository,
@@ -41,7 +44,10 @@ public sealed class AuthService : IAuthService
         IAccessTokenService accessTokenService,
         IRefreshTokenService refreshTokenService,
         IAuthClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILoginFailureLimiter loginFailureLimiter,
+        IAuthSessionIssuer sessionIssuer,
+        IAuthTwoFactorChallengeService twoFactorChallengeService)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
@@ -49,6 +55,9 @@ public sealed class AuthService : IAuthService
         _refreshTokenService = refreshTokenService;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _loginFailureLimiter = loginFailureLimiter;
+        _sessionIssuer = sessionIssuer;
+        _twoFactorChallengeService = twoFactorChallengeService;
     }
 
     public async Task<AuthSessionResult> LoginAsync(
@@ -66,16 +75,21 @@ public sealed class AuthService : IAuthService
             || !string.Equals(user.Status, EnabledStatus, StringComparison.Ordinal)
             || !_passwordHasher.Verify(password, user.PasswordHash))
         {
-            await RecordFailedLoginAsync(username, user?.Id, requestContext, cancellationToken);
+            var decision = await RecordFailedLoginAsync(username, user?.Id, requestContext, cancellationToken);
             await RecordAuditLogAsync(
                 user?.Id,
                 username,
                 LoginAuditAction,
-                AuditResultFailed,
-                "Login rejected due to invalid credentials.",
+                decision.IsBlocked ? AuditResultBlocked : AuditResultFailed,
+                decision.IsBlocked ? "Login blocked due to repeated invalid credentials." : "Login rejected due to invalid credentials.",
                 LoginPath,
                 requestContext,
                 cancellationToken);
+            if (decision.IsBlocked)
+            {
+                throw new DomainException(ApiCodes.TooManyRequests, InvalidCredentialsMessage);
+            }
+
             throw new DomainException(ApiCodes.Unauthorized, InvalidCredentialsMessage);
         }
 
@@ -95,52 +109,34 @@ public sealed class AuthService : IAuthService
                 cancellationToken);
             throw new DomainException(ApiCodes.BusinessError, "Password change required.");
         }
-        var accessToken = _accessTokenService.Issue(user, now);
-        var refreshToken = _refreshTokenService.Issue(now);
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
+
+        if (await _twoFactorChallengeService.RequiresTwoFactorAsync(user.Id, cancellationToken))
         {
-            await _repository.CompleteSuccessfulLoginAsync(
-                new SuccessfulLoginRecord(
-                    user.Id,
-                    requestContext.Ip,
-                    refreshToken.Hash,
-                    refreshToken.FamilyId,
-                    refreshToken.ExpiresAt,
-                    now),
-                cancellationToken);
-            await RecordAuditLogAsync(
-                user.Id,
-                user.Username,
-                LoginAuditAction,
-                AuditResultSuccess,
-                "Login succeeded and refresh token issued.",
-                LoginPath,
-                requestContext,
-                cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
+            return await _twoFactorChallengeService.CreateChallengeAsync(user, requestContext, now, cancellationToken);
         }
 
-        var roles = await _repository.ListRoleCodesAsync(user.Id, cancellationToken);
-        var permissions = await _repository.ListPermissionCodesAsync(user.Id, cancellationToken);
-        var menus = await ListVisibleMenusAsync(user.Id, user.IsSuperAdmin, cancellationToken);
+        return await _sessionIssuer.IssueAsync(
+            user,
+            requestContext,
+            new AuthSessionAudit(LoginAuditAction, "Login succeeded and refresh token issued.", LoginPath),
+            now,
+            cancellationToken);
+    }
 
-        return new AuthSessionResult(
-            new LoginResponse(
-                accessToken.Token,
-                accessToken.ExpiresAt,
-                ToDto(user),
-                roles,
-                permissions,
-                menus),
-            refreshToken.Token,
-            refreshToken.ExpiresAt,
-            refreshToken.ExpiresAt - now);
+    public async Task<AuthSessionResult> VerifyTwoFactorAsync(
+        TwoFactorVerifyRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken)
+    {
+        return await _twoFactorChallengeService.VerifyCodeAsync(request, requestContext, cancellationToken);
+    }
+
+    public async Task<AuthSessionResult> VerifyTwoFactorRecoveryCodeAsync(
+        TwoFactorRecoveryCodeRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken)
+    {
+        return await _twoFactorChallengeService.VerifyRecoveryCodeAsync(request, requestContext, cancellationToken);
     }
 
     public async Task<AuthSessionResult> RefreshAsync(
@@ -403,7 +399,7 @@ public sealed class AuthService : IAuthService
         return MenuTreeBuilder.Build(menus);
     }
 
-    private async Task RecordFailedLoginAsync(
+    private async Task<LoginFailureDecision> RecordFailedLoginAsync(
         string username,
         long? userId,
         AuthRequestContext requestContext,
@@ -422,6 +418,9 @@ public sealed class AuthService : IAuthService
                 "warning",
                 InvalidCredentialsMessage,
                 now),
+            cancellationToken);
+        return await _loginFailureLimiter.RecordFailureAsync(
+            new LoginFailureContext(username, userId, requestContext.Ip, requestContext.UserAgent, now),
             cancellationToken);
     }
 

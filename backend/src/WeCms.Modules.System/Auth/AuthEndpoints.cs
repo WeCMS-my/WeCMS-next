@@ -22,7 +22,11 @@ public static class AuthEndpoints
                 CancellationToken cancellationToken) =>
             {
                 var session = await authService.LoginAsync(request, CreateRequestContext(context), cancellationToken);
-                AppendRefreshTokenCookie(context, session);
+                if (!session.Response.RequiresTwoFactor)
+                {
+                    AppendRefreshTokenCookie(context, session);
+                }
+
                 return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LoginRequest)))
@@ -32,8 +36,10 @@ public static class AuthEndpoints
         group.MapPost("/refresh", async (
                 HttpContext context,
                 [FromServices] IAuthService authService,
+                [FromServices] ICookieAuthOriginValidator cookieAuthOriginValidator,
                 CancellationToken cancellationToken) =>
             {
+                await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Refresh, CreateRequestContext(context), cancellationToken);
                 var refreshToken = ReadRefreshTokenCookie(context);
                 var session = await authService.RefreshAsync(refreshToken, CreateRequestContext(context), cancellationToken);
                 AppendRefreshTokenCookie(context, session);
@@ -45,14 +51,50 @@ public static class AuthEndpoints
         group.MapPost("/logout", async (
                 HttpContext context,
                 [FromServices] IAuthService authService,
+                [FromServices] ICookieAuthOriginValidator cookieAuthOriginValidator,
                 CancellationToken cancellationToken) =>
             {
+                await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Logout, CreateRequestContext(context), cancellationToken);
                 var refreshToken = ReadRefreshTokenCookie(context);
                 await authService.LogoutAsync(refreshToken, CreateRequestContext(context), cancellationToken);
                 DeleteRefreshTokenCookie(context);
                 return Results.Ok(ApiResult<object?>.Ok(null));
             })
             .WithMetadata(new OpenApiResponseMetadata(typeof(object)))
+            .AllowAnonymous();
+
+        group.MapPost("/2fa/verify", async (
+                TwoFactorVerifyRequest request,
+                HttpContext context,
+                [FromServices] IAuthService authService,
+                [FromServices] ICookieAuthOriginValidator cookieAuthOriginValidator,
+                CancellationToken cancellationToken) =>
+            {
+                var requestContext = CreateRequestContext(context);
+                await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.TwoFactorVerify, requestContext, cancellationToken);
+                var session = await authService.VerifyTwoFactorAsync(request, requestContext, cancellationToken);
+                AppendRefreshTokenCookie(context, session);
+                return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
+            })
+            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(TwoFactorVerifyRequest)))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
+            .AllowAnonymous();
+
+        group.MapPost("/2fa/recovery-code", async (
+                TwoFactorRecoveryCodeRequest request,
+                HttpContext context,
+                [FromServices] IAuthService authService,
+                [FromServices] ICookieAuthOriginValidator cookieAuthOriginValidator,
+                CancellationToken cancellationToken) =>
+            {
+                var requestContext = CreateRequestContext(context);
+                await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.TwoFactorRecoveryCode, requestContext, cancellationToken);
+                var session = await authService.VerifyTwoFactorRecoveryCodeAsync(request, requestContext, cancellationToken);
+                AppendRefreshTokenCookie(context, session);
+                return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
+            })
+            .WithMetadata(new OpenApiRequestBodyMetadata(typeof(TwoFactorRecoveryCodeRequest)))
+            .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
             .AllowAnonymous();
 
         group.MapGet("/me", async (
@@ -88,6 +130,11 @@ public static class AuthEndpoints
 
     private static void AppendRefreshTokenCookie(HttpContext context, AuthSessionResult session)
     {
+        if (string.IsNullOrWhiteSpace(session.RefreshToken))
+        {
+            throw new DomainException(ApiCodes.Unauthorized, "Refresh token was not issued.");
+        }
+
         context.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
         {
             HttpOnly = true,

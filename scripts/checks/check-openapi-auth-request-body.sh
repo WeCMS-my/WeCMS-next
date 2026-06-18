@@ -19,6 +19,8 @@ schemas = document.get("components", {}).get("schemas", {})
 
 body_required = {
     "/api/v1/auth/login": "LoginRequest",
+    "/api/v1/auth/2fa/verify": "TwoFactorVerifyRequest",
+    "/api/v1/auth/2fa/recovery-code": "TwoFactorRecoveryCodeRequest",
 }
 
 body_forbidden = (
@@ -58,7 +60,7 @@ for route in body_forbidden:
     if "requestBody" in operation:
         raise SystemExit(f"check-openapi-auth-request-body: POST {route} must not declare requestBody")
 
-for schema_name in ("LoginRequest", "LoginResponse", "AuthMeResponse"):
+for schema_name in ("LoginRequest", "TwoFactorVerifyRequest", "TwoFactorRecoveryCodeRequest", "LoginResponse", "AuthMeResponse"):
     if schema_name not in schemas:
         raise SystemExit(f"check-openapi-auth-request-body: missing schema {schema_name}")
 

@@ -1,11 +1,12 @@
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Menus;
+using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
 namespace WeCms.Tests.Unit.Auth;
 
-public sealed class AuthServiceTests
+public sealed partial class AuthServiceTests
 {
     [Fact]
     public async Task LoginAsync_RejectsEmptyUsernameBeforeRepositoryLookup()
@@ -51,6 +52,27 @@ public sealed class AuthServiceTests
         Assert.Equal(1, repository.AuditLogCount);
         Assert.Equal("login", repository.LastAuditAction);
         Assert.Equal("failed", repository.LastAuditResult);
+    }
+
+    [Fact]
+    public async Task LoginAsync_FailedPasswordReturnsTooManyRequestsWhenFailureLimiterBlocks()
+    {
+        var repository = new FakeAuthRepository
+        {
+            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", false)
+        };
+        var limiter = new FakeLoginFailureLimiter { Decision = LoginFailureDecision.Blocked };
+        var service = CreateService(repository, limiter);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.LoginAsync(new LoginRequest("admin", "wrong"), RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.TooManyRequests, exception.Code);
+        Assert.Equal("Invalid username or password.", exception.Message);
+        Assert.Equal(1, repository.FailedLoginCount);
+        Assert.Equal(1, limiter.RecordFailureCalls);
+        Assert.Equal("login", repository.LastAuditAction);
+        Assert.Equal("blocked", repository.LastAuditResult);
     }
 
     [Fact]
@@ -113,6 +135,7 @@ public sealed class AuthServiceTests
         Assert.Equal(1, repository.AuditLogCount);
         Assert.Equal("login", repository.LastAuditAction);
         Assert.Equal("success", repository.LastAuditResult);
+        Assert.Equal(1, repository.LoginFailureLimiter.ResetCalls);
     }
 
     [Fact]
@@ -565,340 +588,4 @@ public sealed class AuthServiceTests
         Assert.Equal("failed", repository.LastAuditResult);
     }
 
-    private static AuthService CreateService(FakeAuthRepository repository)
-    {
-        return new AuthService(
-            repository,
-            new PasswordHasher(),
-            new AccessTokenService(new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7))),
-            new RefreshTokenService(new FixedAuthTokenEntropy()),
-            new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero)),
-            new FakeUnitOfWork());
-    }
-
-    private static AuthService CreateService(IAuthRepository repository, IAuthClock clock)
-    {
-        return new AuthService(
-            repository,
-            new PasswordHasher(),
-            new AccessTokenService(new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7))),
-            new RefreshTokenService(new FixedAuthTokenEntropy()),
-            clock,
-            new FakeUnitOfWork());
-    }
-
-    private static AuthRequestContext RequestContext()
-    {
-        return new AuthRequestContext("192.168.101.199", "unit-test");
-    }
-
-    private static async Task<AuthSessionResult?> TryRefreshAsync(AuthService service, string refreshToken)
-    {
-        try
-        {
-            return await service.RefreshAsync(refreshToken,
-                RequestContext(),
-                CancellationToken.None);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private sealed class FakeAuthRepository : IAuthRepository
-    {
-        public AuthUserRecord? User { get; init; }
-
-        public RefreshTokenRecord? RefreshToken { get; set; }
-
-        public IReadOnlyList<string> Roles { get; init; } = [];
-
-        public IReadOnlyList<string> Permissions { get; init; } = [];
-
-        public IReadOnlyList<MenuSummaryDto> VisibleMenus { get; init; } = [];
-
-        public int FindUserCalls { get; private set; }
-
-        public int FindRefreshTokenCalls { get; private set; }
-
-        public int FailedLoginCount { get; private set; }
-
-        public int SecurityEventCount { get; private set; }
-
-        public int SuccessfulLoginCount { get; private set; }
-
-        public int AuditLogCount { get; private set; }
-
-        public string LastAuditAction { get; private set; } = string.Empty;
-
-        public string LastAuditResult { get; private set; } = string.Empty;
-
-        public string StoredRefreshTokenHash { get; private set; } = string.Empty;
-
-        public long RotatedOldRefreshTokenId { get; private set; }
-
-        public string RotatedNewRefreshTokenHash { get; private set; } = string.Empty;
-
-        public string RotatedFamilyId { get; private set; } = string.Empty;
-
-        public string RevokedFamilyId { get; private set; } = string.Empty;
-
-        public string LastSecurityEventType { get; private set; } = string.Empty;
-
-        public RefreshTokenRecord? RefreshTokenAfterRotationFailure { get; init; }
-
-        public bool ThrowAlreadyRevokedOnRotation { get; init; }
-
-        public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
-        {
-            FindUserCalls++;
-            return Task.FromResult(User?.Username == username ? User : null);
-        }
-
-        public Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(User?.Id == userId ? User : null);
-        }
-
-        public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
-        {
-            FindRefreshTokenCalls++;
-            return Task.FromResult(RefreshToken?.TokenHash == tokenHash ? RefreshToken : null);
-        }
-
-        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Roles);
-        }
-
-        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Permissions);
-        }
-
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(VisibleMenus);
-        }
-
-        public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
-        {
-            FailedLoginCount++;
-            return Task.CompletedTask;
-        }
-
-        public Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
-        {
-            SecurityEventCount++;
-            LastSecurityEventType = record.EventType;
-            return Task.CompletedTask;
-        }
-
-        public Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
-        {
-            AuditLogCount++;
-            LastAuditAction = record.Action;
-            LastAuditResult = record.Result;
-            return Task.CompletedTask;
-        }
-
-        public Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
-        {
-            SuccessfulLoginCount++;
-            StoredRefreshTokenHash = record.RefreshTokenHash;
-            return Task.CompletedTask;
-        }
-
-        public Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
-        {
-            if (ThrowAlreadyRevokedOnRotation)
-            {
-                if (RefreshTokenAfterRotationFailure is not null)
-                {
-                    RefreshToken = RefreshTokenAfterRotationFailure;
-                }
-
-                throw new RefreshTokenAlreadyRevokedException(record.FamilyId);
-            }
-
-            RotatedOldRefreshTokenId = record.OldRefreshTokenId;
-            RotatedNewRefreshTokenHash = record.NewRefreshTokenHash;
-            RotatedFamilyId = record.FamilyId;
-            return Task.CompletedTask;
-        }
-
-        public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
-        {
-            RevokedFamilyId = familyId;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class ConcurrentReplayAuthRepository : IAuthRepository
-    {
-        private readonly object _lock = new();
-        private readonly AuthUserRecord? _user;
-        private RefreshTokenRecord _refreshToken;
-        private int _rotationAttempts;
-
-        public ConcurrentReplayAuthRepository(RefreshTokenRecord refreshToken)
-        {
-            _refreshToken = refreshToken;
-            _user = new AuthUserRecord(
-                refreshToken.UserId,
-                refreshToken.Username,
-                refreshToken.DisplayName,
-                string.Empty,
-                refreshToken.UserStatus,
-                refreshToken.IsSuperAdmin);
-        }
-
-        public string LastSecurityEventType { get; private set; } = string.Empty;
-
-        public int SecurityEventCount { get; private set; }
-
-        public int AuditLogCount { get; private set; }
-
-        public string LastAuditAction { get; private set; } = string.Empty;
-
-        public string LastAuditResult { get; private set; } = string.Empty;
-
-        public string RevokedFamilyId { get; private set; } = string.Empty;
-
-        public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(_user?.Username == username ? _user : null);
-        }
-
-        public Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(_user?.Id == userId ? _user : null);
-        }
-
-        public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            lock (_lock)
-            {
-                return Task.FromResult(_refreshToken.TokenHash == tokenHash ? _refreshToken : null);
-            }
-        }
-
-        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<IReadOnlyList<string>>([]);
-        }
-
-        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<IReadOnlyList<string>>([]);
-        }
-
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<IReadOnlyList<MenuSummaryDto>>([]);
-        }
-
-        public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
-        {
-            SecurityEventCount++;
-            LastSecurityEventType = record.EventType;
-            return Task.CompletedTask;
-        }
-
-        public Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
-        {
-            AuditLogCount++;
-            LastAuditAction = record.Action;
-            LastAuditResult = record.Result;
-            return Task.CompletedTask;
-        }
-
-        public Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
-        {
-            var attempt = Interlocked.Increment(ref _rotationAttempts);
-            if (attempt == 1)
-            {
-                lock (_lock)
-                {
-                    _refreshToken = _refreshToken with
-                    {
-                        RevokedAt = record.RotatedAt,
-                        ReplacedByTokenHash = record.NewRefreshTokenHash
-                    };
-                }
-
-                return Task.CompletedTask;
-            }
-
-            throw new RefreshTokenAlreadyRevokedException(record.FamilyId);
-        }
-
-        public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
-        {
-            RevokedFamilyId = familyId;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FixedAuthClock : IAuthClock
-    {
-        public FixedAuthClock(DateTimeOffset utcNow)
-        {
-            UtcNow = utcNow;
-        }
-
-        public DateTimeOffset UtcNow { get; }
-    }
-
-    private sealed class FixedAuthTokenEntropy : IAuthTokenEntropy
-    {
-        public byte[] GetBytes(int count)
-        {
-            return Enumerable.Range(1, count).Select(value => (byte)value).ToArray();
-        }
-
-        public string NewFamilyId()
-        {
-            return "test-family";
-        }
-    }
-
-    private sealed class FakeUnitOfWork : IUnitOfWork
-    {
-        public Task<ITransactionContext> BeginTransactionAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<ITransactionContext>(new FakeTransactionContext());
-        }
-    }
-
-    private sealed class FakeTransactionContext : ITransactionContext
-    {
-        public ValueTask DisposeAsync()
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        public Task CommitAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task RollbackAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
-    }
 }

@@ -23,6 +23,7 @@ public sealed class UserApiScanTests
         Assert.Contains("MapPost(\"/{id:long}/enable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/disable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/reset-password\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/{id:long}/reset-2fa\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPut(\"/{id:long}/roles\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPut(\"/{id:long}/posts\"", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(UserPermissions.List)", source, StringComparison.Ordinal);
@@ -33,6 +34,7 @@ public sealed class UserApiScanTests
         Assert.Contains("RequirePermission(UserPermissions.Enable)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(UserPermissions.Disable)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(UserPermissions.ResetPassword)", source, StringComparison.Ordinal);
+        Assert.Contains("RequirePermission(UserPermissions.ResetTwoFactor)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(UserPermissions.AssignRole)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(UserPermissions.AssignPost)", source, StringComparison.Ordinal);
     }

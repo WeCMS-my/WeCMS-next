@@ -43,4 +43,6 @@ public interface IUserRepository
     Task<int> CountEnabledUsersByRoleForUpdateAsync(long roleId, CancellationToken cancellationToken);
 
     Task RecordAuditAsync(UserAuditRecord record, CancellationToken cancellationToken);
+
+    Task RecordSecurityEventAsync(UserSecurityEventRecord record, CancellationToken cancellationToken);
 }

@@ -83,6 +83,12 @@ async function refreshAccessToken(): Promise<LoginResponse> {
     throw result;
   }
 
+  if (result.data.requiresTwoFactor || !result.data.user) {
+    clearTokenSet();
+    redirectToLogin();
+    throw result;
+  }
+
   saveTokenSet({
     accessToken: result.data.accessToken,
     expiresAt: result.data.expiresAt

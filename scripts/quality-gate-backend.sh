@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 nuget_audit_mode="${WECMS_NUGET_AUDIT_MODE:-strict}"
 nuget_http_cache_path="${NUGET_HTTP_CACHE_PATH:-}"
+frontend_scope="${WECMS_BACKEND_GATE_FRONTEND_SCOPE:-backend-only}"
 
 mysql_connection_string="${WECMS_TEST_MYSQL_CONNECTION_STRING:-}"
 if [[ -z "$mysql_connection_string" ]]; then
@@ -41,6 +42,11 @@ if [[ "$nuget_audit_mode" != "strict" && "$nuget_audit_mode" != "fallback" ]]; t
   exit 1
 fi
 
+if [[ "$frontend_scope" != "backend-only" && "$frontend_scope" != "includes-frontend" ]]; then
+  printf 'quality-gate-backend: WECMS_BACKEND_GATE_FRONTEND_SCOPE must be backend-only or includes-frontend.\n' >&2
+  exit 1
+fi
+
 if [[ "$nuget_audit_mode" == "fallback" ]]; then
   if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
     printf 'quality-gate-backend: WECMS_NUGET_AUDIT_MODE=fallback is local-only and must not be used in CI or release gates.\n' >&2
@@ -71,59 +77,72 @@ run_dotnet_gate_command() {
   dotnet "$@"
 }
 
-printf '[1/17] dotnet restore\n'
+printf '[1/20] dotnet restore\n'
 run_dotnet_gate_command restore backend/WeCms.slnx
 
-printf '[2/17] dotnet build -warnaserror\n'
+printf '[2/20] dotnet build -warnaserror\n'
 run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-restore
 
-printf '[3/17] dotnet test\n'
+printf '[3/20] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
 export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --no-build --no-restore
 
-printf '[4/17] dotnet publish JIT\n'
+printf '[4/20] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
 
-printf '[5/17] OpenAPI export\n'
+printf '[5/20] OpenAPI export\n'
 dotnet run --project backend/src/WeCms.Api --no-build --no-restore -- --export-openapi "$openapi_path"
 
-printf '[6/17] OpenAPI auth request body check\n'
+printf '[6/20] OpenAPI auth request body check\n'
 bash scripts/checks/check-openapi-auth-request-body.sh "$openapi_path"
 bash scripts/checks/check-openapi-endpoint-coverage.sh "$openapi_path"
 
-printf '[7/17] check-system-openapi-coverage\n'
+printf '[7/20] check-system-openapi-coverage\n'
 bash scripts/checks/check-system-openapi-coverage.sh "$openapi_path"
 
-printf '[8/17] check-system-permission-coverage\n'
+printf '[8/20] check-write-endpoint-methods\n'
+bash scripts/checks/check-write-endpoint-methods.sh "$openapi_path"
+
+printf '[9/20] check-write-endpoint-permission-coverage\n'
+bash scripts/checks/check-write-endpoint-permission-coverage.sh "$openapi_path"
+
+printf '[10/20] check-write-endpoint-audit-coverage\n'
+bash scripts/checks/check-write-endpoint-audit-coverage.sh "$openapi_path"
+
+printf '[11/20] check-system-permission-coverage\n'
 bash scripts/checks/check-system-permission-coverage.sh
 
-printf '[9/17] check-locked-role-seed\n'
+printf '[12/20] check-locked-role-seed\n'
 bash scripts/checks/check-locked-role-seed.sh
 
-printf '[10/17] check-no-sql-in-modules\n'
+printf '[13/20] check-no-sql-in-modules\n'
 bash scripts/checks/check-no-sql-in-modules.sh
 
-printf '[11/17] check-db-boundary\n'
+printf '[14/20] check-db-boundary\n'
 bash scripts/checks/check-db-boundary.sh
 
-printf '[12/17] check-layer-dependency\n'
+printf '[15/20] check-layer-dependency\n'
 bash scripts/checks/check-layer-dependency.sh
 
-printf '[13/17] check-di-boundary\n'
+printf '[16/20] check-di-boundary\n'
 bash scripts/checks/check-di-boundary.sh
 
-printf '[14/17] check-no-frontend-change\n'
-bash scripts/checks/check-no-frontend-change.sh
+printf '[17/20] check-no-frontend-change\n'
+if [[ "$frontend_scope" == "backend-only" ]]; then
+  bash scripts/checks/check-no-frontend-change.sh
+else
+  printf 'check-no-frontend-change: skipped because WECMS_BACKEND_GATE_FRONTEND_SCOPE=includes-frontend\n'
+fi
 
-printf '[15/17] check-generated-test-artifacts\n'
+printf '[18/20] check-generated-test-artifacts\n'
 bash scripts/checks/check-generated-test-artifacts.sh
 
-printf '[16/17] check-code-review\n'
+printf '[19/20] check-code-review\n'
 bash scripts/checks/check-code-review.sh
 
-printf '[17/17] migration/seed smoke test\n'
+printf '[20/20] migration/seed smoke test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
 
 printf 'quality-gate-backend: ok\n'

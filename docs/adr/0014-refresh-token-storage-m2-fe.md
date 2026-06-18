@@ -1,38 +1,59 @@
-# ADR 0014: M2-FE Refresh Token Storage
+# ADR 0014: Auth Token Storage Final State
 
 ## Status
 
-Accepted for M2-FE, with follow-up required before production hardening.
+Accepted.
 
 ## Context
 
-The current backend auth contract accepts refresh tokens in JSON request bodies:
+M2-FE originally accepted a temporary frontend token-storage model while the backend refresh/logout contract still used refresh tokens in JSON request bodies.
 
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/logout`
+That temporary model is no longer the current baseline.
 
-The M2-FE frontend therefore needs client-side access to the refresh token to refresh a session and revoke it during logout. The current implementation stores `accessToken`, `refreshToken`, and `expiresAt` in `localStorage`.
+The current backend auth contract stores the refresh token in the `__Host-wecms_refresh` cookie:
 
-This is not a production-grade refresh-token storage model. If the frontend has an XSS vulnerability, injected script can read `localStorage` and exfiltrate both the access token and refresh token. The refresh token is the higher-risk value because it can extend a session.
+- `HttpOnly = true`
+- `Secure = true`
+- `SameSite = Strict`
+- `Path = /`
+- expiration and max-age aligned with the refresh-token lifetime
+
+The current frontend token state contains only:
+
+- `accessToken`
+- `expiresAt`
+
+The frontend removes the previous localStorage token key and keeps access-token state in memory. The frontend does not store refresh tokens in localStorage.
 
 ## Decision
 
-M2-FE may keep `localStorage` token storage only as a temporary compatibility decision with the current body-token backend contract.
+Refresh tokens must be stored in the `HttpOnly; Secure; SameSite=Strict` cookie issued by the backend. The frontend must not persist refresh tokens in localStorage, sessionStorage, IndexedDB, or other script-readable storage.
 
-The preferred future design is:
+Access tokens remain short-lived bearer tokens and are held only in frontend memory. They are sent in the `Authorization: Bearer` header for protected business APIs.
 
-- store refresh tokens in `HttpOnly; Secure; SameSite` cookies;
-- keep access tokens short-lived;
-- rotate refresh tokens on every refresh;
-- make logout revoke the server-side refresh-token family and clear frontend access-token state.
+Refresh and logout use the refresh cookie:
 
-## Current Mitigations
+- `POST /api/v1/auth/refresh` reads the refresh cookie, rotates the server-side token, returns a new access token, and sets a new refresh cookie.
+- `POST /api/v1/auth/logout` reads the refresh cookie, revokes the server-side refresh-token family, clears the refresh cookie, and clears frontend access-token state.
+- replayed, revoked, expired, or unknown refresh tokens are rejected and classified through the existing auth/security event path.
 
-- Frontend logout calls the backend logout endpoint when a refresh token exists and clears local token state in `finally`.
-- Backend refresh-token rotation and replay handling remain the server-side protection for stolen or reused refresh tokens.
-- Frontend source must not render untrusted HTML with `v-html`.
-- CSP should be added as a separate production-hardening task.
+Cookie-based auth endpoints must be protected as cookie-auth endpoints:
+
+- maintain strict cookie attributes;
+- add Origin / Referer validation as part of H1 hardening;
+- add double-submit CSRF token only if Origin / Referer / SameSite coverage is insufficient for a specific flow.
+
+## Rejected Alternatives
+
+- **Refresh token in localStorage**: rejected because XSS can read and exfiltrate it.
+- **Refresh token in request body from frontend state**: rejected for the same reason if the frontend can read the token.
+- **Legacy ThinkPHP Session / token compatibility**: rejected; WeCMS Next does not implement old runtime compatibility.
+- **Global legacy CSRF copy**: rejected; CSRF controls must be scoped to Cookie-based auth surfaces and high-risk writes.
 
 ## Consequences
 
-This ADR does not remove the XSS token theft risk. It makes the risk explicit and prevents treating the current `localStorage` implementation as final M2-FE acceptance for production.
+- `localStorage` is a historical temporary implementation detail, not an accepted baseline.
+- Frontend code must not add `refreshToken` back to generated state, Pinia state, localStorage, sessionStorage, or request DTOs.
+- Backend OpenAPI for login/refresh responses must not expose refresh tokens.
+- Cookie auth endpoints remain a hardening priority until Origin / Referer coverage is implemented and tested.
+- This decision aligns with [ADR-0016](0016-admingate-csrf-migration-strategy.md): old CSRF/AdminGate behavior is decomposed instead of copied.

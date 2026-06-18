@@ -23,11 +23,21 @@ async function handleSubmit(): Promise<void> {
 
   loading.value = true;
   try {
-    await authStore.login({
+    const status = await authStore.login({
       username: form.username.trim(),
       password: form.password
     });
     const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/dashboard";
+    if (status === "two-factor") {
+      await router.replace({
+        path: "/auth/two-factor",
+        query: {
+          redirect
+        }
+      });
+      return;
+    }
+
     await router.replace(redirect);
   } catch (error) {
     const apiError = error as { msg?: string };

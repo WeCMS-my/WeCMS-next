@@ -1,4 +1,5 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -11,12 +12,18 @@ public sealed class UserService : IUserService
     private readonly IUserRepository _repository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ITwoFactorService _twoFactorService;
 
-    public UserService(IUserRepository repository, IPasswordHasher passwordHasher, IUnitOfWork unitOfWork)
+    public UserService(
+        IUserRepository repository,
+        IPasswordHasher passwordHasher,
+        IUnitOfWork unitOfWork,
+        ITwoFactorService twoFactorService)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
+        _twoFactorService = twoFactorService;
     }
 
     public Task<PagedResult<UserSummaryDto>> ListAsync(UserListQuery query, CancellationToken cancellationToken)
@@ -169,6 +176,26 @@ public sealed class UserService : IUserService
         }
     }
 
+    public async Task ResetTwoFactorAsync(long id, ResetUserTwoFactorRequest request, UserRequestContext context, CancellationToken cancellationToken)
+    {
+        var user = await GetAsync(id, cancellationToken);
+        var reason = NormalizeRequired(request.Reason, "reason", 200);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _twoFactorService.ClearAsync(id, context.Now, cancellationToken);
+            await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await AuditAsync(context, "reset-2fa", id, "success", $"User two-factor authentication reset. Reason: {reason}", cancellationToken);
+            await RecordSecurityEventAsync(context, user, reason, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task AssignRolesAsync(long id, AssignUserRolesRequest request, UserRequestContext context, CancellationToken cancellationToken)
     {
         _ = await GetAsync(id, cancellationToken);
@@ -310,6 +337,24 @@ public sealed class UserService : IUserService
                 context.TraceId,
                 result,
                 detail,
+                context.Now),
+            cancellationToken);
+    }
+
+    private Task RecordSecurityEventAsync(
+        UserRequestContext context,
+        UserDetailDto targetUser,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        return _repository.RecordSecurityEventAsync(
+            new UserSecurityEventRecord(
+                "auth.user_2fa_reset",
+                targetUser.Id,
+                targetUser.Username,
+                context.Ip,
+                "warning",
+                $"Administrator reset user two-factor authentication. Reason: {reason}",
                 context.Now),
             cancellationToken);
     }

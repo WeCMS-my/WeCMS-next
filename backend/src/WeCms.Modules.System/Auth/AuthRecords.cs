@@ -64,6 +64,106 @@ public sealed record SecurityEventRecord(
     string Message,
     DateTimeOffset CreatedAt);
 
+public sealed record LoginFailureContext(
+    string Username,
+    long? UserId,
+    string Ip,
+    string UserAgent,
+    DateTimeOffset Now);
+
+public sealed record LoginFailurePolicyOptions(
+    bool Enabled,
+    TimeSpan Window,
+    int UsernameThreshold,
+    int IpThreshold,
+    int BanThreshold,
+    TimeSpan BanDuration);
+
+public sealed record LoginFailureDecision(bool IsBlocked)
+{
+    public static readonly LoginFailureDecision Allowed = new(false);
+    public static readonly LoginFailureDecision Blocked = new(true);
+}
+
+public interface ILoginFailureLimiter
+{
+    Task<LoginFailureDecision> RecordFailureAsync(LoginFailureContext context, CancellationToken cancellationToken);
+
+    Task ResetAsync(string username, string ip, CancellationToken cancellationToken);
+}
+
+public sealed record LoginFailureCounterIncrement(
+    string Scope,
+    string Target,
+    DateTimeOffset WindowStartedAt,
+    DateTimeOffset LastFailedAt,
+    TimeSpan Window);
+
+public sealed record LoginFailureCounterRecord(
+    string Scope,
+    string Target,
+    int FailureCount);
+
+public interface ILoginFailureCounterRepository
+{
+    Task<LoginFailureCounterRecord> IncrementAsync(
+        LoginFailureCounterIncrement record,
+        CancellationToken cancellationToken);
+
+    Task ResetAsync(
+        string scope,
+        string target,
+        CancellationToken cancellationToken);
+
+    Task RecordSecurityEventAsync(
+        SecurityEventRecord record,
+        CancellationToken cancellationToken);
+}
+
+public sealed record TwoFactorChallengeOptions(TimeSpan Lifetime, int MaxFailedAttempts);
+
+public sealed record AuthChallengeRecord(
+    long Id,
+    string ChallengeId,
+    long UserId,
+    string ChallengeType,
+    string Status,
+    int FailedAttempts,
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? ConsumedAt,
+    string Ip,
+    string UserAgent,
+    string TraceId,
+    DateTimeOffset CreatedAt);
+
+public sealed record CreateAuthChallengeRecord(
+    string ChallengeId,
+    long UserId,
+    string ChallengeType,
+    DateTimeOffset ExpiresAt,
+    string Ip,
+    string UserAgent,
+    string TraceId,
+    DateTimeOffset Now);
+
+public interface IAuthChallengeRepository
+{
+    Task CreateAsync(CreateAuthChallengeRecord record, CancellationToken cancellationToken);
+
+    Task<AuthChallengeRecord?> FindByChallengeIdAsync(string challengeId, CancellationToken cancellationToken);
+
+    Task<int> IncrementFailedAttemptsAsync(long id, DateTimeOffset now, CancellationToken cancellationToken);
+
+    Task MarkFailedAsync(long id, DateTimeOffset now, CancellationToken cancellationToken);
+
+    Task<bool> ConsumeAsync(long id, DateTimeOffset now, CancellationToken cancellationToken);
+}
+
+public interface IAuthChallengeEntropy
+{
+    string NewChallengeId();
+}
+
 public sealed record SuccessfulLoginRecord(
     long UserId,
     string Ip,

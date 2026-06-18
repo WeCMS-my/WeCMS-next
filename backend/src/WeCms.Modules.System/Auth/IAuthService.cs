@@ -7,6 +7,16 @@ public interface IAuthService
         AuthRequestContext requestContext,
         CancellationToken cancellationToken);
 
+    Task<AuthSessionResult> VerifyTwoFactorAsync(
+        TwoFactorVerifyRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken);
+
+    Task<AuthSessionResult> VerifyTwoFactorRecoveryCodeAsync(
+        TwoFactorRecoveryCodeRequest request,
+        AuthRequestContext requestContext,
+        CancellationToken cancellationToken);
+
     Task<AuthSessionResult> RefreshAsync(
         string refreshToken,
         AuthRequestContext requestContext,

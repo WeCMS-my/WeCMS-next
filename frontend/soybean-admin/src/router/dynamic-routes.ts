@@ -4,6 +4,8 @@ import type { MenuTreeDto } from "@/api/types/generated";
 
 const routeComponentMap: Record<string, () => Promise<Component>> = {
   "dashboard/index": () => import("@/views/DashboardView.vue"),
+  "account/profile/index": () => import("@/views/account/AccountProfileView.vue"),
+  "account/security/index": () => import("@/views/account/AccountSecurityView.vue"),
   "system/user/index": () => import("@/views/system/users/UsersView.vue"),
   "system/users/index": () => import("@/views/system/users/UsersView.vue"),
   "system/role/index": () => import("@/views/system/roles/RolesView.vue"),
@@ -24,6 +26,7 @@ const routeComponentMap: Record<string, () => Promise<Component>> = {
   "system/login-logs/index": () => import("@/views/system/logs/LoginLogsView.vue"),
   "system/audit-log/index": () => import("@/views/system/logs/AuditLogsView.vue"),
   "system/audit-logs/index": () => import("@/views/system/logs/AuditLogsView.vue"),
+  "system/security/index": () => import("@/views/system/security/SecurityCenterView.vue"),
   "system/security-event/index": () => import("@/views/system/logs/SecurityEventsView.vue"),
   "system/security-events/index": () => import("@/views/system/logs/SecurityEventsView.vue"),
   "system/file/index": () => import("@/views/system/files/FilesView.vue"),

@@ -28,6 +28,7 @@ import {
   getUserApi,
   getUsersApi,
   resetUserPasswordApi,
+  resetUserTwoFactorApi,
   updateUserApi
 } from "@/api/system/users";
 import type { DepartmentTreeDto, PostSummaryDto, RoleSummaryDto, UserDetailDto, UserSummaryDto } from "@/api/types/generated";
@@ -114,7 +115,7 @@ const columns = computed(() => [
   {
     title: "操作",
     key: "actions",
-    width: 360,
+    width: 430,
     render: (row: UserSummaryDto) => h(
       NSpace,
       null,
@@ -140,6 +141,11 @@ const columns = computed(() => [
             permissions: ["sys:user:reset-password"],
             onClick: () => void resetPassword(row)
           }, { default: () => "重置密码" }),
+          h(PermissionButton, {
+            secondary: true,
+            permissions: ["sys:user:reset-2fa"],
+            onClick: () => void resetTwoFactor(row)
+          }, { default: () => "重置 2FA" }),
           h(PermissionButton, {
             secondary: true,
             permissions: ["sys:user:assign-role"],
@@ -297,6 +303,25 @@ async function resetPassword(row: UserSummaryDto): Promise<void> {
   try {
     await resetUserPasswordApi(row.id, { password });
     message.success("密码已重置。");
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function resetTwoFactor(row: UserSummaryDto): Promise<void> {
+  if (!window.confirm(`确认重置用户 ${row.username} 的两步验证？`)) {
+    return;
+  }
+  const reason = window.prompt("请输入重置原因");
+  if (!reason?.trim()) {
+    return;
+  }
+  submitting.value = true;
+  try {
+    await resetUserTwoFactorApi(row.id, { reason: reason.trim() });
+    message.success("两步验证已重置。");
   } catch (error) {
     message.error(apiErrorMessage(error));
   } finally {

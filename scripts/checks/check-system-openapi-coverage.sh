@@ -22,6 +22,7 @@ expected = {
     "/api/v1/system/users/{id:long}/enable": {"post"},
     "/api/v1/system/users/{id:long}/disable": {"post"},
     "/api/v1/system/users/{id:long}/reset-password": {"post"},
+    "/api/v1/system/users/{id:long}/reset-2fa": {"post"},
     "/api/v1/system/users/{id:long}/roles": {"put"},
     "/api/v1/system/users/{id:long}/posts": {"put"},
     "/api/v1/system/roles": {"get", "post"},
@@ -59,6 +60,11 @@ expected = {
     "/api/v1/system/login-logs/{id:long}": {"get"},
     "/api/v1/system/audit-logs": {"get"},
     "/api/v1/system/audit-logs/{id:long}": {"get"},
+    "/api/v1/system/security/status": {"get"},
+    "/api/v1/system/security/bans": {"get"},
+    "/api/v1/system/security/bans/{id:long}": {"get"},
+    "/api/v1/system/security/bans/{id:long}/unban": {"post"},
+    "/api/v1/system/security/bans/batch-unban": {"post"},
     "/api/v1/system/security-events": {"get"},
     "/api/v1/system/security-events/{id:long}": {"get"},
     "/api/v1/system/files": {"get", "post"},
@@ -77,6 +83,7 @@ request_body_required = {
     ("/api/v1/system/users", "post"),
     ("/api/v1/system/users/{id:long}", "put"),
     ("/api/v1/system/users/{id:long}/reset-password", "post"),
+    ("/api/v1/system/users/{id:long}/reset-2fa", "post"),
     ("/api/v1/system/users/{id:long}/roles", "put"),
     ("/api/v1/system/users/{id:long}/posts", "put"),
     ("/api/v1/system/roles", "post"),
@@ -96,6 +103,8 @@ request_body_required = {
     ("/api/v1/system/dict-types/{typeCode}/values", "post"),
     ("/api/v1/system/dict-values/{id:long}", "put"),
     ("/api/v1/system/settings/{key}", "put"),
+    ("/api/v1/system/security/bans/{id:long}/unban", "post"),
+    ("/api/v1/system/security/bans/batch-unban", "post"),
     ("/api/v1/system/files", "post"),
 }
 
@@ -129,7 +138,7 @@ for route, methods in expected.items():
 list_routes = {
     "/api/v1/system/users", "/api/v1/system/roles", "/api/v1/system/posts", "/api/v1/system/dict-types",
     "/api/v1/system/settings", "/api/v1/system/login-logs", "/api/v1/system/audit-logs",
-    "/api/v1/system/security-events", "/api/v1/system/files",
+    "/api/v1/system/security/bans", "/api/v1/system/security-events", "/api/v1/system/files",
 }
 for route in list_routes:
     parameters = paths[route]["get"].get("parameters", [])

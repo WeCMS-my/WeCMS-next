@@ -2,6 +2,7 @@ using System.Linq;
 using SqlSugar;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Roles;
+using WeCms.Modules.System.TwoFactor;
 using WeCms.Modules.System.Users;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
@@ -54,7 +55,7 @@ public sealed class LockedRoleIntegrationTests
         try
         {
             var roleId = fixture.LockedRoleId;
-            var service = new UserService(new UserRepository(db), new PasswordHasher(), new SqlSugarUnitOfWork(db));
+            var service = CreateUserService(db);
 
             await service.AssignRolesAsync(fixture.PrimaryUserId, new AssignUserRolesRequest([]), UserContext(fixture.SecondaryUserId), CancellationToken.None);
 
@@ -92,8 +93,8 @@ public sealed class LockedRoleIntegrationTests
 
         using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
         using var thirdDb = new SqlSugarClientFactory(baseConnectionString).Create();
-        var firstService = new UserService(new UserRepository(secondDb), new PasswordHasher(), new SqlSugarUnitOfWork(secondDb));
-        var secondService = new UserService(new UserRepository(thirdDb), new PasswordHasher(), new SqlSugarUnitOfWork(thirdDb));
+        var firstService = CreateUserService(secondDb);
+        var secondService = CreateUserService(thirdDb);
 
         using var startSignal = new SemaphoreSlim(0, 2);
         using var executeSignal = new SemaphoreSlim(0, 2);
@@ -161,8 +162,8 @@ public sealed class LockedRoleIntegrationTests
 
         using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
         using var thirdDb = new SqlSugarClientFactory(baseConnectionString).Create();
-        var firstService = new UserService(new UserRepository(secondDb), new PasswordHasher(), new SqlSugarUnitOfWork(secondDb));
-        var secondService = new UserService(new UserRepository(thirdDb), new PasswordHasher(), new SqlSugarUnitOfWork(thirdDb));
+        var firstService = CreateUserService(secondDb);
+        var secondService = CreateUserService(thirdDb);
 
         using var startSignal = new SemaphoreSlim(0, 2);
         using var executeSignal = new SemaphoreSlim(0, 2);
@@ -230,8 +231,8 @@ public sealed class LockedRoleIntegrationTests
 
         using var secondDb = new SqlSugarClientFactory(baseConnectionString).Create();
         using var thirdDb = new SqlSugarClientFactory(baseConnectionString).Create();
-        var firstService = new UserService(new UserRepository(secondDb), new PasswordHasher(), new SqlSugarUnitOfWork(secondDb));
-        var secondService = new UserService(new UserRepository(thirdDb), new PasswordHasher(), new SqlSugarUnitOfWork(thirdDb));
+        var firstService = CreateUserService(secondDb);
+        var secondService = CreateUserService(thirdDb);
 
         using var startSignal = new SemaphoreSlim(0, 2);
         using var executeSignal = new SemaphoreSlim(0, 2);
@@ -315,7 +316,7 @@ public sealed class LockedRoleIntegrationTests
             new SugarParameter("@roleName", roleName));
         var roleId = Scalar<long>(db, "SELECT id FROM sys_role WHERE code = @roleCode", new SugarParameter("@roleCode", roleCode));
 
-        var service = new UserService(new UserRepository(db), new PasswordHasher(), new SqlSugarUnitOfWork(db));
+        var service = CreateUserService(db);
         var first = await service.CreateAsync(
             new CreateUserRequest($"{prefix}_holder_a", "Locked Role Holder A", "Backup@123", null, null, null, [roleId], []),
             UserContext(adminId),
@@ -354,9 +355,51 @@ public sealed class LockedRoleIntegrationTests
         return new UserRequestContext(actorUserId, "admin", "test-host", "integration", "trace", DateTimeOffset.UtcNow);
     }
 
+    private static UserService CreateUserService(ISqlSugarClient db)
+    {
+        return new UserService(
+            new UserRepository(db),
+            new PasswordHasher(),
+            new SqlSugarUnitOfWork(db),
+            new FakeTwoFactorService());
+    }
+
     private sealed record ConcurrentLockedRoleOutcome(bool Success, int Code);
 
     private sealed record LockedRoleFixture(long PrimaryUserId, long SecondaryUserId, long LockedRoleId);
+
+    private sealed class FakeTwoFactorService : ITwoFactorService
+    {
+        public Task<TwoFactorSetupResult> BeginSetupAsync(long userId, string accountName, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorConfirmResult> ConfirmSetupAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorRecoveryCodeUseResult> UseRecoveryCodeAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorRecoveryCodeRegenerationResult> RegenerateRecoveryCodesAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorVerificationResult> VerifyCodeAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task ClearAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+    }
 
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {

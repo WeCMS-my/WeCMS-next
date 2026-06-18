@@ -13,7 +13,7 @@ seed = (repo / "database" / "seeds" / "000003_seed_m1_system_permissions.sql").r
 role_seed = (repo / "database" / "seeds" / "000005_seed_m1_role_permissions.sql").read_text(encoding="utf-8")
 
 expected = {
-    "sys:user:page", "sys:user:list", "sys:user:detail", "sys:user:create", "sys:user:update", "sys:user:delete", "sys:user:enable", "sys:user:disable", "sys:user:reset-password", "sys:user:assign-role", "sys:user:assign-post",
+    "sys:user:page", "sys:user:list", "sys:user:detail", "sys:user:create", "sys:user:update", "sys:user:delete", "sys:user:enable", "sys:user:disable", "sys:user:reset-password", "sys:user:reset-2fa", "sys:user:assign-role", "sys:user:assign-post",
     "sys:role:page", "sys:role:list", "sys:role:detail", "sys:role:create", "sys:role:update", "sys:role:delete", "sys:role:enable", "sys:role:disable", "sys:role:assign-permission", "sys:role:assign-menu",
     "sys:menu:page", "sys:menu:list", "sys:menu:tree", "sys:menu:detail", "sys:menu:create", "sys:menu:update", "sys:menu:delete", "sys:menu:enable", "sys:menu:disable",
     "sys:permission:page", "sys:permission:list", "sys:permission:tree", "sys:permission:detail", "sys:permission:create", "sys:permission:update", "sys:permission:delete", "sys:permission:enable", "sys:permission:disable",
@@ -23,6 +23,7 @@ expected = {
     "sys:setting:page", "sys:setting:list", "sys:setting:detail", "sys:setting:update",
     "sys:login-log:page", "sys:login-log:list", "sys:login-log:detail",
     "sys:audit-log:page", "sys:audit-log:list", "sys:audit-log:detail",
+    "sys:security:page", "sys:security:status", "sys:security:ban:list", "sys:security:ban:detail", "sys:security:ban:unban", "sys:security:ban:batch-unban",
     "sys:security-event:page", "sys:security-event:list", "sys:security-event:detail",
     "sys:file:page", "sys:file:list", "sys:file:detail", "sys:file:upload", "sys:file:download", "sys:file:delete",
 }
