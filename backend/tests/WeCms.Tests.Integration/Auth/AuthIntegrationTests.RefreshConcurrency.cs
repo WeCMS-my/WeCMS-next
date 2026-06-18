@@ -28,8 +28,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Production", "AdminRotation123!"));
+            await PrepareDatabaseWithSeedsAsync(db, new SeedRunnerOptions("Production", "AdminRotation123!"));
 
             var tokenOptions = TokenOptions();
             var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
@@ -63,8 +62,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(setupDb);
 
             var tokenOptions = TokenOptions();
             var login = await CreateService(setupDb, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero))
@@ -98,8 +96,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
@@ -150,8 +147,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
@@ -196,8 +192,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(setupDb);
 
             var tokenOptions = TokenOptions();
             var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
@@ -247,8 +242,7 @@ public sealed partial class AuthIntegrationTests
         try
         {
             using var setupDb = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(setupDb).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(setupDb).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(setupDb);
 
             var tokenOptions = TokenOptions();
             var tokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
@@ -281,9 +275,9 @@ public sealed partial class AuthIntegrationTests
                 setupDb,
                 "SELECT COUNT(1) FROM sys_refresh_token WHERE family_id = @familyId AND revoked_at IS NULL",
                 new SugarParameter("@familyId", familyId)));
-            Assert.Equal(1, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
+            Assert.Equal(1, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_concurrent_replay'"));
             Assert.Equal(1, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_refresh_token WHERE family_id = @familyId AND replaced_by_token_hash IS NOT NULL", new SugarParameter("@familyId", familyId)));
-            Assert.Equal(0, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse' AND username IS NULL"));
+            Assert.Equal(0, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
             Assert.Equal(1, Scalar<int>(setupDb, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'refresh' AND result = 'failed'"));
         }
         finally

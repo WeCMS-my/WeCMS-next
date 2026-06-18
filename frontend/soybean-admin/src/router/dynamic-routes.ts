@@ -22,6 +22,8 @@ const routeComponentMap: Record<string, () => Promise<Component>> = {
   "system/dicts/index": () => import("@/views/system/dicts/DictsView.vue"),
   "system/setting/index": () => import("@/views/system/settings/SettingsView.vue"),
   "system/settings/index": () => import("@/views/system/settings/SettingsView.vue"),
+  "system/i18n/index": () => import("@/views/system/i18n/I18nMessagesView.vue"),
+  "system/i18n-message/index": () => import("@/views/system/i18n/I18nMessagesView.vue"),
   "system/login-log/index": () => import("@/views/system/logs/LoginLogsView.vue"),
   "system/login-logs/index": () => import("@/views/system/logs/LoginLogsView.vue"),
   "system/audit-log/index": () => import("@/views/system/logs/AuditLogsView.vue"),

@@ -3,25 +3,20 @@ using WeCms.Modules.System.Security;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
 using WeCms.Persistence.Modules.System.Security;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Security;
 
-public sealed class SecurityBanRepositoryTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
 {
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(IntegrationTestDatabase.GetConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task FindActiveAsync_IgnoresExpiredAndRevokedBans()
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        var repository = new SecurityBanRepository(db);
+        await PrepareDatabaseAsync(db);
+        var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
         await InsertBanAsync(db, SecurityBanTypes.Ip, "192.168.1.10", "warning", now.AddMinutes(-10), null);
@@ -41,8 +36,8 @@ public sealed class SecurityBanRepositoryTests : global::Xunit.IAsyncLifetime
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        var repository = new SecurityBanRepository(db);
+        await PrepareDatabaseAsync(db);
+        var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
         var expiredId = await InsertBanAsync(db, SecurityBanTypes.Ip, "192.168.1.10", "warning", now.AddMinutes(-10), null);
@@ -80,8 +75,8 @@ public sealed class SecurityBanRepositoryTests : global::Xunit.IAsyncLifetime
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        var repository = new SecurityBanRepository(db);
+        await PrepareDatabaseAsync(db);
+        var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
         var userId = await InsertUserAsync(db, "security-admin", true);

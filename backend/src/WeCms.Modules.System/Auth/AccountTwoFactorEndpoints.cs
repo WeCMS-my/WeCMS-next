@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Auth;
@@ -32,7 +34,8 @@ public static class AccountTwoFactorEndpoints
                 var response = await service.BeginSetupAsync(RequireUserId(principal), CreateRequestContext(context), cancellationToken);
                 return Results.Ok(ApiResult<AccountTwoFactorSetupResponse>.Ok(response));
             })
-            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorSetupResponse)));
+            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorSetupResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor);
 
         group.MapPost("/confirm", async (
                 AccountTwoFactorConfirmRequest request,
@@ -45,7 +48,8 @@ public static class AccountTwoFactorEndpoints
                 return Results.Ok(ApiResult<AccountTwoFactorStatusResponse>.Ok(response));
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(AccountTwoFactorConfirmRequest)))
-            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorStatusResponse)));
+            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorStatusResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor);
 
         group.MapPost("/disable", async (
                 AccountTwoFactorDisableRequest request,
@@ -58,7 +62,8 @@ public static class AccountTwoFactorEndpoints
                 return Results.Ok(ApiResult<object?>.Ok(null));
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(AccountTwoFactorDisableRequest)))
-            .WithMetadata(new OpenApiResponseMetadata(typeof(object)));
+            .WithMetadata(new OpenApiResponseMetadata(typeof(object)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor);
 
         group.MapPost("/recovery-codes/regenerate", async (
                 AccountTwoFactorRegenerateRecoveryCodesRequest request,
@@ -71,7 +76,8 @@ public static class AccountTwoFactorEndpoints
                 return Results.Ok(ApiResult<AccountTwoFactorRecoveryCodesResponse>.Ok(response));
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(AccountTwoFactorRegenerateRecoveryCodesRequest)))
-            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorRecoveryCodesResponse)));
+            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountTwoFactorRecoveryCodesResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor);
 
         return endpoints;
     }

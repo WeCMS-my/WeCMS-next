@@ -1,0 +1,43 @@
+using SqlSugar;
+using WeCms.Persistence.Data;
+using WeCms.Persistence.Modules.System.Users;
+using WeCms.Shared.Security;
+
+namespace WeCms.Tests.Integration.Users;
+
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class UserRepositoryTests : PerTestDatabaseResetBase
+{
+    [DbFact]
+    public async Task ReplaceRolesAsync_ThrowsWhenTargetUserDoesNotExist()
+    {
+        var connectionString = RequiredConnectionString();
+        using var db = new SqlSugarClientFactory(connectionString).Create();
+        await PrepareDatabaseWithSeedsAsync(db);
+
+        var roleId = Scalar<long>(db, "SELECT id FROM sys_role WHERE code = 'super_admin'");
+        var repository = new UserRepository(db, new SecurityEventClassifier());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repository.ReplaceRolesAsync(999999, [], DateTimeOffset.UtcNow, CancellationToken.None));
+
+        Assert.Equal("Expected one affected row, got 0.", exception.Message);
+    }
+
+    private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
+    {
+        var scalar = db.Ado.GetScalar(sql, parameters);
+        if (scalar is T value)
+        {
+            return value;
+        }
+
+        return (T)Convert.ChangeType(scalar, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string RequiredConnectionString()
+    {
+        return IntegrationTestDatabase.GetConnectionString();
+    }
+
+}

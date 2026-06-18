@@ -40,6 +40,10 @@ public sealed class TwoFactorServiceTests
         var exception = await Assert.ThrowsAsync<DomainException>(() => service.ConfirmSetupAsync(1, code, Now, CancellationToken.None));
 
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
+
+        var replay = await service.VerifyCodeAsync(1, code, Now, CancellationToken.None);
+        Assert.False(replay.Verified);
+        Assert.True(replay.IsReplay);
     }
 
     [Fact]

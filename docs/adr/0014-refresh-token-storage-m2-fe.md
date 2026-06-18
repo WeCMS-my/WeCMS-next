@@ -37,6 +37,13 @@ Refresh and logout use the refresh cookie:
 - `POST /api/v1/auth/logout` reads the refresh cookie, revokes the server-side refresh-token family, clears the refresh cookie, and clears frontend access-token state.
 - replayed, revoked, expired, or unknown refresh tokens are rejected and classified through the existing auth/security event path.
 
+Refresh-token replay classification is intentionally split:
+
+- a replayed token observed within the 2-second concurrent rotation window is classified as `auth.refresh_concurrent_replay` and does not revoke the newly rotated active token;
+- replay outside that window, or replay evidence without a completed replacement token, is classified as `auth.refresh_reuse` and revokes the whole token family.
+
+This tradeoff prefers avoiding false-positive family revocation for near-simultaneous browser refresh requests. The residual risk is explicit: a stolen refresh token replayed inside that short window can be classified as concurrent replay instead of immediate family compromise.
+
 Cookie-based auth endpoints must be protected as cookie-auth endpoints:
 
 - maintain strict cookie attributes;

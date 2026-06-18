@@ -23,6 +23,7 @@ const DepartmentsView = () => import("@/views/system/depts/DepartmentsView.vue")
 const PostsView = () => import("@/views/system/posts/PostsView.vue");
 const DictsView = () => import("@/views/system/dicts/DictsView.vue");
 const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
+const I18nMessagesView = () => import("@/views/system/i18n/I18nMessagesView.vue");
 const LoginLogsView = () => import("@/views/system/logs/LoginLogsView.vue");
 const AuditLogsView = () => import("@/views/system/logs/AuditLogsView.vue");
 const SecurityCenterView = () => import("@/views/system/security/SecurityCenterView.vue");
@@ -148,6 +149,15 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "系统设置",
       requiresAuth: true,
       permissions: ["sys:setting:list"]
+    }
+  },
+  {
+    path: "/system/i18n",
+    component: I18nMessagesView,
+    meta: {
+      title: "多语言文案",
+      requiresAuth: true,
+      permissions: ["sys:i18n:list"]
     }
   },
   {

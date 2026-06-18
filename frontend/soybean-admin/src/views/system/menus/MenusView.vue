@@ -3,7 +3,7 @@ import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NInputNumber, NModal, NSelect, NSpace, NSwitch, useMessage } from "naive-ui";
 import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
-import { createMenuApi, deleteMenuApi, disableMenuApi, enableMenuApi, getMenuApi, getMenuTreeApi, updateMenuApi } from "@/api/menu";
+import { createMenuApi, deleteMenuApi, disableMenuApi, enableMenuApi, getMenuApi, getMenuTreeApi, sortMenuApi, updateMenuApi } from "@/api/menu";
 import type { MenuTreeDto } from "@/api/types/generated";
 import { apiErrorMessage } from "@/utils/api-error";
 
@@ -11,6 +11,7 @@ const message = useMessage();
 const menus = ref<MenuTreeDto[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
+const sortSubmitting = ref(false);
 const formVisible = ref(false);
 const formRef = ref<FormInst | null>(null);
 const form = reactive({
@@ -46,6 +47,15 @@ const columns = computed(() => [
   { title: "路径", key: "path" },
   { title: "组件", key: "component" },
   { title: "权限码", key: "permissionCode" },
+  { title: "排序", key: "sort", width: 120, render: (row: MenuTreeDto) => h(NInputNumber, {
+    value: row.sort,
+    min: 0,
+    precision: 0,
+    disabled: row.isBuiltin,
+    "onUpdate:value": (value: number | null) => {
+      row.sort = Number(value ?? 0);
+    }
+  }) },
   { title: "状态", key: "status" },
   { title: "内置", key: "isBuiltin", render: (row: MenuTreeDto) => row.isBuiltin ? "是" : "否" },
   { title: "操作", key: "actions", render: (row: MenuTreeDto) => h(NSpace, null, { default: () => [
@@ -185,8 +195,37 @@ async function changeStatus(row: MenuTreeDto): Promise<void> {
   }
 }
 
+async function saveSort(): Promise<void> {
+  const items = flattenMenuRows(menus.value)
+    .filter((item) => !item.isBuiltin)
+    .map((item) => ({
+      id: item.id,
+      parentId: item.parentId ?? 0,
+      sort: item.sort
+    }));
+  if (items.length === 0) {
+    message.error("没有可排序的菜单。");
+    return;
+  }
+
+  sortSubmitting.value = true;
+  try {
+    await sortMenuApi({ items });
+    message.success("菜单排序已保存。");
+    await loadMenus();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    sortSubmitting.value = false;
+  }
+}
+
 function flattenMenus(items: MenuTreeDto[]): Array<{ label: string; value: number }> {
   return items.flatMap((item) => [{ label: item.title, value: item.id }, ...flattenMenus(item.children ?? [])]);
+}
+
+function flattenMenuRows(items: MenuTreeDto[]): MenuTreeDto[] {
+  return items.flatMap((item) => [item, ...flattenMenuRows(item.children ?? [])]);
 }
 
 function isDescendant(rootId: number | undefined, candidateId: number, items: MenuTreeDto[]): boolean {
@@ -208,7 +247,10 @@ function findMenu(id: number, items: MenuTreeDto[]): MenuTreeDto | undefined {
 <template>
   <main>
     <NCard title="菜单管理">
-      <NSpace class="mb-4"><PermissionButton type="primary" :permissions="['sys:menu:create']" @click="openCreate">新建菜单</PermissionButton></NSpace>
+      <NSpace class="mb-4">
+        <PermissionButton type="primary" :permissions="['sys:menu:create']" @click="openCreate">新建菜单</PermissionButton>
+        <PermissionButton :loading="sortSubmitting" :permissions="['sys:menu:sort']" @click="saveSort">保存排序</PermissionButton>
+      </NSpace>
       <NDataTable :columns="columns" :data="menus" :children-key="'children'" :loading="loading">
         <template #empty>暂无菜单</template>
       </NDataTable>

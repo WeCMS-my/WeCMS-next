@@ -1,16 +1,19 @@
 using SqlSugar;
 using WeCms.Modules.System.Users;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Persistence.Modules.System.Users;
 
 public sealed class UserRepository : IUserRepository
 {
     private readonly ISqlSugarClient _db;
+    private readonly ISecurityEventClassifier _securityEventClassifier;
 
-    public UserRepository(ISqlSugarClient db)
+    public UserRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier)
     {
         _db = db;
+        _securityEventClassifier = securityEventClassifier;
     }
 
     public async Task<PagedResult<UserSummaryDto>> ListAsync(UserListCriteria criteria, CancellationToken cancellationToken)
@@ -159,11 +162,12 @@ public sealed class UserRepository : IUserRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _db.Ado.ExecuteCommandAsync(
+        await ExpectOneAsync(
             """
             INSERT INTO sys_user (username, display_name, email, phone, password_hash, status, is_super_admin, dept_id, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
             VALUES (@username, @displayName, @email, @phone, @passwordHash, 'enabled', FALSE, @deptId, FALSE, @securityStamp, 0, @createdAt, @updatedAt, NULL)
             """,
+            cancellationToken,
             new SugarParameter("@username", record.Username),
             new SugarParameter("@displayName", record.DisplayName),
             new SugarParameter("@email", record.Email),
@@ -272,6 +276,7 @@ public sealed class UserRepository : IUserRepository
     public async Task ReplaceRolesAsync(long id, IReadOnlyList<long> roleIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await EnsureActiveUserExistsAsync(id, cancellationToken);
 
         await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_role WHERE user_id = @id", new SugarParameter("@id", id));
         foreach (var roleId in roleIds)
@@ -283,12 +288,12 @@ public sealed class UserRepository : IUserRepository
                 new SugarParameter("@createdAt", now.UtcDateTime));
         }
 
-        await BumpPermissionVersionAsync(id, now);
     }
 
     public async Task ReplacePostsAsync(long id, IReadOnlyList<long> postIds, DateTimeOffset now, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await EnsureActiveUserExistsAsync(id, cancellationToken);
 
         await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_post WHERE user_id = @id", new SugarParameter("@id", id));
         foreach (var postId in postIds)
@@ -386,18 +391,21 @@ public sealed class UserRepository : IUserRepository
 
     public Task RecordSecurityEventAsync(UserSecurityEventRecord record, CancellationToken cancellationToken)
     {
+        var classification = _securityEventClassifier.Classify(record.EventType, record.TraceId);
         return ExpectOneAsync(
             """
-            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, message, created_at)
-            VALUES (@eventType, @userId, @username, @ip, @severity, @message, @createdAt)
+            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, source, message, trace_id, created_at)
+            VALUES (@eventType, @userId, @username, @ip, @severity, @source, @message, @traceId, @createdAt)
             """,
             cancellationToken,
-            new SugarParameter("@eventType", record.EventType),
+            new SugarParameter("@eventType", classification.EventType),
             new SugarParameter("@userId", record.UserId),
             new SugarParameter("@username", record.Username),
             new SugarParameter("@ip", record.Ip),
-            new SugarParameter("@severity", record.Severity),
+            new SugarParameter("@severity", classification.Severity),
+            new SugarParameter("@source", classification.Source),
             new SugarParameter("@message", record.Message),
+            new SugarParameter("@traceId", classification.TraceId),
             new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
     }
 
@@ -431,17 +439,23 @@ public sealed class UserRepository : IUserRepository
         return rows.ToHashSet();
     }
 
-    private Task BumpPermissionVersionAsync(long id, DateTimeOffset now)
+    private async Task EnsureActiveUserExistsAsync(long id, CancellationToken cancellationToken)
     {
-        return _db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE sys_user
-            SET permission_version = permission_version + 1,
-                updated_at = @updatedAt
-            WHERE id = @id
-            """,
-            new SugarParameter("@updatedAt", now.UtcDateTime),
-            new SugarParameter("@id", id));
+        cancellationToken.ThrowIfCancellationRequested();
+        var total = Convert.ToInt32(
+            await _db.Ado.GetScalarAsync(
+                """
+                SELECT COUNT(1)
+                FROM sys_user
+                WHERE id = @id
+                  AND deleted_at IS NULL
+                """,
+                new SugarParameter("@id", id)),
+            global::System.Globalization.CultureInfo.InvariantCulture);
+        if (total != 1)
+        {
+            throw new InvalidOperationException("Expected one affected row, got 0.");
+        }
     }
 
     private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)

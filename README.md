@@ -62,11 +62,11 @@ pnpm --dir frontend/soybean-admin dev
 ### 5. 验证 API
 
 ```bash
-curl http://localhost:5207/health/live
-curl http://localhost:5207/health/ready
-curl http://localhost:5207/api/v1/system/ping
-curl http://localhost:5207/api/v1/system/version
-curl http://localhost:5207/api/v1/system/db-check
+curl http://localhost:5261/health/live
+curl http://localhost:5261/health/ready
+curl http://localhost:5261/api/v1/system/ping
+curl http://localhost:5261/api/v1/system/version
+curl http://localhost:5261/api/v1/system/db-check
 ```
 
 验证初始化后的默认管理员可登录：
@@ -174,6 +174,7 @@ artifacts/
 - 当前运行时基线为 `.NET 10 JIT publish/runtime`，不再将 Native AOT 作为现行门禁。
 - WeCms.Persistence 是 SqlSugar ORM / MySQL 的唯一数据访问实现适配器层，不是传统 DAL；业务模块只依赖抽象。
 - 所有数据库访问只能发生在 WeCms.Persistence；WeCms.Modules.* 不得持有 SQL、ORM Client、连接器或持久化实现依赖。
+- `database/migrations/*.sql` 与 `database/seeds/*.sql` 当前只支持简单标准 SQL 语句：按行末分号切分，跳过 `--` 单行注释；不得放入 `DELIMITER`、procedure、function、trigger 或依赖函数体内分号的脚本。
 - 业务代码中的 Repository、UnitOfWork、时钟、Token、密码、随机数等有副作用依赖必须通过接口 + DI 获取。
 - Refresh token 当前基线为 `HttpOnly; Secure; SameSite` Cookie，access token 仅保存在前端内存。
 - 系统管理业务 Endpoint 必须绑定权限码，所有写操作必须记录审计。

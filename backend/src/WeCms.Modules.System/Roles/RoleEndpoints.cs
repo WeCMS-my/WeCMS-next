@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Roles;
@@ -17,13 +19,13 @@ public static class RoleEndpoints
 
         group.MapGet("", ListAsync).RequirePermission(RolePermissions.List);
         group.MapGet("/{id:long}", DetailAsync).RequirePermission(RolePermissions.Detail);
-        group.MapPost("", CreateAsync).RequirePermission(RolePermissions.Create);
-        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(RolePermissions.Update);
-        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(RolePermissions.Delete);
-        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(RolePermissions.Enable);
-        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(RolePermissions.Disable);
-        group.MapPut("/{id:long}/permissions", AssignPermissionsAsync).RequirePermission(RolePermissions.AssignPermission);
-        group.MapPut("/{id:long}/menus", AssignMenusAsync).RequirePermission(RolePermissions.AssignMenu);
+        group.MapPost("", CreateAsync).RequirePermission(RolePermissions.Create).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(RolePermissions.Update).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(RolePermissions.Delete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(RolePermissions.Enable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(RolePermissions.Disable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}/permissions", AssignPermissionsAsync).RequirePermission(RolePermissions.AssignPermission).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}/menus", AssignMenusAsync).RequirePermission(RolePermissions.AssignMenu).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }

@@ -39,6 +39,8 @@ expected = {
     "/api/v1/account/avatar": ["post"],
     "/api/v1/account/avatar/content": ["get"],
     "/api/v1/account/security": ["get"],
+    "/api/v1/account/i18n/switch": ["post"],
+    "/api/v1/i18n/messages": ["get"],
 }
 
 for route, methods in expected.items():

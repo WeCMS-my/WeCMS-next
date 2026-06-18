@@ -180,6 +180,34 @@ public sealed partial class OpenApiExportTests
     }
 
     [Fact]
+    public async Task ExportOpenApiAsync_FileUploadSchemaIncludesPolicy()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-file-policy-{Guid.NewGuid():N}.json");
+        try
+        {
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+
+            Assert.True(handled);
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            var properties = document.RootElement
+                .GetProperty("components")
+                .GetProperty("schemas")
+                .GetProperty(nameof(CreateFileRequest))
+                .GetProperty("properties");
+
+            Assert.True(properties.TryGetProperty("policy", out var policy));
+            Assert.Equal("string", policy.GetProperty("type").GetString());
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ExportOpenApiAsync_BodylessCommandOperationsDoNotDeclareRequestBody()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-bodyless-{Guid.NewGuid():N}.json");

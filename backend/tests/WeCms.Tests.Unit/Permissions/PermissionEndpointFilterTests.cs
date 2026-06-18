@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.Files;
 using WeCms.Shared;
@@ -34,6 +35,11 @@ public sealed class PermissionEndpointFilterTests
         var response = await ExecuteResultAsync(result, httpContext);
         Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Unauthorized), response.StatusCode);
         Assert.Equal("User account is disabled.", response.Message);
+        var writer = Assert.IsType<FakePermissionSecurityEventWriter>(
+            httpContext.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>());
+        Assert.Equal("permission_denied", writer.LastRecord?.EventType);
+        Assert.Equal(42, writer.LastRecord?.UserId);
+        Assert.Contains(SystemPermissions.SecurePing, writer.LastRecord?.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -58,6 +64,11 @@ public sealed class PermissionEndpointFilterTests
 
         Assert.Equal(ApiCodes.ToHttpStatus(ApiCodes.Forbidden), response.StatusCode);
         Assert.Equal("Permission denied.", response.Message);
+        var writer = Assert.IsType<FakePermissionSecurityEventWriter>(
+            httpContext.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>());
+        Assert.Equal("permission_denied", writer.LastRecord?.EventType);
+        Assert.Equal(42, writer.LastRecord?.UserId);
+        Assert.Equal("trace-test", writer.LastRecord?.TraceId);
     }
 
     [Fact]
@@ -130,6 +141,8 @@ public sealed class PermissionEndpointFilterTests
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IPermissionChecker>(new FakePermissionChecker(result))
+            .AddSingleton<IPermissionSecurityEventWriter, FakePermissionSecurityEventWriter>()
+            .AddSingleton<IAuthClock>(new FakeAuthClock(new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero)))
             .BuildServiceProvider();
 
         var httpContext = new DefaultHttpContext
@@ -213,5 +226,26 @@ public sealed class PermissionEndpointFilterTests
 
             return Task.FromResult(_result);
         }
+    }
+
+    private sealed class FakePermissionSecurityEventWriter : IPermissionSecurityEventWriter
+    {
+        public PermissionSecurityEventRecord? LastRecord { get; private set; }
+
+        public Task RecordAsync(PermissionSecurityEventRecord record, CancellationToken cancellationToken)
+        {
+            LastRecord = record;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeAuthClock : IAuthClock
+    {
+        public FakeAuthClock(DateTimeOffset utcNow)
+        {
+            UtcNow = utcNow;
+        }
+
+        public DateTimeOffset UtcNow { get; }
     }
 }

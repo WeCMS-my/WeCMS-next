@@ -3,24 +3,19 @@ using WeCms.Modules.System.Auth;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
 using WeCms.Persistence.Modules.System.Auth;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Auth;
 
-public sealed class LoginFailureCounterRepositoryTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class LoginFailureCounterRepositoryTests : PerTestDatabaseResetBase
 {
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(IntegrationTestDatabase.GetConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task IncrementAsync_IncrementsWithinWindowAndResetClearsCounter()
     {
         using var db = new SqlSugarClientFactory(IntegrationTestDatabase.GetConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        var repository = new LoginFailureCounterRepository(db);
+        await PrepareDatabaseAsync(db);
+        var repository = new LoginFailureCounterRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
         var first = await repository.IncrementAsync(new LoginFailureCounterIncrement("username", "admin", now, now, TimeSpan.FromMinutes(10)), CancellationToken.None);

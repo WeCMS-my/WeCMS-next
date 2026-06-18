@@ -6,38 +6,21 @@ namespace WeCms.Modules.System.Files;
 public sealed class FileService : IFileService
 {
     private const int MaxPageSize = 100;
-    private const long MaxSizeBytes = 10 * 1024 * 1024;
-    private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "application/pdf",
-        "text/plain"
-    };
-
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-        ".pdf",
-        ".txt"
-    };
-
     private readonly IFileRepository _repository;
     private readonly IFileStorage _storage;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
+    private readonly IFileUploadPolicyResolver _policyResolver;
 
     public FileService(
         IFileRepository repository,
         IFileStorage storage,
-        IFileObjectKeyGenerator objectKeyGenerator)
+        IFileObjectKeyGenerator objectKeyGenerator,
+        IFileUploadPolicyResolver policyResolver)
     {
         _repository = repository;
         _storage = storage;
         _objectKeyGenerator = objectKeyGenerator;
+        _policyResolver = policyResolver;
     }
 
     public Task<PagedResult<FileSummaryDto>> ListAsync(FileListQuery query, CancellationToken cancellationToken)
@@ -54,73 +37,75 @@ public sealed class FileService : IFileService
 
     public async Task<FileMutationResponse> CreateAsync(CreateFileRequest request, IFormFile file, FileRequestContext context, CancellationToken cancellationToken)
     {
-        var originalName = NormalizeRequired(request.OriginalName, "originalName", 255);
-        var requestMimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
-        var requestSha256 = NormalizeSha256(request.Sha256);
-        if (request.SizeBytes <= 0 || request.SizeBytes > MaxSizeBytes)
-        {
-            throw Validation($"sizeBytes must be between 1 and {MaxSizeBytes}.");
-        }
-
-        if (file is null || file.Length <= 0)
-        {
-            throw Validation("file is required and must not be empty.");
-        }
-
-        if (!AllowedMimeTypes.Contains(requestMimeType))
-        {
-            throw Validation("mimeType is not allowed.");
-        }
-
-        var fileExt = Path.GetExtension(originalName);
-        if (string.IsNullOrWhiteSpace(fileExt) || !AllowedExtensions.Contains(fileExt))
-        {
-            throw Validation("file extension is not allowed.");
-        }
-
-        if (file.Length > MaxSizeBytes)
-        {
-            throw Validation($"sizeBytes must be between 1 and {MaxSizeBytes}.");
-        }
-
-        var objectKey = _objectKeyGenerator.GenerateObjectKey(context.Now, fileExt);
-        FileStorageResult stored;
         try
         {
-            await using var stream = file.OpenReadStream();
-            stored = await _storage.StoreAsync(stream, objectKey, fileExt.ToLowerInvariant(), MaxSizeBytes, cancellationToken);
+            var originalName = NormalizeRequired(request.OriginalName, "originalName", 255);
+            EnsureSafeFileName(originalName, "originalName");
+            var requestMimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
+            var requestSha256 = NormalizeSha256(request.Sha256);
+            var policy = _policyResolver.Resolve(request.Policy);
+            if (string.Equals(policy.Code, "avatar", StringComparison.OrdinalIgnoreCase))
+            {
+                throw Validation("avatar uploads must use the account avatar endpoint.");
+            }
+
+            if (request.SizeBytes <= 0 || request.SizeBytes > policy.MaxSizeBytes)
+            {
+                throw Validation($"sizeBytes must be between 1 and {policy.MaxSizeBytes}.");
+            }
+
+            if (file is null || file.Length <= 0)
+            {
+                throw Validation("file is required and must not be empty.");
+            }
+
+            var fileExt = Path.GetExtension(originalName);
+            await policy.ValidateContentAsync(file, requestMimeType, fileExt, cancellationToken);
+
+            var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(context.Now, fileExt)}";
+            FileStorageResult stored;
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                stored = await _storage.StoreAsync(stream, objectKey, fileExt.ToLowerInvariant(), policy.MaxSizeBytes, cancellationToken);
+            }
+            catch (DomainException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                await DeleteFileAsync(objectKey, cancellationToken);
+                throw new InvalidOperationException("Upload content cannot be stored.", exception);
+            }
+
+            if (stored.SizeBytes != request.SizeBytes)
+            {
+                await DeleteFileAsync(objectKey, cancellationToken);
+                throw Validation("sizeBytes does not match uploaded content.");
+            }
+
+            if (!string.Equals(stored.Sha256, requestSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                await DeleteFileAsync(objectKey, cancellationToken);
+                throw Validation("sha256 does not match uploaded content.");
+            }
+
+            if (!string.Equals(stored.MimeType, requestMimeType, StringComparison.OrdinalIgnoreCase))
+            {
+                await DeleteFileAsync(objectKey, cancellationToken);
+                throw Validation("mimeType does not match uploaded content.");
+            }
+
+            var id = await _repository.CreateAsync(new FileCreateRecord("local", "system", objectKey, originalName, fileExt.ToLowerInvariant(), stored.MimeType, stored.SizeBytes, stored.Sha256, "active", context.ActorUserId, context.Now), cancellationToken);
+            await AuditAsync(context, "upload", id, "File uploaded and metadata created.", cancellationToken);
+            return new FileMutationResponse(id);
         }
-        catch (DomainException)
+        catch (DomainException exception)
         {
+            await SecurityEventAsync(context, "file_upload_rejected", "warning", $"File upload rejected: {exception.Message}", cancellationToken);
             throw;
         }
-        catch (Exception exception)
-        {
-            await DeleteFileAsync(objectKey, cancellationToken);
-            throw new InvalidOperationException("Upload content cannot be stored.", exception);
-        }
-
-        if (stored.SizeBytes != request.SizeBytes)
-        {
-            await DeleteFileAsync(objectKey, cancellationToken);
-            throw Validation("sizeBytes does not match uploaded content.");
-        }
-
-        if (!string.Equals(stored.Sha256, requestSha256, StringComparison.OrdinalIgnoreCase))
-        {
-            await DeleteFileAsync(objectKey, cancellationToken);
-            throw Validation("sha256 does not match uploaded content.");
-        }
-
-        if (!string.Equals(stored.MimeType, requestMimeType, StringComparison.OrdinalIgnoreCase))
-        {
-            await DeleteFileAsync(objectKey, cancellationToken);
-            throw Validation("mimeType does not match uploaded content.");
-        }
-
-        var id = await _repository.CreateAsync(new FileCreateRecord("local", "system", objectKey, originalName, fileExt.ToLowerInvariant(), stored.MimeType, stored.SizeBytes, stored.Sha256, "active", context.ActorUserId, context.Now), cancellationToken);
-        await AuditAsync(context, "upload", id, "File uploaded and metadata created.", cancellationToken);
-        return new FileMutationResponse(id);
     }
 
     public async Task DeleteAsync(long id, FileRequestContext context, CancellationToken cancellationToken)
@@ -138,11 +123,27 @@ public sealed class FileService : IFileService
             throw new DomainException(ApiCodes.NotFound, "File was not found.");
         }
 
+        var policy = ResolveDownloadPolicy(file.FileExt, file.MimeType);
+        var canInline = inline && policy.AllowPreview && policy.AllowedMimeTypes.Contains(file.MimeType);
         var stream = await _storage.OpenReadAsync(file.ObjectKey, cancellationToken);
-        var action = inline ? "preview" : "download";
+        var action = canInline ? "preview" : "download";
         await AuditAsync(context, action, id, $"File {action} requested.", cancellationToken);
 
-        return new FileDownloadPayload(stream, file.MimeType, file.OriginalName, file.SizeBytes);
+        return new FileDownloadPayload(stream, file.MimeType, file.OriginalName, file.SizeBytes, canInline);
+    }
+
+    private IFileUploadPolicy ResolveDownloadPolicy(string fileExt, string mimeType)
+    {
+        foreach (var policyCode in new[] { "image", "document" })
+        {
+            var policy = _policyResolver.Resolve(policyCode);
+            if (policy.AllowedExtensions.Contains(fileExt) && policy.AllowedMimeTypes.Contains(mimeType))
+            {
+                return policy;
+            }
+        }
+
+        return _policyResolver.Resolve("document");
     }
 
     private async Task DeleteFileAsync(string objectKey, CancellationToken cancellationToken)
@@ -162,6 +163,11 @@ public sealed class FileService : IFileService
         return _repository.RecordAuditAsync(new FileAuditRecord(context.ActorUserId, context.ActorUsername, action, targetFileId, context.Ip, context.UserAgent, context.TraceId, "success", detail, context.Now), cancellationToken);
     }
 
+    private Task SecurityEventAsync(FileRequestContext context, string eventType, string severity, string message, CancellationToken cancellationToken)
+    {
+        return _repository.RecordSecurityEventAsync(new FileSecurityEventRecord(eventType, context.ActorUserId, context.ActorUsername, context.Ip, severity, message, context.Now, context.TraceId), cancellationToken);
+    }
+
     private static string NormalizeSha256(string? value)
     {
         var normalized = NormalizeRequired(value, "sha256", 64).ToLowerInvariant();
@@ -179,6 +185,14 @@ public sealed class FileService : IFileService
 
         var normalized = value.Trim();
         return normalized.Length <= maxLength ? normalized : throw Validation($"value must be {maxLength} characters or fewer.");
+    }
+
+    private static void EnsureSafeFileName(string value, string name)
+    {
+        if (value.Any(ch => char.IsControl(ch) || ch is '"' or '\\' or ';'))
+        {
+            throw Validation($"{name} contains invalid characters.");
+        }
     }
 
     private static DomainException Validation(string message) => new(ApiCodes.ValidationError, message);

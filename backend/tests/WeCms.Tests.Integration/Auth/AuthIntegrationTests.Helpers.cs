@@ -11,6 +11,7 @@ using WeCms.Persistence.Modules.System.Users;
 using WeCms.Modules.System.Security;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 using SqlSugar;
 using System.Text;
 using WeCms.Tests.Integration;
@@ -70,16 +71,17 @@ public sealed partial class AuthIntegrationTests
         LoginFailurePolicyOptions? loginFailureOptions = null,
         TwoFactorChallengeOptions? challengeOptions = null)
     {
-        var securityBanRepository = new SecurityBanRepository(db);
+        var securityEventClassifier = new SecurityEventClassifier();
+        var securityBanRepository = new SecurityBanRepository(db, securityEventClassifier);
         var twoFactorOptions = new TwoFactorOptions("integration-two-factor-secret-key-32", "WeCMS", 30, 6, 1, 10);
         var twoFactorRepository = new UserTwoFactorRepository(db);
-        var authRepository = new AuthRepository(db);
+        var authRepository = new AuthRepository(db, securityEventClassifier);
         var unitOfWork = new SqlSugarUnitOfWork(db);
         var clock = new FixedAuthClock(now);
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
         var loginFailureLimiter = new LoginFailureLimiter(
-            new LoginFailureCounterRepository(db),
+            new LoginFailureCounterRepository(db, securityEventClassifier),
             new SecurityBanService(securityBanRepository),
             loginFailureOptions ?? new LoginFailurePolicyOptions(true, TimeSpan.FromMinutes(10), 5, 20, 10, TimeSpan.FromMinutes(15)));
         var twoFactorService = new TwoFactorService(
@@ -88,15 +90,32 @@ public sealed partial class AuthIntegrationTests
             new SecretProtector(twoFactorOptions),
             new RecoveryCodeService(twoFactorOptions, new TwoFactorEntropy()),
             twoFactorOptions);
-        var sessionIssuer = new AuthSessionIssuer(authRepository, accessTokenService, refreshTokenService, unitOfWork, loginFailureLimiter, clock);
-        return new AuthService(
+        var auditWriter = new AuthAuditWriter(authRepository, clock);
+        var securityEventWriter = new AuthSecurityEventWriter(authRepository);
+        var refreshTokenRotationService = new RefreshTokenRotationService(
             authRepository,
-            new PasswordHasher(),
             accessTokenService,
             refreshTokenService,
             clock,
             unitOfWork,
+            auditWriter,
+            securityEventWriter);
+        var logoutTokenRevoker = new LogoutTokenRevoker(
+            authRepository,
+            refreshTokenService,
+            clock,
+            auditWriter,
+            securityEventWriter);
+        var sessionIssuer = new AuthSessionIssuer(authRepository, accessTokenService, refreshTokenService, unitOfWork, loginFailureLimiter, clock);
+        return new AuthService(
+            authRepository,
+            new PasswordHasher(),
+            clock,
             loginFailureLimiter,
+            auditWriter,
+            securityEventWriter,
+            refreshTokenRotationService,
+            logoutTokenRevoker,
             sessionIssuer,
             new AuthTwoFactorChallengeService(
                 authRepository,
@@ -113,6 +132,7 @@ public sealed partial class AuthIntegrationTests
 
     private static UserService CreateUserService(SqlSugar.ISqlSugarClient db, UserRepository? repository = null)
     {
+        var securityEventClassifier = new SecurityEventClassifier();
         var twoFactorOptions = TwoFactorOptions();
         var twoFactorService = new TwoFactorService(
             new UserTwoFactorRepository(db),
@@ -122,10 +142,11 @@ public sealed partial class AuthIntegrationTests
             twoFactorOptions);
 
         return new UserService(
-            repository ?? new UserRepository(db),
+            repository ?? new UserRepository(db, securityEventClassifier),
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
-            twoFactorService);
+            twoFactorService,
+            new PermissionVersionService(new PermissionVersionRepository(db)));
     }
 
     private static async Task<TwoFactorSetupResult> EnableTwoFactorAsync(

@@ -22,7 +22,7 @@ public sealed record TwoFactorRecoveryCodeUseResult(bool Consumed);
 
 public sealed record TwoFactorRecoveryCodeRegenerationResult(IReadOnlyList<string> RecoveryCodes);
 
-public sealed record TwoFactorVerificationResult(bool Verified);
+public sealed record TwoFactorVerificationResult(bool Verified, bool IsReplay = false);
 
 public sealed record UserTwoFactorRecord(
     long Id,

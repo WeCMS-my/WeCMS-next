@@ -77,72 +77,90 @@ run_dotnet_gate_command() {
   dotnet "$@"
 }
 
-printf '[1/20] dotnet restore\n'
+printf '[1/26] dotnet restore\n'
 run_dotnet_gate_command restore backend/WeCms.slnx
 
-printf '[2/20] dotnet build -warnaserror\n'
+printf '[2/26] dotnet build -warnaserror\n'
 run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-restore
 
-printf '[3/20] dotnet test\n'
+printf '[3/26] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
 export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
-run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --nologo --no-build --no-restore
+run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --nologo --no-restore
 
-printf '[4/20] dotnet publish JIT\n'
+printf '[4/26] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
 
-printf '[5/20] OpenAPI export\n'
+printf '[5/26] OpenAPI export\n'
 dotnet run --project backend/src/WeCms.Api --no-build --no-restore -- --export-openapi "$openapi_path"
 
-printf '[6/20] OpenAPI auth request body check\n'
+printf '[6/26] OpenAPI auth request body check\n'
 bash scripts/checks/check-openapi-auth-request-body.sh "$openapi_path"
 bash scripts/checks/check-openapi-endpoint-coverage.sh "$openapi_path"
 
-printf '[7/20] check-system-openapi-coverage\n'
+printf '[7/26] check-system-openapi-coverage\n'
 bash scripts/checks/check-system-openapi-coverage.sh "$openapi_path"
 
-printf '[8/20] check-write-endpoint-methods\n'
+printf '[8/26] check-write-endpoint-methods\n'
 bash scripts/checks/check-write-endpoint-methods.sh "$openapi_path"
 
-printf '[9/20] check-write-endpoint-permission-coverage\n'
+printf '[9/26] check-write-endpoint-permission-coverage\n'
 bash scripts/checks/check-write-endpoint-permission-coverage.sh "$openapi_path"
 
-printf '[10/20] check-write-endpoint-audit-coverage\n'
+printf '[10/26] check-write-endpoint-audit-coverage\n'
 bash scripts/checks/check-write-endpoint-audit-coverage.sh "$openapi_path"
 
-printf '[11/20] check-system-permission-coverage\n'
+printf '[11/26] check-system-permission-coverage\n'
 bash scripts/checks/check-system-permission-coverage.sh
 
-printf '[12/20] check-locked-role-seed\n'
+printf '[12/26] check-locked-role-seed\n'
 bash scripts/checks/check-locked-role-seed.sh
 
-printf '[13/20] check-no-sql-in-modules\n'
+printf '[13/26] check-rate-limit-policy-coverage\n'
+bash scripts/checks/check-rate-limit-policy-coverage.sh
+
+printf '[14/26] check-security-event-coverage\n'
+bash scripts/checks/check-security-event-coverage.sh
+
+printf '[15/26] check-cookie-auth-origin-protection\n'
+bash scripts/checks/check-cookie-auth-origin-protection.sh
+
+printf '[16/26] check-admingate-csrf-migration\n'
+bash scripts/checks/check-admingate-csrf-migration.sh
+
+printf '[17/26] check-thinkphp-feature-delta\n'
+bash scripts/checks/check-thinkphp-feature-delta.sh "$openapi_path"
+
+printf '[18/26] check-foundation-freeze-baseline\n'
+bash scripts/checks/check-foundation-freeze-baseline.sh
+
+printf '[19/26] check-no-sql-in-modules\n'
 bash scripts/checks/check-no-sql-in-modules.sh
 
-printf '[14/20] check-db-boundary\n'
+printf '[20/26] check-db-boundary\n'
 bash scripts/checks/check-db-boundary.sh
 
-printf '[15/20] check-layer-dependency\n'
+printf '[21/26] check-layer-dependency\n'
 bash scripts/checks/check-layer-dependency.sh
 
-printf '[16/20] check-di-boundary\n'
+printf '[22/26] check-di-boundary\n'
 bash scripts/checks/check-di-boundary.sh
 
-printf '[17/20] check-no-frontend-change\n'
+printf '[23/26] check-no-frontend-change\n'
 if [[ "$frontend_scope" == "backend-only" ]]; then
   bash scripts/checks/check-no-frontend-change.sh
 else
   printf 'check-no-frontend-change: skipped because WECMS_BACKEND_GATE_FRONTEND_SCOPE=includes-frontend\n'
 fi
 
-printf '[18/20] check-generated-test-artifacts\n'
+printf '[24/26] check-generated-test-artifacts\n'
 bash scripts/checks/check-generated-test-artifacts.sh
 
-printf '[19/20] check-code-review\n'
+printf '[25/26] check-code-review\n'
 bash scripts/checks/check-code-review.sh
 
-printf '[20/20] migration/seed smoke test\n'
-run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
+printf '[26/26] migration/seed smoke test\n'
+run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
 
 printf 'quality-gate-backend: ok\n'

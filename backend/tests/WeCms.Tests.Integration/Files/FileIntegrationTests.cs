@@ -8,19 +8,13 @@ using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
 using WeCms.Persistence.Modules.System.Files;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Files;
 
-public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class FileIntegrationTests : PerTestDatabaseResetBase
 {
-
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task CreateAsync_StoresAndDownloadsFileWithValidatedMetadata()
     {
@@ -33,7 +27,7 @@ public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await PrepareDatabaseAsync(db);
 
             var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             if (actorUserId <= 0)
@@ -44,9 +38,10 @@ public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
             }
 
             var service = new FileService(
-                new FileRepository(db),
+                new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(),
-                new DeterministicObjectKeyGenerator());
+                new DeterministicObjectKeyGenerator(),
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);
@@ -105,7 +100,7 @@ public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+            await PrepareDatabaseAsync(db);
 
             var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             if (actorUserId <= 0)
@@ -116,9 +111,10 @@ public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
             }
 
             var service = new FileService(
-                new FileRepository(db),
+                new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(),
-                new DeterministicObjectKeyGenerator());
+                new DeterministicObjectKeyGenerator(),
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);
@@ -132,6 +128,7 @@ public sealed class FileIntegrationTests : global::Xunit.IAsyncLifetime
 
             Assert.Equal(ApiCodes.ValidationError, exception.Code);
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_file WHERE original_name = 'invoice.pdf'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'file_upload_rejected' AND source = 'file'"));
         }
         finally
         {

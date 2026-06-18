@@ -1,4 +1,5 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
 using WeCms.Shared.Data;
@@ -13,17 +14,20 @@ public sealed class UserService : IUserService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITwoFactorService _twoFactorService;
+    private readonly IPermissionVersionService _permissionVersionService;
 
     public UserService(
         IUserRepository repository,
         IPasswordHasher passwordHasher,
         IUnitOfWork unitOfWork,
-        ITwoFactorService twoFactorService)
+        ITwoFactorService twoFactorService,
+        IPermissionVersionService permissionVersionService)
     {
         _repository = repository;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
         _twoFactorService = twoFactorService;
+        _permissionVersionService = permissionVersionService;
     }
 
     public Task<PagedResult<UserSummaryDto>> ListAsync(UserListQuery query, CancellationToken cancellationToken)
@@ -120,6 +124,7 @@ public sealed class UserService : IUserService
             await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
             await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "delete", id, "success", "User deleted.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -134,6 +139,7 @@ public sealed class UserService : IUserService
     {
         _ = await GetAsync(id, cancellationToken);
         await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "User enabled.", cancellationToken);
     }
 
@@ -147,6 +153,7 @@ public sealed class UserService : IUserService
             await EnsureLockedRolesStillHaveEnabledHolderAsync(id, null, cancellationToken);
             await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "disable", id, "success", "User disabled.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -166,6 +173,7 @@ public sealed class UserService : IUserService
         {
             await _repository.ResetPasswordAsync(id, _passwordHasher.Hash(password), context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "reset-password", id, "success", "User password reset.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -185,6 +193,7 @@ public sealed class UserService : IUserService
         {
             await _twoFactorService.ClearAsync(id, context.Now, cancellationToken);
             await _repository.RevokeUserRefreshTokensAsync(id, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "reset-2fa", id, "success", $"User two-factor authentication reset. Reason: {reason}", cancellationToken);
             await RecordSecurityEventAsync(context, user, reason, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -205,6 +214,7 @@ public sealed class UserService : IUserService
         {
             await EnsureLockedRolesStillHaveEnabledHolderAsync(id, roleIds, cancellationToken);
             await _repository.ReplaceRolesAsync(id, roleIds, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUserAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "assign-role", id, "success", "User roles assigned.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -355,7 +365,8 @@ public sealed class UserService : IUserService
                 context.Ip,
                 "warning",
                 $"Administrator reset user two-factor authentication. Reason: {reason}",
-                context.Now),
+                context.Now,
+                context.TraceId),
             cancellationToken);
     }
 

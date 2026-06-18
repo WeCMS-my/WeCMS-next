@@ -122,6 +122,34 @@ public sealed class DictRepository : IDictRepository
         new SugarParameter("@updatedAt", record.Now.UtcDateTime),
         new SugarParameter("@id", record.Id));
 
+    public Task SetTypeStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken) => ExpectOneAsync(
+        """
+        UPDATE sys_dict_type
+        SET status = @status,
+            updated_at = @updatedAt
+        WHERE id = @id
+          AND deleted_at IS NULL
+        """,
+        cancellationToken,
+        new SugarParameter("@status", status),
+        new SugarParameter("@updatedAt", now.UtcDateTime),
+        new SugarParameter("@id", id));
+
+    public async Task DisableValuesByTypeAsync(long typeId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await _db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE sys_dict_value
+            SET status = 'disabled',
+                updated_at = @updatedAt
+            WHERE type_id = @typeId
+              AND deleted_at IS NULL
+            """,
+            new SugarParameter("@updatedAt", now.UtcDateTime),
+            new SugarParameter("@typeId", typeId));
+    }
+
     public Task SoftDeleteTypeAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => ExpectOneAsync(
         """
         UPDATE sys_dict_type
@@ -244,6 +272,19 @@ public sealed class DictRepository : IDictRepository
         new SugarParameter("@isDefault", record.IsDefault),
         new SugarParameter("@updatedAt", record.Now.UtcDateTime),
         new SugarParameter("@id", record.Id));
+
+    public Task SetValueStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken) => ExpectOneAsync(
+        """
+        UPDATE sys_dict_value
+        SET status = @status,
+            updated_at = @updatedAt
+        WHERE id = @id
+          AND deleted_at IS NULL
+        """,
+        cancellationToken,
+        new SugarParameter("@status", status),
+        new SugarParameter("@updatedAt", now.UtcDateTime),
+        new SugarParameter("@id", id));
 
     public Task SoftDeleteValueAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => ExpectOneAsync(
         """

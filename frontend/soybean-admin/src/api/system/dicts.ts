@@ -3,6 +3,7 @@ import type {
   ApiResult,
   CreateDictTypeRequest,
   CreateDictValueRequest,
+  DisableDictTypeRequest,
   DictMutationResponse,
   DictTypeDetailDto,
   DictValueList,
@@ -44,6 +45,14 @@ export function deleteDictTypeApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/dict-types/${id}`, { method: "DELETE" });
 }
 
+export function enableDictTypeApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/dict-types/${id}/enable`, { method: "POST" });
+}
+
+export function disableDictTypeApi(id: number, request: DisableDictTypeRequest): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/dict-types/${id}/disable`, { method: "POST", body: JSON.stringify(request) });
+}
+
 export function getDictValuesApi(typeCode: string): Promise<ApiResult<DictValueList>> {
   return requestJson<DictValueList>(`/api/v1/system/dict-types/${encodeURIComponent(typeCode)}/values`);
 }
@@ -58,6 +67,14 @@ export function updateDictValueApi(id: number, request: UpdateDictValueRequest):
 
 export function deleteDictValueApi(id: number): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/dict-values/${id}`, { method: "DELETE" });
+}
+
+export function enableDictValueApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/dict-values/${id}/enable`, { method: "POST" });
+}
+
+export function disableDictValueApi(id: number): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/dict-values/${id}/disable`, { method: "POST" });
 }
 
 function appendParam(params: URLSearchParams, key: string, value?: string): void {

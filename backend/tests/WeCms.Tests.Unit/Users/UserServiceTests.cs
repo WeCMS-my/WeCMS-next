@@ -1,4 +1,5 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Modules.System.Users;
 using WeCms.Shared;
@@ -224,7 +225,8 @@ public sealed class UserServiceTests
             repository,
             new FakePasswordHasher(),
             unitOfWork ?? new FakeUnitOfWork(),
-            twoFactorService ?? new FakeTwoFactorService());
+            twoFactorService ?? new FakeTwoFactorService(),
+            new FakePermissionVersionService());
     }
 
     private static UserRequestContext Context(long actorUserId)
@@ -415,6 +417,15 @@ public sealed class UserServiceTests
             ClearCalls++;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakePermissionVersionService : IPermissionVersionService
+    {
+        public Task BumpUserAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByPermissionAsync(long permissionId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByMenuAsync(long menuId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByMenusAsync(IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork

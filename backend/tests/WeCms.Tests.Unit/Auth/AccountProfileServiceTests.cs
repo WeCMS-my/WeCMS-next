@@ -95,7 +95,7 @@ public sealed class AccountProfileServiceTests
             CancellationToken.None);
 
         Assert.Equal("/api/v1/account/avatar/content", response.AvatarUrl);
-        Assert.Equal("2026/06/avatar.png", repository.Profile.AvatarObjectKey);
+        Assert.Equal("avatars/2026/06/avatar.png", repository.Profile.AvatarObjectKey);
         Assert.Contains("avatars/old.png", storage.DeletedObjectKeys);
         Assert.Equal("avatar-update", repository.AuditActions.Single());
         Assert.Equal("auth.account_avatar_updated", repository.SecurityEvents.Single());
@@ -115,7 +115,7 @@ public sealed class AccountProfileServiceTests
             Context(),
             CancellationToken.None));
 
-        Assert.Contains("2026/06/avatar.png", storage.DeletedObjectKeys);
+        Assert.Contains("avatars/2026/06/avatar.png", storage.DeletedObjectKeys);
         Assert.DoesNotContain("avatars/old.png", storage.DeletedObjectKeys);
     }
 
@@ -169,6 +169,7 @@ public sealed class AccountProfileServiceTests
             new PasswordHasher(),
             storage ?? new FakeFileStorage(),
             new FakeObjectKeyGenerator(),
+            new FakeFileUploadPolicyResolver(),
             unitOfWork ?? new FakeUnitOfWork());
     }
 
@@ -338,6 +339,43 @@ public sealed class AccountProfileServiceTests
         public string GenerateObjectKey(DateTimeOffset now, string fileExt)
         {
             return $"2026/06/avatar{fileExt}";
+        }
+    }
+
+    private sealed class FakeFileUploadPolicyResolver : IFileUploadPolicyResolver
+    {
+        public IFileUploadPolicy Resolve(string? policyCode) => new FakeAvatarUploadPolicy();
+    }
+
+    private sealed class FakeAvatarUploadPolicy : IFileUploadPolicy
+    {
+        public string Code => "avatar";
+        public IReadOnlySet<string> AllowedExtensions { get; } = new HashSet<string>([".png", ".jpg", ".jpeg", ".webp"], StringComparer.OrdinalIgnoreCase);
+        public IReadOnlySet<string> AllowedMimeTypes { get; } = new HashSet<string>(["image/png", "image/jpeg", "image/webp"], StringComparer.OrdinalIgnoreCase);
+        public long MaxSizeBytes => 512 * 1024;
+        public bool RequireImageDecode => false;
+        public bool ReencodeImage => false;
+        public bool AllowPreview => true;
+        public string StorageScope => "avatars";
+
+        public Task ValidateContentAsync(IFormFile file, string declaredMimeType, string fileExt, CancellationToken cancellationToken)
+        {
+            if (file is null || file.Length <= 0)
+            {
+                throw new DomainException(ApiCodes.ValidationError, "file is required and must not be empty.");
+            }
+
+            if (file.Length > MaxSizeBytes)
+            {
+                throw new DomainException(ApiCodes.ValidationError, $"Avatar size must be between 1 and {MaxSizeBytes} bytes.");
+            }
+
+            if (!AllowedMimeTypes.Contains(declaredMimeType) || string.IsNullOrWhiteSpace(fileExt) || !AllowedExtensions.Contains(fileExt))
+            {
+                throw new DomainException(ApiCodes.ValidationError, "Avatar MIME type or extension is not allowed.");
+            }
+
+            return Task.CompletedTask;
         }
     }
 

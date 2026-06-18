@@ -8,6 +8,10 @@ import {
   createDictValueApi,
   deleteDictTypeApi,
   deleteDictValueApi,
+  disableDictTypeApi,
+  disableDictValueApi,
+  enableDictTypeApi,
+  enableDictValueApi,
   getDictTypesApi,
   getDictValuesApi,
   updateDictTypeApi,
@@ -51,6 +55,7 @@ const typeColumns = computed(() => [
   { title: "操作", key: "actions", render: (row: DictTypeSummaryDto) => h(NSpace, null, { default: () => [
     h(NButton, { secondary: true, onClick: () => void selectType(row) }, { default: () => "值" }),
     h(PermissionButton, { secondary: true, permissions: ["sys:dict:type:update"], onClick: () => openTypeEdit(row) }, { default: () => "编辑" }),
+    h(PermissionButton, { secondary: true, permissions: [row.status === "enabled" ? "sys:dict:type:disable" : "sys:dict:type:enable"], onClick: () => void changeTypeStatus(row) }, { default: () => row.status === "enabled" ? "禁用" : "启用" }),
     h(PermissionButton, { secondary: true, disabled: row.isSystem, permissions: ["sys:dict:type:delete"], onClick: () => void confirmDeleteType(row) }, { default: () => "删除" })
   ] }) }
 ]);
@@ -61,6 +66,7 @@ const valueColumns = computed(() => [
   { title: "状态", key: "status" },
   { title: "操作", key: "actions", render: (row: DictValueDto) => h(NSpace, null, { default: () => [
     h(PermissionButton, { secondary: true, permissions: ["sys:dict:value:update"], onClick: () => openValueEdit(row) }, { default: () => "编辑" }),
+    h(PermissionButton, { secondary: true, permissions: [row.status === "enabled" ? "sys:dict:value:disable" : "sys:dict:value:enable"], onClick: () => void changeValueStatus(row) }, { default: () => row.status === "enabled" ? "禁用" : "启用" }),
     h(PermissionButton, { secondary: true, permissions: ["sys:dict:value:delete"], onClick: () => void confirmDeleteValue(row) }, { default: () => "删除" })
   ] }) }
 ]);
@@ -148,6 +154,31 @@ async function confirmDeleteType(row: DictTypeSummaryDto): Promise<void> {
   }
 }
 
+async function changeTypeStatus(row: DictTypeSummaryDto): Promise<void> {
+  const disabling = row.status === "enabled";
+  if (!window.confirm(`确认${disabling ? "禁用" : "启用"}字典类型 ${row.name}？`)) {
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    if (disabling) {
+      await disableDictTypeApi(row.id, { cascadeValues: false });
+    } else {
+      await enableDictTypeApi(row.id);
+    }
+    message.success("字典类型状态已更新。");
+    if (activeType.value?.id === row.id) {
+      activeType.value = { ...row, status: disabling ? "disabled" : "enabled" };
+    }
+    await loadTypes();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
 function openValueCreate(): void {
   Object.assign(valueForm, { id: undefined, label: "", value: "", description: "", sortOrder: 0, isDefault: false, status: "enabled" });
   valueVisible.value = true;
@@ -197,6 +228,30 @@ async function confirmDeleteValue(row: DictValueDto): Promise<void> {
   try {
     await deleteDictValueApi(row.id);
     message.success("字典值已删除。");
+    if (activeType.value) {
+      await selectType(activeType.value);
+    }
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function changeValueStatus(row: DictValueDto): Promise<void> {
+  const disabling = row.status === "enabled";
+  if (!window.confirm(`确认${disabling ? "禁用" : "启用"}字典值 ${row.label}？`)) {
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    if (disabling) {
+      await disableDictValueApi(row.id);
+    } else {
+      await enableDictValueApi(row.id);
+    }
+    message.success("字典值状态已更新。");
     if (activeType.value) {
       await selectType(activeType.value);
     }

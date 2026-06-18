@@ -1,4 +1,6 @@
 using WeCms.Shared;
+using WeCms.Shared.Security;
+using System.Net;
 
 namespace WeCms.Modules.System.Settings;
 
@@ -7,10 +9,23 @@ public sealed class SettingService : ISettingService
     private const int MaxPageSize = 100;
     private const int MaxValueLength = 4000;
     private readonly ISettingRepository _repository;
+    private readonly ISettingDefinitionProvider _definitions;
+    private readonly ISettingSecretProtector _secretProtector;
+    private readonly IIpRuleMatcher _ipRuleMatcher;
+    private readonly ISettingCache _cache;
 
-    public SettingService(ISettingRepository repository)
+    public SettingService(
+        ISettingRepository repository,
+        ISettingDefinitionProvider definitions,
+        ISettingSecretProtector secretProtector,
+        IIpRuleMatcher ipRuleMatcher,
+        ISettingCache cache)
     {
         _repository = repository;
+        _definitions = definitions;
+        _secretProtector = secretProtector;
+        _ipRuleMatcher = ipRuleMatcher;
+        _cache = cache;
     }
 
     public async Task<PagedResult<SettingSummaryDto>> ListAsync(SettingListQuery query, CancellationToken cancellationToken)
@@ -32,25 +47,93 @@ public sealed class SettingService : ISettingService
     {
         var normalizedKey = NormalizeRequired(key, "key", 120);
         var setting = await _repository.GetAsync(normalizedKey, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "Setting was not found.");
-        ValidateValue(setting.ValueType, request.Value);
+        var definition = GetDefinition(normalizedKey);
+        if (definition.IsReadonly)
+        {
+            throw new DomainException(ApiCodes.BusinessError, "Readonly setting cannot be updated.");
+        }
 
-        await _repository.UpdateAsync(new SettingUpdateRecord(normalizedKey, NormalizeOptional(request.Value, MaxValueLength), context.ActorUserId, context.Now), cancellationToken);
-        if (setting.IsSensitive)
+        ValidateValue(setting.ValueType, request.Value);
+        if (IsIpRulesSetting(normalizedKey))
+        {
+            ValidateIpRulesCore(request.Value ?? string.Empty);
+        }
+
+        var normalizedValue = NormalizeOptional(request.Value, MaxValueLength);
+        var storedValue = definition.IsSensitive && normalizedValue is not null
+            ? _secretProtector.Protect(normalizedValue)
+            : normalizedValue;
+        await _repository.UpdateAsync(new SettingUpdateRecord(normalizedKey, storedValue, context.ActorUserId, context.Now), cancellationToken);
+        if (IsSensitive(normalizedKey, setting.IsSensitive))
         {
             await _repository.RecordAuditAsync(new SettingAuditRecord(context.ActorUserId, context.ActorUsername, "update-sensitive", normalizedKey, context.Ip, context.UserAgent, context.TraceId, "success", "Sensitive setting updated.", context.Now), cancellationToken);
+        }
+        else
+        {
+            await _repository.RecordAuditAsync(new SettingAuditRecord(context.ActorUserId, context.ActorUsername, "update", normalizedKey, context.Ip, context.UserAgent, context.TraceId, "success", "Setting updated.", context.Now), cancellationToken);
+        }
+
+        await _cache.RefreshAsync(cancellationToken);
+        if (definition.IsSecuritySensitive)
+        {
+            await _repository.RecordSecurityEventAsync(new SettingSecurityEventRecord("security.setting_changed", context.ActorUserId, context.ActorUsername, context.Ip, "warning", $"Security setting {normalizedKey} changed.", context.Now, context.TraceId), cancellationToken);
         }
 
         return new SettingMutationResponse(normalizedKey);
     }
 
-    private static SettingSummaryDto MaskSummary(SettingSummaryDto setting)
+    public async Task<ValidateIpRulesResponse> ValidateIpRulesAsync(ValidateIpRulesRequest request, SettingRequestContext context, CancellationToken cancellationToken)
     {
-        return setting.IsSensitive ? setting with { Value = null } : setting;
+        var response = ValidateIpRulesCore(request.Rules);
+        await _repository.RecordAuditAsync(new SettingAuditRecord(context.ActorUserId, context.ActorUsername, "validate-ip-rules", "settings", context.Ip, context.UserAgent, context.TraceId, "success", "IP rules validated.", context.Now), cancellationToken);
+        return response;
     }
 
-    private static SettingDetailDto MaskDetail(SettingDetailDto setting)
+    private ValidateIpRulesResponse ValidateIpRulesCore(string? rulesValue)
     {
-        return setting.IsSensitive ? setting with { Value = null } : setting;
+        var rules = NormalizeOptional(rulesValue, MaxValueLength) ?? string.Empty;
+        try
+        {
+            _ = _ipRuleMatcher.IsMatch(rules, IPAddress.Loopback);
+            _ = _ipRuleMatcher.IsMatch(rules, IPAddress.IPv6Loopback);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw Validation(exception.Message);
+        }
+
+        return new ValidateIpRulesResponse(true);
+    }
+
+    public async Task ReloadCacheAsync(SettingRequestContext context, CancellationToken cancellationToken)
+    {
+        await _cache.RefreshAsync(cancellationToken);
+        await _repository.RecordAuditAsync(new SettingAuditRecord(context.ActorUserId, context.ActorUsername, "reload-cache", "settings", context.Ip, context.UserAgent, context.TraceId, "success", "Setting cache reloaded.", context.Now), cancellationToken);
+    }
+
+    private SettingDefinition GetDefinition(string key)
+    {
+        return _definitions.Find(key) ?? throw Validation("setting key is not defined.");
+    }
+
+    private static bool IsIpRulesSetting(string key)
+    {
+        return key is "security.ipAllowRules" or "security.ipDenyRules";
+    }
+
+    private SettingSummaryDto MaskSummary(SettingSummaryDto setting)
+    {
+        return IsSensitive(setting.Key, setting.IsSensitive) ? setting with { Value = null, IsSensitive = true } : setting;
+    }
+
+    private SettingDetailDto MaskDetail(SettingDetailDto setting)
+    {
+        return IsSensitive(setting.Key, setting.IsSensitive) ? setting with { Value = null, IsSensitive = true } : setting;
+    }
+
+    private bool IsSensitive(string key, bool rowIsSensitive)
+    {
+        return rowIsSensitive || _definitions.Find(key)?.IsSensitive == true;
     }
 
     private static void ValidateValue(string valueType, string? value)

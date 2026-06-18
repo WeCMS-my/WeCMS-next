@@ -46,7 +46,8 @@ public sealed record AuthUserRecord(
     string Status,
     bool IsSuperAdmin,
     bool MustChangePassword = false,
-    string SecurityStamp = "");
+    string SecurityStamp = "",
+    long PermissionVersion = 0);
 
 public sealed record FailedLoginRecord(
     string Username,
@@ -62,14 +63,16 @@ public sealed record SecurityEventRecord(
     string Ip,
     string Severity,
     string Message,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string TraceId = "");
 
 public sealed record LoginFailureContext(
     string Username,
     long? UserId,
     string Ip,
     string UserAgent,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    string TraceId = "");
 
 public sealed record LoginFailurePolicyOptions(
     bool Enabled,
@@ -201,7 +204,8 @@ public sealed record RefreshTokenRecord(
     DateTimeOffset? RevokedAt,
     string? ReplacedByTokenHash,
     bool MustChangePassword = false,
-    string SecurityStamp = "");
+    string SecurityStamp = "",
+    long PermissionVersion = 0);
 
 public sealed record RefreshRotationRecord(
     long OldRefreshTokenId,

@@ -1,16 +1,19 @@
 using SqlSugar;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Menus;
+using WeCms.Shared.Security;
 
 namespace WeCms.Persistence.Modules.System.Auth;
 
 public sealed class AuthRepository : IAuthRepository
 {
     private readonly ISqlSugarClient _db;
+    private readonly ISecurityEventClassifier _securityEventClassifier;
 
-    public AuthRepository(ISqlSugarClient db)
+    public AuthRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier)
     {
         _db = db;
+        _securityEventClassifier = securityEventClassifier;
     }
 
     public async Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
@@ -25,6 +28,7 @@ public sealed class AuthRepository : IAuthRepository
                    password_hash AS PasswordHash,
                    status AS Status,
                    is_super_admin AS IsSuperAdmin,
+                   permission_version AS PermissionVersion,
                    must_change_password AS MustChangePassword,
                    security_stamp AS SecurityStamp
             FROM sys_user
@@ -49,6 +53,7 @@ public sealed class AuthRepository : IAuthRepository
                    password_hash AS PasswordHash,
                    status AS Status,
                    is_super_admin AS IsSuperAdmin,
+                   permission_version AS PermissionVersion,
                    must_change_password AS MustChangePassword,
                    security_stamp AS SecurityStamp
             FROM sys_user
@@ -73,6 +78,7 @@ public sealed class AuthRepository : IAuthRepository
                    u.display_name,
                    u.status,
                    u.is_super_admin,
+                   u.permission_version,
                    u.must_change_password AS MustChangePassword,
                    rt.token_hash,
                    rt.family_id,
@@ -113,7 +119,8 @@ public sealed class AuthRepository : IAuthRepository
                 ? null
                 : Convert.ToString(row["replaced_by_token_hash"], global::System.Globalization.CultureInfo.InvariantCulture),
             Convert.ToBoolean(row["MustChangePassword"], global::System.Globalization.CultureInfo.InvariantCulture),
-            Convert.ToString(row["SecurityStamp"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            Convert.ToString(row["SecurityStamp"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            Convert.ToInt64(row["permission_version"], global::System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public async Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
@@ -277,18 +284,21 @@ public sealed class AuthRepository : IAuthRepository
     public async Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var classification = _securityEventClassifier.Classify(record.EventType, record.TraceId);
 
         var insertedRows = await _db.Ado.ExecuteCommandAsync(
             """
-            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, message, created_at)
-            VALUES (@eventType, @userId, @username, @ip, @severity, @message, @createdAt)
+            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, source, message, trace_id, created_at)
+            VALUES (@eventType, @userId, @username, @ip, @severity, @source, @message, @traceId, @createdAt)
             """,
-            new SugarParameter("@eventType", record.EventType),
+            new SugarParameter("@eventType", classification.EventType),
             new SugarParameter("@userId", record.UserId),
             new SugarParameter("@username", record.Username),
             new SugarParameter("@ip", record.Ip),
-            new SugarParameter("@severity", record.Severity),
+            new SugarParameter("@severity", classification.Severity),
+            new SugarParameter("@source", classification.Source),
             new SugarParameter("@message", record.Message),
+            new SugarParameter("@traceId", classification.TraceId),
             new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
 
         if (insertedRows != 1)
@@ -433,13 +443,15 @@ public sealed class AuthRepository : IAuthRepository
 
         public bool IsSuperAdmin { get; set; }
 
+        public long PermissionVersion { get; set; }
+
         public bool MustChangePassword { get; set; }
 
         public string SecurityStamp { get; set; } = string.Empty;
 
         public AuthUserRecord ToRecord()
         {
-            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword, SecurityStamp);
+            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword, SecurityStamp, PermissionVersion);
         }
     }
 

@@ -12,6 +12,8 @@ public sealed record CreateDictTypeRequest(string Code, string Name, string? Des
 
 public sealed record UpdateDictTypeRequest(string Name, string? Description, int SortOrder, string Status);
 
+public sealed record DisableDictTypeRequest(bool CascadeValues);
+
 public sealed record DictValueDto(long Id, long TypeId, string TypeCode, string Label, string Value, string? Description, int SortOrder, bool IsDefault, string Status);
 
 public sealed record CreateDictValueRequest(string Label, string Value, string? Description, int SortOrder, bool IsDefault, string Status);
@@ -26,9 +28,13 @@ public interface IDictService
     Task<DictTypeDetailDto> GetTypeAsync(long id, CancellationToken cancellationToken);
     Task<DictMutationResponse> CreateTypeAsync(CreateDictTypeRequest request, DictRequestContext context, CancellationToken cancellationToken);
     Task<DictMutationResponse> UpdateTypeAsync(long id, UpdateDictTypeRequest request, DictRequestContext context, CancellationToken cancellationToken);
+    Task EnableTypeAsync(long id, DictRequestContext context, CancellationToken cancellationToken);
+    Task DisableTypeAsync(long id, DisableDictTypeRequest request, DictRequestContext context, CancellationToken cancellationToken);
     Task DeleteTypeAsync(long id, DictRequestContext context, CancellationToken cancellationToken);
     Task<IReadOnlyList<DictValueDto>> ListValuesAsync(string typeCode, CancellationToken cancellationToken);
     Task<DictMutationResponse> CreateValueAsync(string typeCode, CreateDictValueRequest request, DictRequestContext context, CancellationToken cancellationToken);
     Task<DictMutationResponse> UpdateValueAsync(long id, UpdateDictValueRequest request, DictRequestContext context, CancellationToken cancellationToken);
+    Task EnableValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken);
+    Task DisableValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken);
     Task DeleteValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken);
 }

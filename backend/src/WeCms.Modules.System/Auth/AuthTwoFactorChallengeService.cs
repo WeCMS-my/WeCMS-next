@@ -118,6 +118,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
                 string.Empty,
                 expiresAt,
                 null,
+                user.PermissionVersion,
                 [],
                 [],
                 [],
@@ -147,7 +148,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         if (!verified.Verified)
         {
             await transaction.RollbackAsync(cancellationToken);
-            await RecordTwoFactorFailureAsync(challenge, user, TwoFactorVerifyAuditAction, TwoFactorVerifyPath, requestContext, now, cancellationToken);
+            await RecordTwoFactorFailureAsync(challenge, user, TwoFactorVerifyAuditAction, TwoFactorVerifyPath, verified.IsReplay, requestContext, now, cancellationToken);
             throw new DomainException(ApiCodes.Unauthorized, "Two-factor challenge is invalid.");
         }
 
@@ -186,7 +187,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         if (!verified.Consumed)
         {
             await transaction.RollbackAsync(cancellationToken);
-            await RecordTwoFactorFailureAsync(challenge, user, TwoFactorRecoveryCodeAuditAction, TwoFactorRecoveryCodePath, requestContext, now, cancellationToken);
+            await RecordTwoFactorFailureAsync(challenge, user, TwoFactorRecoveryCodeAuditAction, TwoFactorRecoveryCodePath, isReplay: false, requestContext, now, cancellationToken);
             throw new DomainException(ApiCodes.Unauthorized, "Two-factor challenge is invalid.");
         }
 
@@ -251,6 +252,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         AuthUserRecord user,
         string auditAction,
         string requestPath,
+        bool isReplay,
         AuthRequestContext requestContext,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -266,13 +268,14 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
             cancellationToken);
         await _repository.RecordSecurityEventAsync(
             new SecurityEventRecord(
-                "auth.two_factor_failed",
+                isReplay ? "auth.2fa_replay" : "auth.two_factor_failed",
                 user.Id,
                 user.Username,
                 requestContext.Ip,
-                attempts >= _challengeOptions.MaxFailedAttempts ? "critical" : "warning",
-                "Two-factor verification failed.",
-                now),
+                isReplay || attempts >= _challengeOptions.MaxFailedAttempts ? "critical" : "warning",
+                isReplay ? "Two-factor TOTP replay detected." : "Two-factor verification failed.",
+                now,
+                requestContext.TraceId),
             cancellationToken);
         await RecordAuditLogAsync(
             user.Id,
@@ -299,7 +302,8 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
                 requestContext.Ip,
                 "warning",
                 "Two-factor challenge rejected.",
-                now),
+                now,
+                requestContext.TraceId),
             cancellationToken);
     }
 

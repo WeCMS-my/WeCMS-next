@@ -30,6 +30,10 @@ public static class SystemAuthServiceCollectionExtensions
         services.AddSingleton(loginFailureOptions);
         services.AddSingleton(twoFactorChallengeOptions);
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAuthAuditWriter, AuthAuditWriter>();
+        services.AddScoped<IAuthSecurityEventWriter, AuthSecurityEventWriter>();
+        services.AddScoped<IRefreshTokenRotationService, RefreshTokenRotationService>();
+        services.AddScoped<ILogoutTokenRevoker, LogoutTokenRevoker>();
         services.AddScoped<IAuthSessionIssuer, AuthSessionIssuer>();
         services.AddScoped<IAuthTwoFactorChallengeService, AuthTwoFactorChallengeService>();
         services.AddScoped<IAccountTwoFactorService, AccountTwoFactorService>();

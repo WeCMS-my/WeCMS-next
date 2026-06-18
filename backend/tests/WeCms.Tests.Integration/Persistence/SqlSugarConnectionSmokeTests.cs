@@ -3,6 +3,7 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Persistence;
 
+[Collection(nameof(SharedMySqlCollection))]
 public sealed class SqlSugarConnectionSmokeTests
 {
 

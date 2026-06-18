@@ -14,6 +14,7 @@ public sealed record LoginResponse(
     string AccessToken,
     DateTimeOffset ExpiresAt,
     AuthUserDto? User,
+    long PermissionVersion,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
     IReadOnlyList<MenuTreeDto> Menus,
@@ -29,6 +30,7 @@ public sealed record AuthSessionResult(
 
 public sealed record AuthMeResponse(
     AuthUserDto User,
+    long PermissionVersion,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
     IReadOnlyList<MenuTreeDto> Menus);

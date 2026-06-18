@@ -82,6 +82,13 @@ self_service_allowlist = {
         "risk_compensation": "bearer authentication, MIME/extension/size/hash validation, audit log, and security event",
     },
 }
+account_permission_allowlist = {
+    ("post", "/api/v1/account/i18n/switch"): {
+        "owner": "account",
+        "reason": "authenticated account locale switch is represented by an account-scoped permission",
+        "risk_compensation": "bearer authentication, DTO validation, account permission metadata, and audit log",
+    },
+}
 
 violations: list[str] = []
 checked = 0
@@ -96,6 +103,12 @@ for (method, route), metadata in sorted(self_service_allowlist.items()):
         value = metadata.get(field)
         if not isinstance(value, str) or not value.strip():
             violations.append(f"{method.upper()} {route} self-service allowlist missing {field}")
+
+for (method, route), metadata in sorted(account_permission_allowlist.items()):
+    for field in ("owner", "reason", "risk_compensation"):
+        value = metadata.get(field)
+        if not isinstance(value, str) or not value.strip():
+            violations.append(f"{method.upper()} {route} account permission allowlist missing {field}")
 
 auth_endpoint_source = repo / "backend/src/WeCms.Modules.System/Auth/AuthEndpoints.cs"
 if not auth_endpoint_source.is_file():
@@ -131,6 +144,14 @@ for route, operations in sorted(paths.items()):
                 violations.append(f"{method.upper()} {route} missing bearerAuth security")
             if operation.get("x-wecms-permission") is not None:
                 violations.append(f"{method.upper()} {route} must not declare system permission metadata")
+            continue
+
+        if key in account_permission_allowlist:
+            if operation.get("security") != [{"bearerAuth": []}]:
+                violations.append(f"{method.upper()} {route} missing bearerAuth security")
+            permission = operation.get("x-wecms-permission")
+            if not isinstance(permission, str) or not permission.strip():
+                violations.append(f"{method.upper()} {route} missing x-wecms-permission")
             continue
 
         if not route.startswith("/api/v1/system/"):

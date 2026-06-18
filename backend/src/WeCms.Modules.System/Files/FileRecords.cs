@@ -8,4 +8,6 @@ public sealed record FileCreateRecord(string StorageProvider, string Bucket, str
 
 public sealed record FileAuditRecord(long ActorUserId, string ActorUsername, string Action, long TargetFileId, string Ip, string UserAgent, string TraceId, string Result, string Detail, DateTimeOffset Now);
 
-public sealed record FileDownloadRecord(string ObjectKey, string OriginalName, string MimeType, long SizeBytes, string Status);
+public sealed record FileSecurityEventRecord(string EventType, long UserId, string Username, string Ip, string Severity, string Message, DateTimeOffset CreatedAt, string TraceId = "");
+
+public sealed record FileDownloadRecord(string ObjectKey, string OriginalName, string FileExt, string MimeType, long SizeBytes, string Status);

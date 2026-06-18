@@ -212,7 +212,6 @@ public sealed class RoleRepository : IRoleRepository
                 new SugarParameter("@createdAt", now.UtcDateTime));
         }
 
-        await BumpPermissionVersionForRoleUsersAsync(id, now);
     }
 
     public async Task ReplaceMenusAsync(long id, IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken)
@@ -229,7 +228,6 @@ public sealed class RoleRepository : IRoleRepository
                 new SugarParameter("@createdAt", now.UtcDateTime));
         }
 
-        await BumpPermissionVersionForRoleUsersAsync(id, now);
     }
 
     public Task RecordAuditAsync(RoleAuditRecord record, CancellationToken cancellationToken)
@@ -282,21 +280,6 @@ public sealed class RoleRepository : IRoleRepository
         var rows = await _db.Ado.SqlQueryAsync<long>($"SELECT id FROM sys_menu WHERE id IN ({placeholders})", parameters);
 
         return rows.ToHashSet();
-    }
-
-    private Task BumpPermissionVersionForRoleUsersAsync(long roleId, DateTimeOffset now)
-    {
-        return _db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE sys_user u
-            INNER JOIN sys_user_role ur ON ur.user_id = u.id
-            SET u.permission_version = u.permission_version + 1,
-                u.updated_at = @updatedAt
-            WHERE ur.role_id = @roleId
-              AND u.deleted_at IS NULL
-            """,
-            new SugarParameter("@updatedAt", now.UtcDateTime),
-            new SugarParameter("@roleId", roleId));
     }
 
     private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)

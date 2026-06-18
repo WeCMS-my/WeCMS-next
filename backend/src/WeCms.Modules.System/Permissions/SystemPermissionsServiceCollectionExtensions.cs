@@ -8,6 +8,7 @@ public static class SystemPermissionsServiceCollectionExtensions
     {
         services.AddScoped<IPermissionChecker, PermissionChecker>();
         services.AddScoped<IPermissionManagementService, PermissionManagementService>();
+        services.AddScoped<IPermissionVersionService, PermissionVersionService>();
 
         return services;
     }

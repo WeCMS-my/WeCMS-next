@@ -2,6 +2,7 @@ using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Logs;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
@@ -73,6 +74,7 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/menus/{id:long}", "get"), (true, MenuPermissions.Detail) },
             { ("/api/v1/system/menus", "post"), (true, MenuPermissions.Create) },
             { ("/api/v1/system/menus/{id:long}", "put"), (true, MenuPermissions.Update) },
+            { ("/api/v1/system/menus/sort", "put"), (true, MenuPermissions.Sort) },
             { ("/api/v1/system/menus/{id:long}", "delete"), (true, MenuPermissions.Delete) },
             { ("/api/v1/system/menus/{id:long}/enable", "post"), (true, MenuPermissions.Enable) },
             { ("/api/v1/system/menus/{id:long}/disable", "post"), (true, MenuPermissions.Disable) },
@@ -104,13 +106,26 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/dict-types", "post"), (true, DictPermissions.TypeCreate) },
             { ("/api/v1/system/dict-types/{id:long}", "put"), (true, DictPermissions.TypeUpdate) },
             { ("/api/v1/system/dict-types/{id:long}", "delete"), (true, DictPermissions.TypeDelete) },
+            { ("/api/v1/system/dict-types/{id:long}/enable", "post"), (true, DictPermissions.TypeEnable) },
+            { ("/api/v1/system/dict-types/{id:long}/disable", "post"), (true, DictPermissions.TypeDisable) },
             { ("/api/v1/system/dict-types/{typeCode}/values", "get"), (true, DictPermissions.ValueList) },
             { ("/api/v1/system/dict-types/{typeCode}/values", "post"), (true, DictPermissions.ValueCreate) },
             { ("/api/v1/system/dict-values/{id:long}", "put"), (true, DictPermissions.ValueUpdate) },
             { ("/api/v1/system/dict-values/{id:long}", "delete"), (true, DictPermissions.ValueDelete) },
+            { ("/api/v1/system/dict-values/{id:long}/enable", "post"), (true, DictPermissions.ValueEnable) },
+            { ("/api/v1/system/dict-values/{id:long}/disable", "post"), (true, DictPermissions.ValueDisable) },
             { ("/api/v1/system/settings", "get"), (true, SettingPermissions.List) },
             { ("/api/v1/system/settings/{key}", "get"), (true, SettingPermissions.Detail) },
             { ("/api/v1/system/settings/{key}", "put"), (true, SettingPermissions.Update) },
+            { ("/api/v1/system/settings/validate-ip-rules", "post"), (true, SettingPermissions.ValidateIpRules) },
+            { ("/api/v1/system/settings/reload-cache", "post"), (true, SettingPermissions.ReloadCache) },
+            { ("/api/v1/system/i18n/messages", "get"), (true, I18nPermissions.List) },
+            { ("/api/v1/system/i18n/messages/{id:long}", "get"), (true, I18nPermissions.Detail) },
+            { ("/api/v1/system/i18n/messages", "post"), (true, I18nPermissions.Create) },
+            { ("/api/v1/system/i18n/messages/{id:long}", "put"), (true, I18nPermissions.Update) },
+            { ("/api/v1/system/i18n/messages/{id:long}", "delete"), (true, I18nPermissions.Delete) },
+            { ("/api/v1/i18n/messages", "get"), (false, null) },
+            { ("/api/v1/account/i18n/switch", "post"), (true, I18nPermissions.AccountSwitch) },
             { ("/api/v1/system/login-logs", "get"), (true, LogPermissions.LoginLogList) },
             { ("/api/v1/system/login-logs/{id:long}", "get"), (true, LogPermissions.LoginLogDetail) },
             { ("/api/v1/system/audit-logs", "get"), (true, LogPermissions.AuditLogList) },
@@ -156,7 +171,8 @@ public sealed partial class OpenApiExportTests
         return path is "/health/live" or "/health/ready"
             || path.StartsWith("/api/v1/system/", StringComparison.Ordinal)
             || path.StartsWith("/api/v1/auth/", StringComparison.Ordinal)
-            || path.StartsWith("/api/v1/account/", StringComparison.Ordinal);
+            || path.StartsWith("/api/v1/account/", StringComparison.Ordinal)
+            || path.StartsWith("/api/v1/i18n/", StringComparison.Ordinal);
     }
 
     private static string BuildEndpointKey(string path, string method)
@@ -222,6 +238,7 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "get", MenuPermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/menus", "post", MenuPermissions.Create, true, nameof(CreateMenuRequest)),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "put", MenuPermissions.Update, true, nameof(UpdateMenuRequest)),
+        new RegisteredEndpoint("/api/v1/system/menus/sort", "put", MenuPermissions.Sort, true, nameof(SortMenusRequest)),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}", "delete", MenuPermissions.Delete, true, null),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}/enable", "post", MenuPermissions.Enable, true, null),
         new RegisteredEndpoint("/api/v1/system/menus/{id:long}/disable", "post", MenuPermissions.Disable, true, null),
@@ -253,13 +270,26 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/dict-types", "post", DictPermissions.TypeCreate, true, nameof(CreateDictTypeRequest)),
         new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "put", DictPermissions.TypeUpdate, true, nameof(UpdateDictTypeRequest)),
         new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "delete", DictPermissions.TypeDelete, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}/enable", "post", DictPermissions.TypeEnable, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}/disable", "post", DictPermissions.TypeDisable, true, nameof(DisableDictTypeRequest)),
         new RegisteredEndpoint("/api/v1/system/dict-types/{typeCode}/values", "get", DictPermissions.ValueList, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types/{typeCode}/values", "post", DictPermissions.ValueCreate, true, nameof(CreateDictValueRequest)),
         new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}", "put", DictPermissions.ValueUpdate, true, nameof(UpdateDictValueRequest)),
         new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}", "delete", DictPermissions.ValueDelete, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}/enable", "post", DictPermissions.ValueEnable, true, null),
+        new RegisteredEndpoint("/api/v1/system/dict-values/{id:long}/disable", "post", DictPermissions.ValueDisable, true, null),
         new RegisteredEndpoint("/api/v1/system/settings", "get", SettingPermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/settings/{key}", "get", SettingPermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/settings/{key}", "put", SettingPermissions.Update, true, nameof(UpdateSettingRequest)),
+        new RegisteredEndpoint("/api/v1/system/settings/validate-ip-rules", "post", SettingPermissions.ValidateIpRules, true, nameof(ValidateIpRulesRequest)),
+        new RegisteredEndpoint("/api/v1/system/settings/reload-cache", "post", SettingPermissions.ReloadCache, true, null),
+        new RegisteredEndpoint("/api/v1/system/i18n/messages", "get", I18nPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/i18n/messages/{id:long}", "get", I18nPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/i18n/messages", "post", I18nPermissions.Create, true, nameof(CreateI18nMessageRequest)),
+        new RegisteredEndpoint("/api/v1/system/i18n/messages/{id:long}", "put", I18nPermissions.Update, true, nameof(UpdateI18nMessageRequest)),
+        new RegisteredEndpoint("/api/v1/system/i18n/messages/{id:long}", "delete", I18nPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/i18n/messages", "get", null, false, null),
+        new RegisteredEndpoint("/api/v1/account/i18n/switch", "post", I18nPermissions.AccountSwitch, true, nameof(SwitchAccountLocaleRequest)),
         new RegisteredEndpoint("/api/v1/system/login-logs", "get", LogPermissions.LoginLogList, true, null),
         new RegisteredEndpoint("/api/v1/system/login-logs/{id:long}", "get", LogPermissions.LoginLogDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/audit-logs", "get", LogPermissions.AuditLogList, true, null),

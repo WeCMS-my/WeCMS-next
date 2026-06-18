@@ -1,10 +1,12 @@
 using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
+using WeCms.Api.RateLimiting;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Logs;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
@@ -30,10 +32,12 @@ var builder = WebApplication.CreateSlimBuilder(args);
 builder.Services.AddWeCmsPersistence(builder.Configuration);
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
+builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);
 builder.Services.AddWeCmsSystemDepartments();
 builder.Services.AddWeCmsSystemDicts();
 builder.Services.AddWeCmsSystemFiles();
+builder.Services.AddWeCmsSystemI18n();
 builder.Services.AddWeCmsSystemLogs();
 builder.Services.AddWeCmsSystemMenus();
 builder.Services.AddWeCmsSystemPermissions();
@@ -43,6 +47,7 @@ builder.Services.AddWeCmsSystemSecurity();
 builder.Services.AddWeCmsSystemSettings();
 builder.Services.AddWeCmsSystemTwoFactor(builder.Configuration);
 builder.Services.AddWeCmsSystemUsers();
+builder.Services.AddWeCmsRateLimiting(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, WeCmsJsonSerializerContext.Default);
@@ -51,16 +56,19 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 var app = builder.Build();
 
 app.UseMiddleware<RequestIdMiddleware>();
+app.UseMiddleware<SecureHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<IpAccessControlMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<SecurityBanMiddleware>();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapAuditLogEndpoints();
 app.MapDepartmentEndpoints();
 app.MapDictEndpoints();
 app.MapFileEndpoints();
+app.MapI18nEndpoints();
 app.MapLoginLogEndpoints();
 app.MapSystemEndpoints();
 app.MapAuthEndpoints();

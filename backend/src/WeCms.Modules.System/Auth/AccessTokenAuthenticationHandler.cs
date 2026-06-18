@@ -59,6 +59,8 @@ public sealed class AccessTokenAuthenticationHandler : AuthenticationHandler<Aut
             return AuthenticateResult.Fail("Authentication is required.");
         }
 
+        Response.Headers["X-Permission-Version"] = user.PermissionVersion.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, principal.UserId.ToString(global::System.Globalization.CultureInfo.InvariantCulture)),

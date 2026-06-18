@@ -5,6 +5,7 @@ import type {
   MenuDetailDto,
   MenuMutationResponse,
   MenuTreeList,
+  SortMenusRequest,
   UpdateMenuRequest
 } from "./types/generated";
 
@@ -25,6 +26,13 @@ export function createMenuApi(request: CreateMenuRequest): Promise<ApiResult<Men
 
 export function updateMenuApi(id: number, request: UpdateMenuRequest): Promise<ApiResult<MenuMutationResponse>> {
   return requestJson<MenuMutationResponse>(`/api/v1/system/menus/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(request)
+  });
+}
+
+export function sortMenuApi(request: SortMenusRequest): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>("/api/v1/system/menus/sort", {
     method: "PUT",
     body: JSON.stringify(request)
   });

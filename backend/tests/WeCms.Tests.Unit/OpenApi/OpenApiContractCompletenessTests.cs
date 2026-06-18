@@ -3,6 +3,7 @@ using WeCms.Api.Extensions;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.Posts;
@@ -99,6 +100,16 @@ public sealed class OpenApiContractCompletenessTests
                 schemas.GetProperty(nameof(UpdateDictValueRequest)),
                 required: ["label", "value", "sortOrder", "isDefault", "status"],
                 optional: ["description"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(CreateI18nMessageRequest)),
+                required: ["locale", "module", "messageKey", "messageValue", "status"],
+                optional: ["remark"]);
+
+            AssertSchemaProperties(
+                schemas.GetProperty(nameof(UpdateI18nMessageRequest)),
+                required: ["module", "messageValue", "status"],
+                optional: ["remark"]);
         }
         finally
         {
@@ -147,7 +158,9 @@ public sealed class OpenApiContractCompletenessTests
 
         Assert.Contains("\"/api/v1/system/files/{id:long}/download\": {\"get\"}", openApiCoverage, StringComparison.Ordinal);
         Assert.Contains("\"/api/v1/system/files/{id:long}/preview\": {\"get\"}", openApiCoverage, StringComparison.Ordinal);
+        Assert.Contains("\"/api/v1/system/i18n/messages\": {\"get\", \"post\"}", openApiCoverage, StringComparison.Ordinal);
         Assert.Contains("\"sys:file:download\"", permissionCoverage, StringComparison.Ordinal);
+        Assert.Contains("\"sys:i18n:list\"", permissionCoverage, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -11,7 +11,7 @@ public sealed class FileServiceTests
     [Fact]
     public async Task CreateAsync_RejectsFileLargerThanTenMiB()
     {
-        var service = new FileService(new FakeFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService();
         var oversizedFile = CreateFormFile("a.pdf", "application/pdf", new byte[(int)(10 * 1024 * 1024 + 1)]);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -27,7 +27,8 @@ public sealed class FileServiceTests
     [Fact]
     public async Task CreateAsync_RejectsDisallowedMimeType()
     {
-        var service = new FileService(new FakeFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var repository = new FakeFileRepository();
+        var service = CreateService(repository);
         var file = CreateFormFile("a.pdf", "application/pdf", [0x25, 0x50, 0x44, 0x46, 0x2D]);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -38,12 +39,14 @@ public sealed class FileServiceTests
                 CancellationToken.None));
 
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal("file_upload_rejected", repository.LastSecurityEvent?.EventType);
+        Assert.Equal("warning", repository.LastSecurityEvent?.Severity);
     }
 
     [Fact]
     public async Task CreateAsync_RejectsDisallowedExtension()
     {
-        var service = new FileService(new FakeFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService();
         var file = CreateFormFile("a.exe", "text/plain", [0x41, 0x42, 0x43]);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -56,10 +59,32 @@ public sealed class FileServiceTests
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
     }
 
+    [Theory]
+    [InlineData("bad\rname.pdf")]
+    [InlineData("bad\nname.pdf")]
+    [InlineData("bad\"name.pdf")]
+    [InlineData("bad\\name.pdf")]
+    [InlineData("bad;name.pdf")]
+    public async Task CreateAsync_RejectsHeaderDangerousOriginalName(string originalName)
+    {
+        var service = CreateService();
+        var file = CreateFormFile("safe.pdf", "application/pdf", [0x25, 0x50, 0x44, 0x46, 0x2D]);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(
+                new CreateFileRequest(originalName, "application/pdf", file.Length, "a".PadLeft(64, '0')),
+                file,
+                Context(),
+                CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal("originalName contains invalid characters.", exception.Message);
+    }
+
     [Fact]
     public async Task CreateAsync_RejectsSha256Mismatch()
     {
-        var service = new FileService(new FakeFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService();
         var file = CreateFormFile("a.pdf", "application/pdf", [0x25, 0x50, 0x44, 0x46, 0x2D]);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -76,7 +101,7 @@ public sealed class FileServiceTests
     public async Task CreateAsync_CreatesMetadataWhenContentMatches()
     {
         var repository = new RecordingFileRepository();
-        var service = new FileService(repository, new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService(repository);
         var content = Encoding.UTF8.GetBytes("sample content");
         var file = CreateFormFile("upload.pdf", "application/pdf", content);
         var sha = ComputeSha256(content);
@@ -95,12 +120,45 @@ public sealed class FileServiceTests
         Assert.Equal(content.Length, repository.Recorded!.SizeBytes);
         Assert.Equal(sha, repository.Recorded!.Sha256);
         Assert.Equal("active", repository.Recorded!.Status);
+        Assert.StartsWith("documents/", repository.Recorded!.ObjectKey, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsAvatarPolicyForSystemFileUpload()
+    {
+        var service = CreateService();
+        var content = Encoding.UTF8.GetBytes("sample content");
+        var file = CreateFormFile("upload.pdf", "application/pdf", content);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.CreateAsync(
+            new CreateFileRequest("upload.pdf", "application/pdf", content.Length, ComputeSha256(content), "avatar"),
+            file,
+            Context(),
+            CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsImagePolicyWhenImageStructureIsInvalid()
+    {
+        var service = CreateService();
+        var content = Encoding.UTF8.GetBytes("not a real png");
+        var file = CreateFormFile("upload.png", "image/png", content);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.CreateAsync(
+            new CreateFileRequest("upload.png", "image/png", content.Length, ComputeSha256(content), "image"),
+            file,
+            Context(),
+            CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
     }
 
     [Fact]
     public async Task GetAsync_DoesNotExposeObjectKey()
     {
-        var service = new FileService(new FakeFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService();
 
         var detail = await service.GetAsync(1, CancellationToken.None);
 
@@ -116,16 +174,27 @@ public sealed class FileServiceTests
     [Fact]
     public async Task GetDownloadPayloadAsync_ReturnsFileStream()
     {
-        var service = new FileService(new FakeFileRepository("active"), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService(new FakeFileRepository("active"));
 
         var payload = await service.GetDownloadPayloadAsync(1, false, Context(), CancellationToken.None);
 
         Assert.Equal("a.pdf", payload.FileName);
         Assert.Equal("application/pdf", payload.ContentType);
         Assert.Equal(5, payload.SizeBytes);
+        Assert.False(payload.Inline);
         using var memory = new MemoryStream();
         await payload.Content.CopyToAsync(memory, CancellationToken.None);
         Assert.Equal(5, memory.Length);
+    }
+
+    [Fact]
+    public async Task GetDownloadPayloadAsync_ForcesDocumentPreviewToAttachment()
+    {
+        var service = CreateService(new FakeFileRepository("active"));
+
+        var payload = await service.GetDownloadPayloadAsync(1, true, Context(), CancellationToken.None);
+
+        Assert.False(payload.Inline);
     }
 
     [Theory]
@@ -133,7 +202,7 @@ public sealed class FileServiceTests
     [InlineData("deleted")]
     public async Task GetDownloadPayloadAsync_ReturnsNotFoundWhenStatusIsNotActive(string status)
     {
-        var service = new FileService(new FakeFileRepository(status), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService(new FakeFileRepository(status));
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.GetDownloadPayloadAsync(1, false, Context(), CancellationToken.None));
@@ -144,7 +213,7 @@ public sealed class FileServiceTests
     [Fact]
     public async Task GetDownloadPayloadAsync_ReturnsNotFoundWhenMissing()
     {
-        var service = new FileService(new MissingFileRepository(), new FakeFileStorage(), new FakeObjectKeyGenerator());
+        var service = CreateService(new MissingFileRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.GetDownloadPayloadAsync(1, false, Context(), CancellationToken.None));
@@ -160,10 +229,16 @@ public sealed class FileServiceTests
 
         public Task<PagedResult<FileSummaryDto>> ListAsync(FileListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<FileSummaryDto>([], criteria.Page, criteria.PageSize, 0));
         public Task<FileDetailDto?> GetAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDetailDto?>(new FileDetailDto(id, "a.pdf", ".pdf", "application/pdf", 100, "a".PadLeft(64, '0'), "active", 1, DateTimeOffset.UnixEpoch));
-        public Task<FileDownloadRecord?> GetDownloadAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDownloadRecord?>(new FileDownloadRecord("a", "a.pdf", "application/pdf", 5, _status));
+        public Task<FileDownloadRecord?> GetDownloadAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDownloadRecord?>(new FileDownloadRecord("a", "a.pdf", ".pdf", "application/pdf", 5, _status));
         public Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken) => Task.FromResult(1L);
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task RecordAuditAsync(FileAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
+        public FileSecurityEventRecord? LastSecurityEvent { get; private set; }
+        public Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken)
+        {
+            LastSecurityEvent = record;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingFileRepository : IFileRepository
@@ -181,6 +256,7 @@ public sealed class FileServiceTests
 
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task RecordAuditAsync(FileAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class MissingFileRepository : IFileRepository
@@ -191,6 +267,7 @@ public sealed class FileServiceTests
         public Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken) => Task.FromResult(1L);
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task RecordAuditAsync(FileAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeFileStorage : IFileStorage
@@ -238,6 +315,15 @@ public sealed class FileServiceTests
         {
             return $"2026/06/test{fileExt}";
         }
+    }
+
+    private static FileService CreateService(IFileRepository? repository = null)
+    {
+        return new FileService(
+            repository ?? new FakeFileRepository(),
+            new FakeFileStorage(),
+            new FakeObjectKeyGenerator(),
+            new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
     }
 
     private static string ComputeSha256(byte[] bytes)

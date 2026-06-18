@@ -51,4 +51,5 @@ public sealed record UserSecurityEventRecord(
     string Ip,
     string Severity,
     string Message,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string TraceId = "");

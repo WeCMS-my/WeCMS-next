@@ -57,7 +57,7 @@ public sealed class TotpService : ITotpService
                 continue;
             }
 
-            var replay = lastTotpStep.HasValue && lastTotpStep.Value == step;
+            var replay = lastTotpStep.HasValue && lastTotpStep.Value >= step;
             return new TotpVerificationResult(!replay, replay, step);
         }
 

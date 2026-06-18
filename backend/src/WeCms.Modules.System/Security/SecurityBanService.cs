@@ -140,7 +140,8 @@ public sealed class SecurityBanService : ISecurityBanService
                 context.Ip,
                 NormalizeSeverity(ban.Severity),
                 "Security ban matched request.",
-                context.Now),
+                context.Now,
+                context.TraceId),
             cancellationToken);
     }
 
@@ -182,7 +183,8 @@ public sealed class SecurityBanService : ISecurityBanService
                 context.Ip,
                 NormalizeSeverity(ban.Severity),
                 message,
-                context.Now),
+                context.Now,
+                context.TraceId),
             cancellationToken);
     }
 

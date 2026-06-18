@@ -13,7 +13,7 @@
     "build": "vue-tsc --noEmit -p tsconfig.json && vite build",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
-    "test:config": "node --test tests/vite-dev-proxy.test.mjs tests/two-factor-flow.test.mjs"
+    "test:config": "node --test tests/vite-dev-proxy.test.mjs tests/request-base-url.test.mjs tests/two-factor-flow.test.mjs tests/permission-version-flow.test.mjs"
   },
   "dependencies": {
     "@unocss/reset": "^66.5.10",

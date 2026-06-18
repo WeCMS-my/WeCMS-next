@@ -9,10 +9,10 @@ public sealed record FileSummaryDto(long Id, string OriginalName, string FileExt
 
 public sealed record FileDetailDto(long Id, string OriginalName, string FileExt, string MimeType, long SizeBytes, string Sha256, string Status, long CreatedBy, DateTimeOffset CreatedAt);
 
-public sealed record CreateFileRequest(string OriginalName, string MimeType, long SizeBytes, string Sha256);
+public sealed record CreateFileRequest(string OriginalName, string MimeType, long SizeBytes, string Sha256, string? Policy = null);
 
 public sealed record FileMutationResponse(long Id);
-public sealed record FileDownloadPayload(Stream Content, string ContentType, string FileName, long SizeBytes);
+public sealed record FileDownloadPayload(Stream Content, string ContentType, string FileName, long SizeBytes, bool Inline);
 
 public interface IFileService
 {

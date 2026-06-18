@@ -20,6 +20,7 @@ public sealed class MenuApiScanTests
         Assert.Contains("MapGet(\"/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPut(\"/{id:long}\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPut(\"/sort\"", source, StringComparison.Ordinal);
         Assert.Contains("MapDelete(\"/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/enable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/disable\"", source, StringComparison.Ordinal);
@@ -28,6 +29,7 @@ public sealed class MenuApiScanTests
         Assert.Contains("RequirePermission(MenuPermissions.Detail)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(MenuPermissions.Create)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(MenuPermissions.Update)", source, StringComparison.Ordinal);
+        Assert.Contains("RequirePermission(MenuPermissions.Sort)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(MenuPermissions.Delete)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(MenuPermissions.Enable)", source, StringComparison.Ordinal);
         Assert.Contains("RequirePermission(MenuPermissions.Disable)", source, StringComparison.Ordinal);

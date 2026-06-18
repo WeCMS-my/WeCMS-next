@@ -39,7 +39,7 @@ public static partial class OpenApiExtensions
         return new JsonObject
         {
             ["type"] = "object",
-            ["required"] = Required("id", "eventType", "severity", "message", "createdAt"),
+            ["required"] = Required("id", "eventType", "severity", "source", "traceId", "message", "createdAt"),
             ["properties"] = new JsonObject
             {
                 ["id"] = IntegerSchema(),
@@ -48,6 +48,8 @@ public static partial class OpenApiExtensions
                 ["username"] = NullableStringSchema(),
                 ["ip"] = NullableStringSchema(),
                 ["severity"] = StringSchema(),
+                ["source"] = StringSchema(),
+                ["traceId"] = StringSchema(),
                 ["message"] = StringSchema(),
                 ["createdAt"] = DateTimeSchema()
             }

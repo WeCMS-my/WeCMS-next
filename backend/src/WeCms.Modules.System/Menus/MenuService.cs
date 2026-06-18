@@ -1,14 +1,21 @@
 using WeCms.Shared;
+using WeCms.Shared.Data;
+using WeCms.Modules.System.Permissions;
 
 namespace WeCms.Modules.System.Menus;
 
 public sealed class MenuService : IMenuService
 {
+    private const int MaxSortItems = 200;
     private readonly IMenuRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IPermissionVersionService _permissionVersionService;
 
-    public MenuService(IMenuRepository repository)
+    public MenuService(IMenuRepository repository, IUnitOfWork unitOfWork, IPermissionVersionService permissionVersionService)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
+        _permissionVersionService = permissionVersionService;
     }
 
     public Task<IReadOnlyList<MenuSummaryDto>> ListAsync(CancellationToken cancellationToken)
@@ -83,8 +90,60 @@ public sealed class MenuService : IMenuService
                 status,
                 context.Now),
             cancellationToken);
+        await _permissionVersionService.BumpUsersByMenuAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "update", id, "success", "Menu updated.", cancellationToken);
         return new MenuMutationResponse(id);
+    }
+
+    public async Task SortAsync(SortMenusRequest request, MenuRequestContext context, CancellationToken cancellationToken)
+    {
+        if (request.Items.Count is 0 or > MaxSortItems)
+        {
+            throw Validation($"items must contain between 1 and {MaxSortItems} menus.");
+        }
+
+        var normalizedItems = request.Items
+            .Select(item => item with { ParentId = NormalizeSortParentId(item.ParentId) })
+            .ToArray();
+
+        if (normalizedItems.Any(item => item.Id <= 0 || item.ParentId is < 0))
+        {
+            throw Validation("menu ids and parent ids must be positive.");
+        }
+
+        var duplicateId = normalizedItems
+            .GroupBy(item => item.Id)
+            .FirstOrDefault(group => group.Count() > 1)
+            ?.Key;
+        if (duplicateId is not null)
+        {
+            throw Validation("items cannot contain duplicate menu ids.");
+        }
+
+        EnsureNoRequestedCycles(normalizedItems);
+
+        var records = new List<MenuSortRecord>(normalizedItems.Length);
+        foreach (var item in normalizedItems)
+        {
+            var menu = await GetAsync(item.Id, cancellationToken);
+            EnsureNotBuiltin(menu.IsBuiltin, "sort");
+            await EnsureParentAsync(item.Id, item.ParentId, cancellationToken);
+            records.Add(new MenuSortRecord(item.Id, item.ParentId, item.Sort, context.Now));
+        }
+
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SortAsync(records, cancellationToken);
+            await _permissionVersionService.BumpUsersByMenusAsync(records.Select(record => record.Id).ToArray(), context.Now, cancellationToken);
+            await AuditAsync(context, "sort", 0, "success", $"Sorted {records.Count} menus.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task DeleteAsync(long id, MenuRequestContext context, CancellationToken cancellationToken)
@@ -101,6 +160,7 @@ public sealed class MenuService : IMenuService
         }
 
         await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByMenuAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "delete", id, "success", "Menu deleted.", cancellationToken);
     }
 
@@ -109,6 +169,7 @@ public sealed class MenuService : IMenuService
         var menu = await GetAsync(id, cancellationToken);
         EnsureNotBuiltin(menu.IsBuiltin, "enable");
         await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByMenuAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Menu enabled.", cancellationToken);
     }
 
@@ -117,6 +178,7 @@ public sealed class MenuService : IMenuService
         var menu = await GetAsync(id, cancellationToken);
         EnsureNotBuiltin(menu.IsBuiltin, "disable");
         await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByMenuAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Menu disabled.", cancellationToken);
     }
 
@@ -124,7 +186,14 @@ public sealed class MenuService : IMenuService
     {
         if (isBuiltin)
         {
-            throw new DomainException(ApiCodes.BusinessError, $"System built-in menus cannot be {action}d.");
+            var verb = action switch
+            {
+                "enable" => "enabled",
+                "disable" => "disabled",
+                "sort" => "sorted",
+                _ => $"{action}d"
+            };
+            throw new DomainException(ApiCodes.BusinessError, $"System built-in menus cannot be {verb}.");
         }
     }
 
@@ -154,6 +223,30 @@ public sealed class MenuService : IMenuService
         {
             throw new DomainException(ApiCodes.BusinessError, "Menu parent cannot be a descendant.");
         }
+    }
+
+    private static void EnsureNoRequestedCycles(IReadOnlyList<SortMenuItemRequest> items)
+    {
+        var parentById = items.ToDictionary(item => item.Id, item => item.ParentId);
+        foreach (var item in items)
+        {
+            var seen = new HashSet<long> { item.Id };
+            var parentId = item.ParentId;
+            while (parentId is not null && parentById.TryGetValue(parentId.Value, out var nextParentId))
+            {
+                if (!seen.Add(parentId.Value))
+                {
+                    throw new DomainException(ApiCodes.BusinessError, "Menu sort request cannot create a cycle.");
+                }
+
+                parentId = nextParentId;
+            }
+        }
+    }
+
+    private static long? NormalizeSortParentId(long? parentId)
+    {
+        return parentId == 0 ? null : parentId;
     }
 
     private async Task EnsureCodeUniqueAsync(string code, long? exceptMenuId, CancellationToken cancellationToken)

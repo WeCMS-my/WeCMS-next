@@ -199,7 +199,7 @@ public sealed class AccountTwoFactorService : IAccountTwoFactorService
         CancellationToken cancellationToken)
     {
         await _authRepository.RecordSecurityEventAsync(
-            new SecurityEventRecord(eventType, user.Id, user.Username, requestContext.Ip, severity, message, now),
+            new SecurityEventRecord(eventType, user.Id, user.Username, requestContext.Ip, severity, message, now, requestContext.TraceId),
             cancellationToken);
     }
 

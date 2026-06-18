@@ -1,18 +1,22 @@
 using System.Linq;
 using SqlSugar;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.Roles;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Modules.System.Users;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
+using WeCms.Persistence.Modules.System.Permissions;
 using WeCms.Persistence.Modules.System.Roles;
 using WeCms.Persistence.Modules.System.Users;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Authz;
 
-public sealed class LockedRoleIntegrationTests
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
 {
 
     [DbFact]
@@ -26,7 +30,10 @@ public sealed class LockedRoleIntegrationTests
         {
             var roleId = Scalar<long>(db, "SELECT id FROM sys_role WHERE code = 'super_admin'");
             var originalPermissionCount = Scalar<int>(db, "SELECT COUNT(1) FROM sys_role_permission WHERE role_id = @roleId", new SugarParameter("@roleId", roleId));
-            var service = new RoleService(new RoleRepository(db), new SqlSugarUnitOfWork(db));
+            var service = new RoleService(
+                new RoleRepository(db),
+                new SqlSugarUnitOfWork(db),
+                new PermissionVersionService(new PermissionVersionRepository(db)));
 
             var exception = await Assert.ThrowsAsync<DomainException>(
                 () => service.AssignPermissionsAsync(
@@ -290,11 +297,9 @@ public sealed class LockedRoleIntegrationTests
         }
     }
 
-    private static Task PrepareSharedTestDatabaseAsync(ISqlSugarClient db)
+    private static async Task PrepareSharedTestDatabaseAsync(ISqlSugarClient db)
     {
-        return Task.WhenAll(
-            new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations")),
-            new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null)));
+        await PrepareDatabaseWithSeedsAsync(db);
     }
 
     private static async Task<LockedRoleFixture> CreateLockedRoleUsersAsync(ISqlSugarClient db, string prefix)
@@ -358,10 +363,11 @@ public sealed class LockedRoleIntegrationTests
     private static UserService CreateUserService(ISqlSugarClient db)
     {
         return new UserService(
-            new UserRepository(db),
+            new UserRepository(db, new SecurityEventClassifier()),
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
-            new FakeTwoFactorService());
+            new FakeTwoFactorService(),
+            new PermissionVersionService(new PermissionVersionRepository(db)));
     }
 
     private sealed record ConcurrentLockedRoleOutcome(bool Success, int Code);

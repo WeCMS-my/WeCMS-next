@@ -74,6 +74,6 @@ public sealed class AuditLogServiceTests
 
         public Task<PagedResult<SecurityEventSummaryDto>> ListSecurityEventsAsync(SecurityEventListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<SecurityEventSummaryDto>([], criteria.Page, criteria.PageSize, 0));
 
-        public Task<SecurityEventDetailDto?> GetSecurityEventAsync(long id, CancellationToken cancellationToken) => Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "message", DateTimeOffset.UnixEpoch));
+        public Task<SecurityEventDetailDto?> GetSecurityEventAsync(long id, CancellationToken cancellationToken) => Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "auth", "trace", "message", DateTimeOffset.UnixEpoch));
     }
 }

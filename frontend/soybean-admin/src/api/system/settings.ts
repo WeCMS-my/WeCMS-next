@@ -4,7 +4,9 @@ import type {
   PagedSettingSummary,
   SettingDetailDto,
   SettingMutationResponse,
-  UpdateSettingRequest
+  UpdateSettingRequest,
+  ValidateIpRulesRequest,
+  ValidateIpRulesResponse
 } from "@/api/types/generated";
 
 export interface SettingListQuery {
@@ -33,6 +35,17 @@ export function updateSettingApi(key: string, request: UpdateSettingRequest): Pr
     method: "PUT",
     body: JSON.stringify(request)
   });
+}
+
+export function validateIpRulesApi(request: ValidateIpRulesRequest): Promise<ApiResult<ValidateIpRulesResponse>> {
+  return requestJson<ValidateIpRulesResponse>("/api/v1/system/settings/validate-ip-rules", {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function reloadSettingCacheApi(): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>("/api/v1/system/settings/reload-cache", { method: "POST" });
 }
 
 function appendParam(params: URLSearchParams, key: string, value?: string): void {

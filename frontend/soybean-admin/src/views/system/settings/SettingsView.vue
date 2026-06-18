@@ -2,12 +2,14 @@
 import { computed, h, onMounted, reactive, ref } from "vue";
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NSpace, NTag, useMessage } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
-import { getSettingApi, getSettingsApi, updateSettingApi } from "@/api/system/settings";
+import { getSettingApi, getSettingsApi, reloadSettingCacheApi, updateSettingApi, validateIpRulesApi } from "@/api/system/settings";
 import type { SettingSummaryDto } from "@/api/types/generated";
+import { apiErrorMessage } from "@/utils/api-error";
 
 const message = useMessage();
 const rows = ref<SettingSummaryDto[]>([]);
 const loading = ref(false);
+const submitting = ref(false);
 const editVisible = ref(false);
 const query = reactive({ keyword: "", groupCode: "", page: 1, pageSize: 20 });
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 });
@@ -61,10 +63,33 @@ async function submit(): Promise<void> {
     message.error("敏感配置更新必须输入新值。");
     return;
   }
-  await updateSettingApi(form.key, { value: form.value });
-  message.success("系统设置已更新。");
-  editVisible.value = false;
-  await loadSettings();
+  submitting.value = true;
+  try {
+    if (isIpRuleSetting(form.key)) {
+      await validateIpRulesApi({ rules: form.value });
+    }
+
+    await updateSettingApi(form.key, { value: form.value });
+    message.success("系统设置已更新。");
+    editVisible.value = false;
+    await loadSettings();
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function reloadCache(): Promise<void> {
+  submitting.value = true;
+  try {
+    await reloadSettingCacheApi();
+    message.success("设置缓存已刷新。");
+  } catch (error) {
+    message.error(apiErrorMessage(error));
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function renderValue(row: SettingSummaryDto): string {
@@ -72,6 +97,10 @@ function renderValue(row: SettingSummaryDto): string {
     return "******";
   }
   return row.value ?? "";
+}
+
+function isIpRuleSetting(key: string): boolean {
+  return key === "security.ipAllowRules" || key === "security.ipDenyRules";
 }
 </script>
 
@@ -82,6 +111,7 @@ function renderValue(row: SettingSummaryDto): string {
         <NInput v-model:value="query.keyword" clearable placeholder="关键词" />
         <NInput v-model:value="query.groupCode" clearable placeholder="分组编码" />
         <NButton type="primary" @click="search">查询</NButton>
+        <PermissionButton :loading="submitting" :permissions="['sys:setting:reload-cache']" @click="reloadCache">刷新缓存</PermissionButton>
       </NSpace>
       <NDataTable
         :columns="columns"
@@ -104,8 +134,8 @@ function renderValue(row: SettingSummaryDto): string {
           />
         </NFormItem>
         <NSpace justify="end">
-          <NButton @click="editVisible = false">取消</NButton>
-          <NButton type="primary" @click="submit">保存</NButton>
+          <NButton :disabled="submitting" @click="editVisible = false">取消</NButton>
+          <NButton type="primary" :loading="submitting" @click="submit">保存</NButton>
         </NSpace>
       </NForm>
     </NModal>

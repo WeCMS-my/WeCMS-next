@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Departments;
@@ -18,11 +20,11 @@ public static class DepartmentEndpoints
         group.MapGet("", ListAsync).RequirePermission(DepartmentPermissions.List);
         group.MapGet("/tree", TreeAsync).RequirePermission(DepartmentPermissions.Tree);
         group.MapGet("/{id:long}", DetailAsync).RequirePermission(DepartmentPermissions.Detail);
-        group.MapPost("", CreateAsync).RequirePermission(DepartmentPermissions.Create);
-        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(DepartmentPermissions.Update);
-        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(DepartmentPermissions.Delete);
-        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(DepartmentPermissions.Enable);
-        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(DepartmentPermissions.Disable);
+        group.MapPost("", CreateAsync).RequirePermission(DepartmentPermissions.Create).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(DepartmentPermissions.Update).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(DepartmentPermissions.Delete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(DepartmentPermissions.Enable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(DepartmentPermissions.Disable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }

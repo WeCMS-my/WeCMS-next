@@ -28,6 +28,14 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 - 架构测试和脚本必须持续检查 Persistence、Layer、DI 边界。
 - 后续新增数据库访问必须从模块 port 到 Persistence adapter 闭环实现。
 
+### Migration / Seed SQL contract
+
+- `DbMigrationRunner.SplitSqlStatements()` and `SeedRunner` currently support only simple statement-oriented SQL files.
+- Statements are split by line endings that terminate with `;`, and lines starting with `--` are skipped as comments.
+- `ExtractCreatedTableNames()` only recognizes `CREATE TABLE ...` statements that begin on a single logical line.
+- Therefore `database/migrations/*.sql` and `database/seeds/*.sql` must not contain `DELIMITER`, stored procedures, triggers, functions, or any body that relies on internal semicolons or multi-line parser semantics.
+- If future schema work requires those features, the change must first introduce a stricter parser or a different migration execution contract, with dedicated tests and spec coverage.
+
 ### P2-003 数据访问策略（当前阶段）
 
 - 保持 `WeCms.Persistence` 的 SQL-first 实施：在已迁移的 AuthRepository 场景中，优先保留显式参数化 SQL，确保行为可控、可审计。

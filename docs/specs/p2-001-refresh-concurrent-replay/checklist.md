@@ -1,0 +1,9 @@
+- [ ] Spec preserves current 2-second concurrent replay tolerance.
+- [ ] Within-window concurrent replay emits `auth.refresh_concurrent_replay`.
+- [ ] Outside-window reuse still emits `auth.refresh_reuse`.
+- [ ] Within-window concurrent replay does not revoke the active rotated token family.
+- [ ] Long-after-window reuse still revokes the whole token family.
+- [ ] ADR documents threat model, rationale, and residual risk.
+- [ ] Task-scoped backend tests pass.
+- [ ] Backend quality gate passes.
+- [ ] Audit confirms no unintended HTTP contract change.
