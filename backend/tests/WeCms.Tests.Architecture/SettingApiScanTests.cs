@@ -12,9 +12,13 @@ public sealed class SettingApiScanTests
         Assert.Contains("MapGet(\"/settings\"", source);
         Assert.Contains("MapGet(\"/settings/{key}\"", source);
         Assert.Contains("MapPut(\"/settings/{key}\"", source);
+        Assert.Contains("MapPost(\"/settings/validate-ip-rules\"", source);
+        Assert.Contains("MapPost(\"/settings/reload-cache\"", source);
         Assert.Contains("RequirePermission(SettingPermissions.List)", source);
         Assert.Contains("RequirePermission(SettingPermissions.Detail)", source);
         Assert.Contains("RequirePermission(SettingPermissions.Update)", source);
+        Assert.Contains("RequirePermission(SettingPermissions.ValidateIpRules)", source);
+        Assert.Contains("RequirePermission(SettingPermissions.ReloadCache)", source);
     }
 
     [Fact]

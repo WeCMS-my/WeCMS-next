@@ -189,6 +189,27 @@ public sealed class MenuRepository : IMenuRepository
             new SugarParameter("@updatedAt", record.Now.UtcDateTime));
     }
 
+    public async Task SortAsync(IReadOnlyList<MenuSortRecord> records, CancellationToken cancellationToken)
+    {
+        foreach (var record in records)
+        {
+            await ExpectOneAsync(
+                """
+                UPDATE sys_menu
+                SET parent_id = @parentId,
+                    sort = @sort,
+                    updated_at = @updatedAt
+                WHERE id = @id
+                  AND deleted_at IS NULL
+                """,
+                cancellationToken,
+                new SugarParameter("@id", record.Id),
+                new SugarParameter("@parentId", record.ParentId),
+                new SugarParameter("@sort", record.Sort),
+                new SugarParameter("@updatedAt", record.Now.UtcDateTime));
+        }
+    }
+
     public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken)
     {
         return ExpectOneAsync(

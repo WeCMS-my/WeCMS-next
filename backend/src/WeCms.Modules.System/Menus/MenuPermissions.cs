@@ -7,6 +7,7 @@ public static class MenuPermissions
     public const string Detail = "sys:menu:detail";
     public const string Create = "sys:menu:create";
     public const string Update = "sys:menu:update";
+    public const string Sort = "sys:menu:sort";
     public const string Delete = "sys:menu:delete";
     public const string Enable = "sys:menu:enable";
     public const string Disable = "sys:menu:disable";

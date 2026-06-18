@@ -22,15 +22,32 @@ public sealed partial class AuthServiceTests
         var tokenOptions = new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7));
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(new FixedAuthTokenEntropy());
-        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
-        return new AuthService(
+        var auditWriter = new AuthAuditWriter(repository, clock);
+        var securityEventWriter = new AuthSecurityEventWriter(repository);
+        var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
-            new PasswordHasher(),
             accessTokenService,
             refreshTokenService,
             clock,
             unitOfWork,
+            auditWriter,
+            securityEventWriter);
+        var logoutTokenRevoker = new LogoutTokenRevoker(
+            repository,
+            refreshTokenService,
+            clock,
+            auditWriter,
+            securityEventWriter);
+        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
+        return new AuthService(
+            repository,
+            new PasswordHasher(),
+            clock,
             limiter,
+            auditWriter,
+            securityEventWriter,
+            refreshTokenRotationService,
+            logoutTokenRevoker,
             sessionIssuer,
             new AuthTwoFactorChallengeService(
                 repository,
@@ -52,15 +69,32 @@ public sealed partial class AuthServiceTests
         var tokenOptions = new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7));
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(new FixedAuthTokenEntropy());
-        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
-        return new AuthService(
+        var auditWriter = new AuthAuditWriter(repository, clock);
+        var securityEventWriter = new AuthSecurityEventWriter(repository);
+        var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
-            new PasswordHasher(),
             accessTokenService,
             refreshTokenService,
             clock,
             unitOfWork,
+            auditWriter,
+            securityEventWriter);
+        var logoutTokenRevoker = new LogoutTokenRevoker(
+            repository,
+            refreshTokenService,
+            clock,
+            auditWriter,
+            securityEventWriter);
+        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
+        return new AuthService(
+            repository,
+            new PasswordHasher(),
+            clock,
             limiter,
+            auditWriter,
+            securityEventWriter,
+            refreshTokenRotationService,
+            logoutTokenRevoker,
             sessionIssuer,
             new AuthTwoFactorChallengeService(
                 repository,

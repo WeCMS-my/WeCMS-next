@@ -14,6 +14,7 @@ const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 });
 const columns = computed(() => [
   { title: "类型", key: "eventType" },
   { title: "严重级别", key: "severity" },
+  { title: "来源", key: "source" },
   { title: "用户", key: "username" },
   { title: "IP", key: "ip" },
   { title: "消息", key: "message" },
@@ -51,6 +52,8 @@ async function openDetail(id: number): Promise<void> { detail.value = (await get
       <NDescriptions v-if="detail" label-placement="left" bordered :column="1">
         <NDescriptionsItem label="类型">{{ detail.eventType }}</NDescriptionsItem>
         <NDescriptionsItem label="严重级别">{{ detail.severity }}</NDescriptionsItem>
+        <NDescriptionsItem label="来源">{{ detail.source }}</NDescriptionsItem>
+        <NDescriptionsItem label="Trace ID">{{ detail.traceId }}</NDescriptionsItem>
         <NDescriptionsItem label="用户">{{ detail.username ?? "-" }}</NDescriptionsItem>
         <NDescriptionsItem label="用户 ID">{{ detail.userId ?? "-" }}</NDescriptionsItem>
         <NDescriptionsItem label="IP">{{ detail.ip ?? "-" }}</NDescriptionsItem>

@@ -253,6 +253,8 @@ public sealed class LogRepository : ILogRepository
                    username AS Username,
                    ip AS Ip,
                    severity AS Severity,
+                   source AS Source,
+                   trace_id AS TraceId,
                    message AS Message,
                    created_at AS CreatedAt
             FROM sys_security_event
@@ -276,6 +278,8 @@ public sealed class LogRepository : ILogRepository
                    username AS Username,
                    ip AS Ip,
                    severity AS Severity,
+                   source AS Source,
+                   trace_id AS TraceId,
                    message AS Message,
                    created_at AS CreatedAt
             FROM sys_security_event
@@ -334,11 +338,13 @@ public sealed class LogRepository : ILogRepository
         public string? Username { get; set; }
         public string? Ip { get; set; }
         public string Severity { get; set; } = string.Empty;
+        public string Source { get; set; } = string.Empty;
+        public string TraceId { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
 
-        public SecurityEventSummaryDto ToSummaryDto() => new(Id, EventType, UserId, Username, Ip, Severity, Message, ToOffset(CreatedAt));
-        public SecurityEventDetailDto ToDetailDto() => new(Id, EventType, UserId, Username, Ip, Severity, Message, ToOffset(CreatedAt));
+        public SecurityEventSummaryDto ToSummaryDto() => new(Id, EventType, UserId, Username, Ip, Severity, Source, TraceId, Message, ToOffset(CreatedAt));
+        public SecurityEventDetailDto ToDetailDto() => new(Id, EventType, UserId, Username, Ip, Severity, Source, TraceId, Message, ToOffset(CreatedAt));
         private static DateTimeOffset ToOffset(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
     }
 }

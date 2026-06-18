@@ -8,7 +8,7 @@ public sealed class PermissionManagementServiceTests
     [Fact]
     public async Task DeleteAsync_RejectsBuiltinPermission()
     {
-        var service = new PermissionManagementService(new FakePermissionRepository());
+        var service = CreateService(new FakePermissionRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DeleteAsync(1, Context(), CancellationToken.None));
@@ -19,7 +19,7 @@ public sealed class PermissionManagementServiceTests
     [Fact]
     public async Task CreateAsync_RejectsDuplicateCode()
     {
-        var service = new PermissionManagementService(new FakePermissionRepository { CodeExists = true });
+        var service = CreateService(new FakePermissionRepository { CodeExists = true });
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.CreateAsync(new CreatePermissionRequest("sys:test:list", "Test list", "system", null), Context(), CancellationToken.None));
@@ -31,17 +31,19 @@ public sealed class PermissionManagementServiceTests
     public async Task DeleteAsync_SoftDeletesRoleBoundCustomPermission()
     {
         var repository = new FakePermissionRepository { IsBuiltin = false, RoleBound = true };
-        var service = new PermissionManagementService(repository);
+        var permissionVersionService = new FakePermissionVersionService();
+        var service = CreateService(repository, permissionVersionService);
 
         await service.DeleteAsync(1, Context(), CancellationToken.None);
 
         Assert.True(repository.SoftDeleted);
+        Assert.Equal(1, permissionVersionService.BumpUsersByPermissionCalls);
     }
 
     [Fact]
     public async Task EnableAsync_RejectsBuiltinPermission()
     {
-        var service = new PermissionManagementService(new FakePermissionRepository());
+        var service = CreateService(new FakePermissionRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.EnableAsync(1, Context(), CancellationToken.None));
@@ -53,7 +55,7 @@ public sealed class PermissionManagementServiceTests
     [Fact]
     public async Task DisableAsync_RejectsBuiltinPermission()
     {
-        var service = new PermissionManagementService(new FakePermissionRepository());
+        var service = CreateService(new FakePermissionRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DisableAsync(1, Context(), CancellationToken.None));
@@ -65,6 +67,13 @@ public sealed class PermissionManagementServiceTests
     private static PermissionRequestContext Context()
     {
         return new PermissionRequestContext(1, "admin", "192.168.101.199", "unit-test", "trace", new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    private static PermissionManagementService CreateService(
+        FakePermissionRepository repository,
+        FakePermissionVersionService? permissionVersionService = null)
+    {
+        return new PermissionManagementService(repository, permissionVersionService ?? new FakePermissionVersionService());
     }
 
     private sealed class FakePermissionRepository : IPermissionRepository
@@ -89,5 +98,21 @@ public sealed class PermissionManagementServiceTests
 
         public Task SetManagementStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task RecordManagementAuditAsync(PermissionAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakePermissionVersionService : IPermissionVersionService
+    {
+        public int BumpUsersByPermissionCalls { get; private set; }
+
+        public Task BumpUserAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByPermissionAsync(long permissionId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            BumpUsersByPermissionCalls++;
+            return Task.CompletedTask;
+        }
+
+        public Task BumpUsersByMenuAsync(long menuId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByMenusAsync(IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

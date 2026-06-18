@@ -2,7 +2,7 @@ import { readTokenSet } from "@/utils/token";
 import { clearTokenSet, saveTokenSet } from "@/utils/token";
 import type { ApiResult, LoginResponse } from "./types/generated";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 let refreshPromise: Promise<LoginResponse> | null = null;
 
 export interface RequestOptions extends RequestInit {
@@ -54,6 +54,7 @@ async function sendJson<TData>(path: string, options: RequestOptions): Promise<A
     throw result;
   }
 
+  await handlePermissionVersionHeader(path, response);
   return result;
 }
 
@@ -131,7 +132,27 @@ async function sendBlob(path: string, options: RequestOptions): Promise<Blob> {
     throw result;
   }
 
+  await handlePermissionVersionHeader(path, response);
   return response.blob();
+}
+
+async function handlePermissionVersionHeader(path: string, response: Response): Promise<void> {
+  if (path === "/api/v1/auth/me" || path.startsWith("/api/v1/auth/")) {
+    return;
+  }
+
+  const header = response.headers.get("X-Permission-Version");
+  if (!header) {
+    return;
+  }
+
+  const nextPermissionVersion = Number(header);
+  if (!Number.isSafeInteger(nextPermissionVersion) || nextPermissionVersion < 0) {
+    return;
+  }
+
+  const { useAuthStore } = await import("@/stores/auth");
+  await useAuthStore().refreshPermissionState(nextPermissionVersion);
 }
 
 async function readApiResult<TData>(response: Response): Promise<ApiResult<TData>> {

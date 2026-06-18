@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Users;
@@ -17,15 +19,15 @@ public static class UserEndpoints
 
         group.MapGet("", ListAsync).RequirePermission(UserPermissions.List);
         group.MapGet("/{id:long}", DetailAsync).RequirePermission(UserPermissions.Detail);
-        group.MapPost("", CreateAsync).RequirePermission(UserPermissions.Create);
-        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(UserPermissions.Update);
-        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(UserPermissions.Delete);
-        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(UserPermissions.Enable);
-        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(UserPermissions.Disable);
-        group.MapPost("/{id:long}/reset-password", ResetPasswordAsync).RequirePermission(UserPermissions.ResetPassword);
-        group.MapPost("/{id:long}/reset-2fa", ResetTwoFactorAsync).RequirePermission(UserPermissions.ResetTwoFactor);
-        group.MapPut("/{id:long}/roles", AssignRolesAsync).RequirePermission(UserPermissions.AssignRole);
-        group.MapPut("/{id:long}/posts", AssignPostsAsync).RequirePermission(UserPermissions.AssignPost);
+        group.MapPost("", CreateAsync).RequirePermission(UserPermissions.Create).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(UserPermissions.Update).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(UserPermissions.Delete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(UserPermissions.Enable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(UserPermissions.Disable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/reset-password", ResetPasswordAsync).RequirePermission(UserPermissions.ResetPassword).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/reset-2fa", ResetTwoFactorAsync).RequirePermission(UserPermissions.ResetTwoFactor).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}/roles", AssignRolesAsync).RequirePermission(UserPermissions.AssignRole).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}/posts", AssignPostsAsync).RequirePermission(UserPermissions.AssignPost).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }

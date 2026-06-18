@@ -5,6 +5,7 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.SystemApi;
 
+[Collection(nameof(SharedMySqlCollection))]
 public sealed class SystemDatabaseProbeTests
 {
 

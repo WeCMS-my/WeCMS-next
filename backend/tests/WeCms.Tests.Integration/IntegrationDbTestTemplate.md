@@ -9,15 +9,8 @@ using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Feature;
 
-public sealed class ExampleIntegrationTests : global::Xunit.IAsyncLifetime
+public sealed class ExampleIntegrationTests : PerTestDatabaseResetBase
 {
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task Example_CanDoSomethingWithDatabase()
     {
@@ -60,7 +53,7 @@ public sealed class ExampleIntegrationTests : global::Xunit.IAsyncLifetime
 - Keep tests stable in non-DB local environments.
 - All DB integration tests in this suite should use `[DbFact]` so unavailable environments mark tests as `SKIP`.
 - `DbFact` depends on `IntegrationTestDatabase.IsDatabaseAvailable(out reason)`.
-- `InitializeAsync` should call `IntegrationTestDatabase.ResetDatabaseAsync(...)` and tests should use shared schema table cleanup strategy.
+- Use `PerTestDatabaseResetBase` so every `[DbFact]` starts from a fresh shared-schema database.
 
 ## 3. Do not use
 

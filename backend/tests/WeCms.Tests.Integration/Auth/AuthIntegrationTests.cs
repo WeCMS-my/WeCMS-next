@@ -11,22 +11,16 @@ using WeCms.Persistence.Modules.System.Users;
 using WeCms.Modules.System.Security;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 using SqlSugar;
 using System.Text;
 using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Auth;
 
-public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed partial class AuthIntegrationTests : PerTestDatabaseResetBase
 {
-
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task AuthService_LoginFailureAndSuccessPersistExpectedAuditAndTokenState()
     {
@@ -36,8 +30,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var accessTokenService = new AccessTokenService(tokenOptions);
@@ -52,7 +45,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
 
             Assert.Equal(ApiCodes.Unauthorized, failed.Code);
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_login_log WHERE username = 'admin' AND result = 'failed'"));
-            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.login_failed'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'login_failure'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'login' AND result = 'failed'"));
 
             var login = await service.LoginAsync(
@@ -109,7 +102,8 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
                     new AuthRequestContext("192.168.101.199", "integration"),
                     CancellationToken.None));
             Assert.Equal(ApiCodes.Unauthorized, reused.Code);
-            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_concurrent_replay'"));
+            Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.refresh_reuse'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log WHERE action = 'refresh' AND result = 'failed' AND target_id = 'admin'"));
             Assert.Equal(1, Scalar<int>(
                 db,
@@ -156,8 +150,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
     public async Task AuthService_TwoFactorTotpChallengeCompletesLoginAndRejectsReplay()
     {
         using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+        await PrepareDatabaseWithSeedsAsync(db);
         var tokenOptions = TokenOptions();
         var loginNow = new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero);
         var verifyNow = loginNow.AddSeconds(30);
@@ -193,14 +186,25 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
             new TwoFactorVerifyRequest(login.Response.TwoFactorChallengeId!, new TotpService(TwoFactorOptions()).GenerateCode(setup.Secret, verifyNow.AddSeconds(30))),
             new AuthRequestContext("192.168.101.199", "integration"),
             CancellationToken.None));
+
+        var replayLogin = await CreateService(db, tokenOptions, verifyNow).LoginAsync(
+            new LoginRequest("admin", "Admin@123"),
+            new AuthRequestContext("192.168.101.199", "integration"),
+            CancellationToken.None);
+
+        await Assert.ThrowsAsync<DomainException>(() => CreateService(db, tokenOptions, verifyNow).VerifyTwoFactorAsync(
+            new TwoFactorVerifyRequest(replayLogin.Response.TwoFactorChallengeId!, code),
+            new AuthRequestContext("192.168.101.199", "integration"),
+            CancellationToken.None));
+
+        Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'two_factor_replay'"));
     }
 
     [DbFact]
     public async Task AuthService_TwoFactorRecoveryCodeCompletesLoginOnce()
     {
         using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+        await PrepareDatabaseWithSeedsAsync(db);
         var tokenOptions = TokenOptions();
         var loginNow = new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero);
         var userId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin'");
@@ -224,8 +228,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
     public async Task AuthService_TwoFactorChallengeRejectsExpiredAndOverLimitAttempts()
     {
         using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+        await PrepareDatabaseWithSeedsAsync(db);
         var tokenOptions = TokenOptions();
         var loginNow = new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero);
         var userId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin'");
@@ -258,7 +261,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
 
         Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_auth_challenge WHERE challenge_id = @challengeId AND status = 'failed'", new SugarParameter("@challengeId", limitedChallenge.Response.TwoFactorChallengeId)));
         Assert.Equal(2, Scalar<int>(db, "SELECT COUNT(1) FROM sys_login_log WHERE reason = 'two_factor_failed'"));
-        Assert.Equal(2, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'auth.two_factor_failed'"));
+        Assert.Equal(2, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'two_factor_failed'"));
     }
 
     [DbFact]
@@ -266,8 +269,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
     {
         var connectionString = RequiredConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-        await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+        await PrepareDatabaseWithSeedsAsync(db);
         var service = CreateService(
             db,
             TokenOptions(),
@@ -299,8 +301,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var now = new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero);
             var roleId = await CreateRoleAsync(db, "limited_ops", "Limited Ops", now);
@@ -346,13 +347,12 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
             var accessTokenService = new AccessTokenService(tokenOptions);
-            var userRepository = new UserRepository(db);
+            var userRepository = new UserRepository(db, new SecurityEventClassifier());
             var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             var targetUserId = await CreateUserAsync(
                 db,
@@ -423,8 +423,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
@@ -488,8 +487,7 @@ public sealed partial class AuthIntegrationTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var tokenOptions = TokenOptions();
             var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));

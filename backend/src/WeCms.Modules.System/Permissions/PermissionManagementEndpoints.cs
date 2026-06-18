@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Permissions;
@@ -17,11 +19,11 @@ public static class PermissionManagementEndpoints
         group.MapGet("", ListAsync).RequirePermission(PermissionManagementPermissions.List);
         group.MapGet("/tree", TreeAsync).RequirePermission(PermissionManagementPermissions.Tree);
         group.MapGet("/{id:long}", DetailAsync).RequirePermission(PermissionManagementPermissions.Detail);
-        group.MapPost("", CreateAsync).RequirePermission(PermissionManagementPermissions.Create);
-        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(PermissionManagementPermissions.Update);
-        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(PermissionManagementPermissions.Delete);
-        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(PermissionManagementPermissions.Enable);
-        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(PermissionManagementPermissions.Disable);
+        group.MapPost("", CreateAsync).RequirePermission(PermissionManagementPermissions.Create).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(PermissionManagementPermissions.Update).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(PermissionManagementPermissions.Delete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(PermissionManagementPermissions.Enable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(PermissionManagementPermissions.Disable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }

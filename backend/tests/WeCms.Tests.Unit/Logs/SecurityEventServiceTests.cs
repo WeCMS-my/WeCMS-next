@@ -71,7 +71,7 @@ public sealed class SecurityEventServiceTests
                 return Task.FromResult<SecurityEventDetailDto?>(null);
             }
 
-            return Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "message", DateTimeOffset.UnixEpoch));
+            return Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "auth", "trace", "message", DateTimeOffset.UnixEpoch));
         }
     }
 }

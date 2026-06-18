@@ -62,7 +62,8 @@ public sealed class LoginFailureLimiter : ILoginFailureLimiter
                     ip,
                     shouldBan ? "critical" : "warning",
                     "Login failure threshold reached.",
-                    context.Now),
+                    context.Now,
+                    context.TraceId),
                 cancellationToken);
         }
 

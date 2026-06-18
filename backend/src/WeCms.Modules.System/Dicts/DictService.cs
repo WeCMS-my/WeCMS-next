@@ -1,4 +1,5 @@
 using WeCms.Shared;
+using WeCms.Shared.Data;
 
 namespace WeCms.Modules.System.Dicts;
 
@@ -6,10 +7,12 @@ public sealed class DictService : IDictService
 {
     private const int MaxPageSize = 100;
     private readonly IDictRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public DictService(IDictRepository repository)
+    public DictService(IDictRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     public Task<PagedResult<DictTypeSummaryDto>> ListTypesAsync(DictTypeListQuery query, CancellationToken cancellationToken)
@@ -55,6 +58,16 @@ public sealed class DictService : IDictService
         await _repository.UpdateTypeAsync(new DictTypeUpdateRecord(id, name, description, request.SortOrder, status, context.Now), cancellationToken);
         await AuditAsync(context, "update-type", id, "dict-type", "success", "Dictionary type updated.", cancellationToken);
         return new DictMutationResponse(id);
+    }
+
+    public Task EnableTypeAsync(long id, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        return SetTypeStatusAsync(id, "enabled", false, context, cancellationToken);
+    }
+
+    public Task DisableTypeAsync(long id, DisableDictTypeRequest request, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        return SetTypeStatusAsync(id, "disabled", request.CascadeValues, context, cancellationToken);
     }
 
     public async Task DeleteTypeAsync(long id, DictRequestContext context, CancellationToken cancellationToken)
@@ -114,6 +127,16 @@ public sealed class DictService : IDictService
         return new DictMutationResponse(id);
     }
 
+    public Task EnableValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        return SetValueStatusAsync(id, "enabled", context, cancellationToken);
+    }
+
+    public Task DisableValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        return SetValueStatusAsync(id, "disabled", context, cancellationToken);
+    }
+
     public async Task DeleteValueAsync(long id, DictRequestContext context, CancellationToken cancellationToken)
     {
         _ = await _repository.GetValueAsync(id, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "Dictionary value was not found.");
@@ -125,6 +148,48 @@ public sealed class DictService : IDictService
     {
         var code = NormalizeRequired(typeCode, "typeCode", 80);
         return await _repository.GetTypeByCodeAsync(code, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "Dictionary type was not found.");
+    }
+
+    private async Task SetTypeStatusAsync(long id, string status, bool cascadeValues, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await GetTypeAsync(id, cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SetTypeStatusAsync(id, status, context.Now, cancellationToken);
+            if (status == "disabled" && cascadeValues)
+            {
+                await _repository.DisableValuesByTypeAsync(id, context.Now, cancellationToken);
+            }
+
+            var action = status == "enabled" ? "enable-type" : "disable-type";
+            var detail = cascadeValues ? "Dictionary type disabled with values." : $"Dictionary type {status}.";
+            await AuditAsync(context, action, id, "dict-type", "success", detail, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task SetValueStatusAsync(long id, string status, DictRequestContext context, CancellationToken cancellationToken)
+    {
+        _ = await _repository.GetValueAsync(id, cancellationToken) ?? throw new DomainException(ApiCodes.NotFound, "Dictionary value was not found.");
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SetValueStatusAsync(id, status, context.Now, cancellationToken);
+            var action = status == "enabled" ? "enable-value" : "disable-value";
+            await AuditAsync(context, action, id, "dict-value", "success", $"Dictionary value {status}.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     private Task AuditAsync(DictRequestContext context, string action, long targetId, string resource, string result, string detail, CancellationToken cancellationToken)

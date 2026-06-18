@@ -133,6 +133,7 @@ public sealed class AuthSessionIssuer : IAuthSessionIssuer
                 accessToken.Token,
                 accessToken.ExpiresAt,
                 ToDto(user),
+                user.PermissionVersion,
                 roles,
                 permissions,
                 menus),

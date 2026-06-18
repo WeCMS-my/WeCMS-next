@@ -1,14 +1,31 @@
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NInput, NModal, NSelect, NSpace, NText, useMessage } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { deleteFileApi, downloadFileApi, getFileApi, getFilesApi, previewFileApi, uploadFileApi } from "@/api/system/files";
 import type { FileSummaryDto } from "@/api/types/generated";
 import { hasPermission } from "@/utils/permission";
 
-const maxFileSize = 10 * 1024 * 1024;
-const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp", "pdf", "txt"]);
-const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain"]);
+type UploadPolicy = "image" | "document";
+
+const uploadPolicies: Record<UploadPolicy, { label: string; maxSize: number; extensions: Set<string>; mimeTypes: Set<string>; accept: string; allowPreview: boolean }> = {
+  image: {
+    label: "图片",
+    maxSize: 10 * 1024 * 1024,
+    extensions: new Set(["jpg", "jpeg", "png", "webp"]),
+    mimeTypes: new Set(["image/jpeg", "image/png", "image/webp"]),
+    accept: ".jpg,.jpeg,.png,.webp",
+    allowPreview: true
+  },
+  document: {
+    label: "文档",
+    maxSize: 10 * 1024 * 1024,
+    extensions: new Set(["pdf", "txt"]),
+    mimeTypes: new Set(["application/pdf", "text/plain"]),
+    accept: ".pdf,.txt",
+    allowPreview: false
+  }
+};
 
 const message = useMessage();
 const rows = ref<FileSummaryDto[]>([]);
@@ -22,7 +39,9 @@ const previewMimeType = ref("");
 const previewText = ref("");
 const selectedFile = ref<File | null>(null);
 const selectedSha256 = ref("");
+const selectedPolicy = ref<UploadPolicy>("document");
 const canUpload = computed(() => hasPermission("sys:file:upload"));
+const currentPolicy = computed(() => uploadPolicies[selectedPolicy.value]);
 const query = reactive({ page: 1, pageSize: 20, keyword: "", mimeType: "", status: "" });
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 });
 const mimeOptions = [
@@ -36,6 +55,10 @@ const statusOptions = [
   { label: "active", value: "active" },
   { label: "deleted", value: "deleted" }
 ];
+const policyOptions = [
+  { label: "文档", value: "document" },
+  { label: "图片", value: "image" }
+];
 const columns = computed(() => [
   { title: "文件名", key: "originalName" },
   { title: "类型", key: "mimeType" },
@@ -44,7 +67,7 @@ const columns = computed(() => [
   { title: "创建时间", key: "createdAt" },
   { title: "操作", key: "actions", render: (row: FileSummaryDto) => h(NSpace, null, { default: () => [
     h(PermissionButton, { secondary: true, permissions: ["sys:file:detail"], onClick: () => void openDetail(row.id) }, { default: () => "详情" }),
-    h(PermissionButton, { secondary: true, permissions: ["sys:file:download"], onClick: () => void preview(row) }, { default: () => "预览" }),
+    isPreviewable(row) ? h(PermissionButton, { secondary: true, permissions: ["sys:file:download"], onClick: () => void preview(row) }, { default: () => "预览" }) : null,
     h(PermissionButton, { secondary: true, permissions: ["sys:file:download"], onClick: () => void download(row) }, { default: () => "下载" }),
     h(PermissionButton, { secondary: true, permissions: ["sys:file:delete"], onClick: () => void confirmDelete(row) }, { default: () => "删除" })
   ] }) }
@@ -52,6 +75,10 @@ const columns = computed(() => [
 
 onMounted(load);
 onBeforeUnmount(clearPreview);
+watch(selectedPolicy, () => {
+  selectedFile.value = null;
+  selectedSha256.value = "";
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -95,7 +122,7 @@ async function upload(): Promise<void> {
   }
   uploading.value = true;
   try {
-    await uploadFileApi({ file: selectedFile.value, sha256: selectedSha256.value });
+    await uploadFileApi({ file: selectedFile.value, sha256: selectedSha256.value, policy: selectedPolicy.value });
     message.success("文件已上传。");
     selectedFile.value = null;
     selectedSha256.value = "";
@@ -142,17 +169,22 @@ async function confirmDelete(row: FileSummaryDto): Promise<void> {
 }
 
 function validateFile(file: File): string | null {
+  const policy = currentPolicy.value;
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!allowedExtensions.has(extension)) {
-    return "仅允许上传 jpg/jpeg/png/webp/pdf/txt 文件。";
+  if (!policy.extensions.has(extension)) {
+    return `当前策略仅允许上传 ${Array.from(policy.extensions).join("/")} 文件。`;
   }
-  if (!allowedMimeTypes.has(file.type)) {
+  if (!policy.mimeTypes.has(file.type)) {
     return "文件 MIME 类型不允许。";
   }
-  if (file.size <= 0 || file.size > maxFileSize) {
-    return "文件大小必须大于 0 且不超过 10MB。";
+  if (file.size <= 0 || file.size > policy.maxSize) {
+    return `文件大小必须大于 0 且不超过 ${formatBytes(policy.maxSize)}。`;
   }
   return null;
+}
+
+function isPreviewable(row: FileSummaryDto): boolean {
+  return row.mimeType.startsWith("image/");
 }
 
 async function sha256(file: File): Promise<string> {
@@ -187,10 +219,11 @@ function formatBytes(value: number): string {
         <NButton type="primary" @click="search">查询</NButton>
       </NSpace>
       <div v-if="canUpload" class="mb-4">
+        <NSelect v-model:value="selectedPolicy" :options="policyOptions" class="mr-3 inline-block w-32" />
         <PermissionButton type="primary" :loading="uploading" :permissions="['sys:file:upload']" @click="upload">
           上传
         </PermissionButton>
-        <input class="ml-3" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt" @change="handleFileChange">
+        <input class="ml-3" type="file" :accept="currentPolicy.accept" @change="handleFileChange">
         <NText v-if="selectedFile" depth="3">{{ selectedFile.name }} / {{ formatBytes(selectedFile.size) }} / {{ selectedSha256 }}</NText>
       </div>
       <NDataTable :columns="columns" :data="rows" :loading="loading" :pagination="pagination" remote @update:page="(page: number) => { query.page = page; pagination.page = page; void load(); }" />

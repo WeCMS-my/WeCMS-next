@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Menus;
@@ -18,11 +20,12 @@ public static class MenuEndpoints
         group.MapGet("", ListAsync).RequirePermission(MenuPermissions.List);
         group.MapGet("/tree", TreeAsync).RequirePermission(MenuPermissions.Tree);
         group.MapGet("/{id:long}", DetailAsync).RequirePermission(MenuPermissions.Detail);
-        group.MapPost("", CreateAsync).RequirePermission(MenuPermissions.Create);
-        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(MenuPermissions.Update);
-        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(MenuPermissions.Delete);
-        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(MenuPermissions.Enable);
-        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(MenuPermissions.Disable);
+        group.MapPost("", CreateAsync).RequirePermission(MenuPermissions.Create).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/{id:long}", UpdateAsync).RequirePermission(MenuPermissions.Update).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/sort", SortAsync).RequirePermission(MenuPermissions.Sort).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/{id:long}", DeleteAsync).RequirePermission(MenuPermissions.Delete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(MenuPermissions.Enable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(MenuPermissions.Disable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }
@@ -50,6 +53,12 @@ public static class MenuEndpoints
     private static async Task<ApiResult<MenuMutationResponse>> UpdateAsync(long id, UpdateMenuRequest request, HttpContext httpContext, IMenuService service, IAuthClock clock, CancellationToken cancellationToken)
     {
         return ApiResult<MenuMutationResponse>.Ok(await service.UpdateAsync(id, request, Context(httpContext, clock), cancellationToken));
+    }
+
+    private static async Task<ApiResult<object>> SortAsync(SortMenusRequest request, HttpContext httpContext, IMenuService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        await service.SortAsync(request, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
     }
 
     private static async Task<ApiResult<object>> DeleteAsync(long id, HttpContext httpContext, IMenuService service, IAuthClock clock, CancellationToken cancellationToken)

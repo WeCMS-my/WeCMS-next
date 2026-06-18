@@ -125,7 +125,7 @@ public sealed class TwoFactorService : ITwoFactorService
         var verification = _totpService.Verify(secret, code, now, record.LastTotpStep);
         if (!verification.IsValid || verification.UsedStep is null)
         {
-            return new TwoFactorVerificationResult(false);
+            return new TwoFactorVerificationResult(false, verification.IsReplay);
         }
 
         await _repository.UpdateLastTotpStepAsync(new UserTwoFactorTotpStepUpdateRecord(userId, verification.UsedStep.Value, now), cancellationToken);

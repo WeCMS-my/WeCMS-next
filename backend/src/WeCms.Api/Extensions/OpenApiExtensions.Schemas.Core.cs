@@ -75,12 +75,13 @@ public static partial class OpenApiExtensions
             ["LoginResponse"] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("accessToken", "expiresAt", "roles", "permissions", "menus", "requiresTwoFactor"),
+                ["required"] = Required("accessToken", "expiresAt", "permissionVersion", "roles", "permissions", "menus", "requiresTwoFactor"),
                 ["properties"] = new JsonObject
                 {
                     ["accessToken"] = StringSchema(),
                     ["expiresAt"] = new JsonObject { ["type"] = "string", ["format"] = "date-time" },
                     ["user"] = NullableRef("AuthUserDto"),
+                    ["permissionVersion"] = IntegerSchema(),
                     ["roles"] = ArrayOf(StringSchema()),
                     ["permissions"] = ArrayOf(StringSchema()),
                     ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto))),
@@ -92,10 +93,11 @@ public static partial class OpenApiExtensions
             ["AuthMeResponse"] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("user", "roles", "permissions", "menus"),
+                ["required"] = Required("user", "permissionVersion", "roles", "permissions", "menus"),
                 ["properties"] = new JsonObject
                 {
                     ["user"] = SchemaRef("AuthUserDto"),
+                    ["permissionVersion"] = IntegerSchema(),
                     ["roles"] = ArrayOf(StringSchema()),
                     ["permissions"] = ArrayOf(StringSchema()),
                     ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)))

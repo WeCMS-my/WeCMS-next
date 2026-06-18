@@ -3,6 +3,7 @@ using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Logs;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
@@ -60,6 +61,12 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<PagedResult<SettingSummaryDto>>))]
 [JsonSerializable(typeof(ApiResult<SettingDetailDto>))]
 [JsonSerializable(typeof(ApiResult<SettingMutationResponse>))]
+[JsonSerializable(typeof(ApiResult<ValidateIpRulesResponse>))]
+[JsonSerializable(typeof(ApiResult<PagedResult<I18nMessageSummaryDto>>))]
+[JsonSerializable(typeof(ApiResult<I18nMessageDetailDto>))]
+[JsonSerializable(typeof(ApiResult<I18nMessagesResponse>))]
+[JsonSerializable(typeof(ApiResult<AccountI18nSwitchResponse>))]
+[JsonSerializable(typeof(ApiResult<I18nMutationResponse>))]
 [JsonSerializable(typeof(ApiResult<PagedResult<LoginLogSummaryDto>>))]
 [JsonSerializable(typeof(ApiResult<LoginLogDetailDto>))]
 [JsonSerializable(typeof(ApiResult<PagedResult<AuditLogSummaryDto>>))]
@@ -120,6 +127,8 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(MenuDetailDto))]
 [JsonSerializable(typeof(CreateMenuRequest))]
 [JsonSerializable(typeof(UpdateMenuRequest))]
+[JsonSerializable(typeof(SortMenusRequest))]
+[JsonSerializable(typeof(SortMenuItemRequest))]
 [JsonSerializable(typeof(MenuMutationResponse))]
 [JsonSerializable(typeof(PermissionSummaryDto))]
 [JsonSerializable(typeof(PermissionTreeDto))]
@@ -144,6 +153,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(DictTypeDetailDto))]
 [JsonSerializable(typeof(CreateDictTypeRequest))]
 [JsonSerializable(typeof(UpdateDictTypeRequest))]
+[JsonSerializable(typeof(DisableDictTypeRequest))]
 [JsonSerializable(typeof(DictValueDto))]
 [JsonSerializable(typeof(CreateDictValueRequest))]
 [JsonSerializable(typeof(UpdateDictValueRequest))]
@@ -152,7 +162,18 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(SettingSummaryDto))]
 [JsonSerializable(typeof(SettingDetailDto))]
 [JsonSerializable(typeof(UpdateSettingRequest))]
+[JsonSerializable(typeof(ValidateIpRulesRequest))]
+[JsonSerializable(typeof(ValidateIpRulesResponse))]
 [JsonSerializable(typeof(SettingMutationResponse))]
+[JsonSerializable(typeof(PagedResult<I18nMessageSummaryDto>))]
+[JsonSerializable(typeof(I18nMessageSummaryDto))]
+[JsonSerializable(typeof(I18nMessageDetailDto))]
+[JsonSerializable(typeof(CreateI18nMessageRequest))]
+[JsonSerializable(typeof(UpdateI18nMessageRequest))]
+[JsonSerializable(typeof(SwitchAccountLocaleRequest))]
+[JsonSerializable(typeof(I18nMessagesResponse))]
+[JsonSerializable(typeof(AccountI18nSwitchResponse))]
+[JsonSerializable(typeof(I18nMutationResponse))]
 [JsonSerializable(typeof(PagedResult<LoginLogSummaryDto>))]
 [JsonSerializable(typeof(LoginLogSummaryDto))]
 [JsonSerializable(typeof(LoginLogDetailDto))]
@@ -189,6 +210,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(IReadOnlyList<DictTypeSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<DictValueDto>))]
 [JsonSerializable(typeof(IReadOnlyList<SettingSummaryDto>))]
+[JsonSerializable(typeof(IReadOnlyList<I18nMessageSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<LoginLogSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<AuditLogSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<SecurityEventSummaryDto>))]
@@ -196,5 +218,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(IReadOnlyList<FileSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<long>))]
 [JsonSerializable(typeof(IReadOnlyDictionary<string, string[]>))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
 [JsonSerializable(typeof(Dictionary<string, string[]>))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 public sealed partial class WeCmsJsonSerializerContext : JsonSerializerContext;

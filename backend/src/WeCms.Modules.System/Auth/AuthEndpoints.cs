@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Mvc;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Auth;
@@ -31,6 +33,7 @@ public static class AuthEndpoints
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(LoginRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthLogin)
             .AllowAnonymous();
 
         group.MapPost("/refresh", async (
@@ -46,6 +49,7 @@ public static class AuthEndpoints
                 return Results.Ok(ApiResult<LoginResponse>.Ok(session.Response));
             })
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthRefresh)
             .AllowAnonymous();
 
         group.MapPost("/logout", async (
@@ -78,6 +82,7 @@ public static class AuthEndpoints
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(TwoFactorVerifyRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor)
             .AllowAnonymous();
 
         group.MapPost("/2fa/recovery-code", async (
@@ -95,6 +100,7 @@ public static class AuthEndpoints
             })
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(TwoFactorRecoveryCodeRequest)))
             .WithMetadata(new OpenApiResponseMetadata(typeof(LoginResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor)
             .AllowAnonymous();
 
         group.MapGet("/me", async (

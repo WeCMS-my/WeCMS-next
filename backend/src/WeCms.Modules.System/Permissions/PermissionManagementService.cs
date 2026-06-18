@@ -5,10 +5,12 @@ namespace WeCms.Modules.System.Permissions;
 public sealed class PermissionManagementService : IPermissionManagementService
 {
     private readonly IPermissionRepository _repository;
+    private readonly IPermissionVersionService _permissionVersionService;
 
-    public PermissionManagementService(IPermissionRepository repository)
+    public PermissionManagementService(IPermissionRepository repository, IPermissionVersionService permissionVersionService)
     {
         _repository = repository;
+        _permissionVersionService = permissionVersionService;
     }
 
     public Task<IReadOnlyList<PermissionSummaryDto>> ListAsync(CancellationToken cancellationToken)
@@ -72,6 +74,7 @@ public sealed class PermissionManagementService : IPermissionManagementService
         }
 
         await _repository.SoftDeleteManagementAsync(id, context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByPermissionAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "delete", id, "success", permission.IsRoleBound ? "Role-bound permission soft deleted." : "Permission deleted.", cancellationToken);
     }
 
@@ -80,6 +83,7 @@ public sealed class PermissionManagementService : IPermissionManagementService
         var permission = await GetAsync(id, cancellationToken);
         EnsureNotBuiltin(permission.IsBuiltin, "enable");
         await _repository.SetManagementStatusAsync(id, "enabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByPermissionAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Permission enabled.", cancellationToken);
     }
 
@@ -88,6 +92,7 @@ public sealed class PermissionManagementService : IPermissionManagementService
         var permission = await GetAsync(id, cancellationToken);
         EnsureNotBuiltin(permission.IsBuiltin, "disable");
         await _repository.SetManagementStatusAsync(id, "disabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByPermissionAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Permission disabled.", cancellationToken);
     }
 

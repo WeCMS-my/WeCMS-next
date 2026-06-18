@@ -28,6 +28,7 @@ expected_routes = {
     "/system/posts": "views/system/posts/PostsView.vue",
     "/system/dicts": "views/system/dicts/DictsView.vue",
     "/system/settings": "views/system/settings/SettingsView.vue",
+    "/system/i18n": "views/system/i18n/I18nMessagesView.vue",
     "/system/logs/login": "views/system/logs/LoginLogsView.vue",
     "/system/logs/audit": "views/system/logs/AuditLogsView.vue",
     "/system/security": "views/system/security/SecurityCenterView.vue",
@@ -39,10 +40,13 @@ hardening_requirements = {
     "views/system/users/UsersView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
     "views/system/roles/RolesView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
     "views/system/permissions/PermissionsView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
-    "views/system/menus/MenusView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
+    "views/system/menus/MenusView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {", "sortMenuApi", "sys:menu:sort"],
     "views/system/depts/DepartmentsView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
     "views/system/posts/PostsView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
-    "views/system/dicts/DictsView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
+    "views/system/dicts/DictsView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {", "enableDictTypeApi", "disableDictTypeApi", "enableDictValueApi", "disableDictValueApi", "sys:dict:type:enable", "sys:dict:value:disable"],
+    "views/system/settings/SettingsView.vue": ["reloadSettingCacheApi", "validateIpRulesApi", "sys:setting:reload-cache"],
+    "views/system/i18n/I18nMessagesView.vue": ["NDataTable", ":loading=", "#empty", "apiErrorMessage", "FormRules", "try {"],
+    "views/system/files/FilesView.vue": ["selectedPolicy", "policyOptions", "policy: selectedPolicy.value", "isPreviewable"],
 }
 
 issues: list[str] = []

@@ -7,6 +7,7 @@ public static class SystemSecurityServiceCollectionExtensions
     public static IServiceCollection AddWeCmsSystemSecurity(this IServiceCollection services)
     {
         services.AddScoped<ISecurityBanService, SecurityBanService>();
+        services.AddScoped<IRateLimitSecurityEventService, RateLimitSecurityEventService>();
         return services;
     }
 }

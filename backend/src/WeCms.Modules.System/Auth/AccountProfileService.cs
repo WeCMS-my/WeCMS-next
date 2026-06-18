@@ -8,14 +8,12 @@ namespace WeCms.Modules.System.Auth;
 
 public sealed class AccountProfileService : IAccountProfileService
 {
-    private const long MaxAvatarSizeBytes = 512 * 1024;
-    private static readonly HashSet<string> AvatarMimeTypes = new(StringComparer.OrdinalIgnoreCase) { "image/jpeg", "image/png", "image/webp" };
-    private static readonly HashSet<string> AvatarExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
     private readonly IAccountProfileRepository _repository;
     private readonly IUserTwoFactorRepository _twoFactorRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IFileStorage _storage;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
+    private readonly IFileUploadPolicyResolver _policyResolver;
     private readonly IUnitOfWork _unitOfWork;
 
     public AccountProfileService(
@@ -24,6 +22,7 @@ public sealed class AccountProfileService : IAccountProfileService
         IPasswordHasher passwordHasher,
         IFileStorage storage,
         IFileObjectKeyGenerator objectKeyGenerator,
+        IFileUploadPolicyResolver policyResolver,
         IUnitOfWork unitOfWork)
     {
         _repository = repository;
@@ -31,6 +30,7 @@ public sealed class AccountProfileService : IAccountProfileService
         _passwordHasher = passwordHasher;
         _storage = storage;
         _objectKeyGenerator = objectKeyGenerator;
+        _policyResolver = policyResolver;
         _unitOfWork = unitOfWork;
     }
 
@@ -95,19 +95,17 @@ public sealed class AccountProfileService : IAccountProfileService
         var mimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
         var sha256 = NormalizeSha256(request.Sha256);
         var ext = Path.GetExtension(originalName);
-        if (!AvatarMimeTypes.Contains(mimeType) || string.IsNullOrWhiteSpace(ext) || !AvatarExtensions.Contains(ext))
+        var policy = _policyResolver.Resolve("avatar");
+        if (request.SizeBytes <= 0 || request.SizeBytes > policy.MaxSizeBytes)
         {
-            throw Validation("Avatar MIME type or extension is not allowed.");
+            throw Validation($"Avatar size must be between 1 and {policy.MaxSizeBytes} bytes.");
         }
 
-        if (request.SizeBytes <= 0 || request.SizeBytes > MaxAvatarSizeBytes || file.Length <= 0 || file.Length > MaxAvatarSizeBytes)
-        {
-            throw Validation($"Avatar size must be between 1 and {MaxAvatarSizeBytes} bytes.");
-        }
+        await policy.ValidateContentAsync(file, mimeType, ext, cancellationToken);
 
-        var objectKey = _objectKeyGenerator.GenerateObjectKey(context.Now, ext);
+        var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(context.Now, ext)}";
         await using var stream = file.OpenReadStream();
-        var stored = await _storage.StoreAsync(stream, objectKey, ext.ToLowerInvariant(), MaxAvatarSizeBytes, cancellationToken);
+        var stored = await _storage.StoreAsync(stream, objectKey, ext.ToLowerInvariant(), policy.MaxSizeBytes, cancellationToken);
         if (stored.SizeBytes != request.SizeBytes || !string.Equals(stored.Sha256, sha256, StringComparison.OrdinalIgnoreCase) || !string.Equals(stored.MimeType, mimeType, StringComparison.OrdinalIgnoreCase))
         {
             await _storage.DeleteAsync(objectKey, cancellationToken);
@@ -142,7 +140,7 @@ public sealed class AccountProfileService : IAccountProfileService
             throw new DomainException(ApiCodes.NotFound, "Avatar was not found.");
         }
 
-        return new FileDownloadPayload(await _storage.OpenReadAsync(user.AvatarObjectKey, cancellationToken), user.AvatarMimeType, $"avatar{user.AvatarFileExt}", 0);
+        return new FileDownloadPayload(await _storage.OpenReadAsync(user.AvatarObjectKey, cancellationToken), user.AvatarMimeType, $"avatar{user.AvatarFileExt}", 0, true);
     }
 
     public async Task<AccountSecurityResponse> GetSecurityAsync(AccountRequestContext context, CancellationToken cancellationToken)
@@ -164,7 +162,7 @@ public sealed class AccountProfileService : IAccountProfileService
 
     private Task SecurityEventAsync(AccountRequestContext context, string eventType, string severity, string message, CancellationToken cancellationToken)
     {
-        return _repository.RecordSecurityEventAsync(new AccountSecurityEventRecord(eventType, context.UserId, context.Username, context.Ip, severity, message, context.Now), cancellationToken);
+        return _repository.RecordSecurityEventAsync(new AccountSecurityEventRecord(eventType, context.UserId, context.Username, context.Ip, severity, message, context.Now, context.TraceId), cancellationToken);
     }
 
     private static AccountProfileResponse ToProfile(AccountProfileRecord user)

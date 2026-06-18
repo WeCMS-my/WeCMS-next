@@ -24,6 +24,16 @@ public sealed class FileEndpointHttpTests
         Assert.Equal("sys:file:download", FilePermissions.Download);
     }
 
+    [Fact]
+    public void FileEndpoints_SourceUsesSafeContentDispositionBuilderForPreview()
+    {
+        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"));
+
+        Assert.Contains("ContentDispositionHeaderValue", source, StringComparison.Ordinal);
+        Assert.Contains("FileNameStar = payload.FileName", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("httpContext.Response.Headers.ContentDisposition = $\"inline; filename=\\\"{payload.FileName}\\\"\";", source, StringComparison.Ordinal);
+    }
+
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

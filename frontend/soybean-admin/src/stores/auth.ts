@@ -22,6 +22,7 @@ export const useAuthStore = defineStore("auth", () => {
   const tokenSet = ref<TokenSet | null>(readTokenSet());
   const user = ref<AuthUserDto | null>(null);
   const roles = ref<string[]>([]);
+  const permissionVersion = ref<number | null>(null);
   const twoFactorChallenge = ref<TwoFactorChallengeState | null>(null);
   const initialized = ref(false);
   let restorePromise: Promise<void> | null = null;
@@ -69,7 +70,13 @@ export const useAuthStore = defineStore("auth", () => {
     if (!restorePromise) {
       restorePromise = tokenSet.value?.accessToken
         ? authMeApi().then((result) => {
-            applyAuthState(result.data.user, result.data.roles, result.data.permissions, result.data.menus);
+            applyAuthState(
+              result.data.user,
+              result.data.roles,
+              result.data.permissions,
+              result.data.menus,
+              result.data.permissionVersion
+            );
           })
         : refreshApi().then((result) => {
             const response = requireAuthenticatedResponse(result.data);
@@ -77,7 +84,7 @@ export const useAuthStore = defineStore("auth", () => {
               accessToken: response.accessToken,
               expiresAt: response.expiresAt
             });
-            applyAuthState(response.user, response.roles, response.permissions, response.menus);
+            applyAuthState(response.user, response.roles, response.permissions, response.menus, response.permissionVersion);
           });
 
       restorePromise = restorePromise
@@ -107,7 +114,13 @@ export const useAuthStore = defineStore("auth", () => {
       accessToken: authenticated.accessToken,
       expiresAt: authenticated.expiresAt
     });
-    applyAuthState(authenticated.user, authenticated.roles, authenticated.permissions, authenticated.menus);
+    applyAuthState(
+      authenticated.user,
+      authenticated.roles,
+      authenticated.permissions,
+      authenticated.menus,
+      authenticated.permissionVersion
+    );
     initialized.value = true;
   }
 
@@ -146,15 +159,33 @@ export const useAuthStore = defineStore("auth", () => {
     nextUser: AuthUserDto,
     nextRoles: string[],
     nextPermissions: string[],
-    nextMenus: MenuTreeDto[]
+    nextMenus: MenuTreeDto[],
+    nextPermissionVersion: number
   ): void {
     const permissionStore = usePermissionStore();
     const menuStore = useMenuStore();
 
     user.value = nextUser;
     roles.value = nextRoles;
+    permissionVersion.value = nextPermissionVersion;
     permissionStore.setPermissions(nextPermissions);
     menuStore.setMenus(nextMenus);
+  }
+
+  async function refreshPermissionState(nextPermissionVersion: number): Promise<void> {
+    if (!tokenSet.value?.accessToken || permissionVersion.value === nextPermissionVersion) {
+      return;
+    }
+
+    const result = await authMeApi();
+    applyAuthState(
+      result.data.user,
+      result.data.roles,
+      result.data.permissions,
+      result.data.menus,
+      result.data.permissionVersion
+    );
+    initialized.value = true;
   }
 
   function setTokenSet(nextTokenSet: TokenSet): void {
@@ -174,6 +205,7 @@ export const useAuthStore = defineStore("auth", () => {
     tokenSet.value = null;
     user.value = null;
     roles.value = [];
+    permissionVersion.value = null;
     permissionStore.setPermissions([]);
     menuStore.clearMenus();
     clearTokenSet();
@@ -183,6 +215,7 @@ export const useAuthStore = defineStore("auth", () => {
     tokenSet,
     user,
     roles,
+    permissionVersion,
     twoFactorChallenge,
     initialized,
     isAuthenticated,
@@ -193,6 +226,7 @@ export const useAuthStore = defineStore("auth", () => {
     restoreSession,
     logout,
     setTokenSet,
+    refreshPermissionState,
     clearSession
   };
 });

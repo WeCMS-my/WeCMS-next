@@ -1,0 +1,10 @@
+- [ ] `AuthService` remains below the current 600-line file ceiling.
+- [ ] `IAuthService` public API is unchanged.
+- [ ] refresh replay-window semantics remain unchanged.
+- [ ] logout unknown-token / revoked-token / success semantics remain unchanged.
+- [ ] audit-log writing is extracted behind a dedicated auth writer.
+- [ ] security-event writing is extracted behind a dedicated auth writer.
+- [ ] task-scoped auth unit tests pass.
+- [ ] task-scoped auth integration tests pass.
+- [ ] backend quality gate passes.
+- [ ] audit confirms no HTTP/OpenAPI contract drift.

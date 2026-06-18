@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
@@ -18,8 +19,8 @@ public static class SecurityEndpoints
         group.MapGet("/status", StatusAsync).RequirePermission(SecurityPermissions.Status);
         group.MapGet("/bans", ListBansAsync).RequirePermission(SecurityPermissions.BanList);
         group.MapGet("/bans/{id:long}", GetBanAsync).RequirePermission(SecurityPermissions.BanDetail);
-        group.MapPost("/bans/{id:long}/unban", UnbanAsync).RequirePermission(SecurityPermissions.BanUnban);
-        group.MapPost("/bans/batch-unban", BatchUnbanAsync).RequirePermission(SecurityPermissions.BanBatchUnban);
+        group.MapPost("/bans/{id:long}/unban", UnbanAsync).RequirePermission(SecurityPermissions.BanUnban).RequireRateLimiting(RateLimitPolicyNames.SecurityUnban);
+        group.MapPost("/bans/batch-unban", BatchUnbanAsync).RequirePermission(SecurityPermissions.BanBatchUnban).RequireRateLimiting(RateLimitPolicyNames.SecurityUnban);
 
         return endpoints;
     }

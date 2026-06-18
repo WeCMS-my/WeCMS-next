@@ -104,7 +104,8 @@ public sealed class CookieAuthOriginValidator : ICookieAuthOriginValidator
                 requestContext.Ip,
                 "warning",
                 $"Cookie authenticated request origin rejected for {endpointName}.",
-                _clock.UtcNow),
+                _clock.UtcNow,
+                requestContext.TraceId),
             cancellationToken);
     }
 

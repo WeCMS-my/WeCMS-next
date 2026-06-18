@@ -10,4 +10,5 @@ public interface IFileRepository
     Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken);
     Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken);
     Task RecordAuditAsync(FileAuditRecord record, CancellationToken cancellationToken);
+    Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken);
 }

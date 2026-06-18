@@ -3,20 +3,14 @@ using WeCms.Modules.System.Permissions;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Migration;
 using WeCms.Persistence.Modules.System.Permissions;
+using WeCms.Shared.Security;
 using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Permissions;
 
-public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class PermissionRepositoryTests : PerTestDatabaseResetBase
 {
-
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(RequiredConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task UserHasPermissionAsync_UsesPersistedRolePermissionAssignments()
     {
@@ -26,8 +20,7 @@ public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var repository = new PermissionRepository(db);
             var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
@@ -60,8 +53,7 @@ public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             db.Ado.ExecuteCommand(
@@ -87,8 +79,7 @@ public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
         try
         {
             using var db = new SqlSugarClientFactory(baseConnectionString).Create();
-            await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
-            await new SeedRunner(db).SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
+            await PrepareDatabaseWithSeedsAsync(db);
 
             var checker = new PermissionChecker(new PermissionRepository(db));
             var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
@@ -105,6 +96,41 @@ public sealed class PermissionRepositoryTests : global::Xunit.IAsyncLifetime
         {
         }
     }
+
+    [DbFact]
+    public async Task PermissionSecurityEventRepository_RecordAsync_WritesClassifiedSecurityEvent()
+    {
+        var baseConnectionString = RequiredConnectionString();
+
+
+        try
+        {
+            using var db = new SqlSugarClientFactory(baseConnectionString).Create();
+            await PrepareDatabaseWithSeedsAsync(db);
+
+            var repository = new PermissionSecurityEventRepository(db, new SecurityEventClassifier());
+            var now = new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero);
+
+            await repository.RecordAsync(
+                new PermissionSecurityEventRecord(
+                    "permission_denied",
+                    1,
+                    "admin",
+                    "192.168.101.199",
+                    "Permission denied. Required permission: sys:user:delete.",
+                    now,
+                    "trace-permission"),
+                CancellationToken.None);
+
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_security_event WHERE event_type = 'permission_denied'"));
+            Assert.Equal("warning", Scalar<string>(db, "SELECT severity FROM sys_security_event WHERE trace_id = 'trace-permission' LIMIT 1"));
+            Assert.Equal("permission", Scalar<string>(db, "SELECT source FROM sys_security_event WHERE trace_id = 'trace-permission' LIMIT 1"));
+        }
+        finally
+        {
+        }
+    }
+
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
     {
         var scalar = db.Ado.GetScalar(sql, parameters);

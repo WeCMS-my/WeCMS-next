@@ -1,0 +1,121 @@
+using WeCms.Shared;
+
+namespace WeCms.Modules.System.Security;
+
+public static class RateLimitPolicyNames
+{
+    public const string AuthLogin = "auth_login_policy";
+    public const string AuthRefresh = "auth_refresh_policy";
+    public const string AuthTwoFactor = "auth_2fa_policy";
+    public const string AdminWrite = "admin_write_policy";
+    public const string FileUpload = "file_upload_policy";
+    public const string SecurityUnban = "security_unban_policy";
+
+    public static IReadOnlySet<string> All { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        AuthLogin,
+        AuthRefresh,
+        AuthTwoFactor,
+        AdminWrite,
+        FileUpload,
+        SecurityUnban
+    };
+}
+
+public sealed record RateLimitHitRecord(
+    string Policy,
+    string HttpMethod,
+    string Path,
+    long? UserId,
+    string? Username,
+    string Ip,
+    string UserAgent,
+    string TraceId,
+    DateTimeOffset CreatedAt);
+
+public sealed record RateLimitSecurityEventRecord(
+    string EventType,
+    string Policy,
+    string HttpMethod,
+    string Path,
+    long? UserId,
+    string? Username,
+    string Ip,
+    string Severity,
+    string Source,
+    string Message,
+    string TraceId,
+    DateTimeOffset CreatedAt);
+
+public interface IRateLimitSecurityEventService
+{
+    Task RecordHitAsync(RateLimitHitRecord record, CancellationToken cancellationToken);
+}
+
+public interface IRateLimitSecurityEventRepository
+{
+    Task RecordHitAsync(RateLimitSecurityEventRecord record, CancellationToken cancellationToken);
+}
+
+public sealed class RateLimitSecurityEventService : IRateLimitSecurityEventService
+{
+    private readonly IRateLimitSecurityEventRepository _repository;
+
+    public RateLimitSecurityEventService(IRateLimitSecurityEventRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task RecordHitAsync(RateLimitHitRecord record, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        if (!RateLimitPolicyNames.All.Contains(record.Policy))
+        {
+            throw new InvalidOperationException($"Unknown rate limit policy: {record.Policy}.");
+        }
+
+        var path = NormalizeRequired(record.Path, "path", 256);
+        var method = NormalizeRequired(record.HttpMethod, "httpMethod", 16).ToUpperInvariant();
+        var ip = NormalizeRequired(record.Ip, "ip", 64);
+        var traceId = NormalizeRequired(record.TraceId, "traceId", 64);
+        var message = $"Rate limit hit for {record.Policy} on {method} {path}.";
+
+        await _repository.RecordHitAsync(
+            new RateLimitSecurityEventRecord(
+                "rate_limit_hit",
+                record.Policy,
+                method,
+                path,
+                record.UserId,
+                NormalizeOptional(record.Username, 64),
+                ip,
+                "warning",
+                "rate-limit",
+                message,
+                traceId,
+                record.CreatedAt),
+            cancellationToken);
+    }
+
+    private static string NormalizeRequired(string value, string field, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"{field} is required for rate limit security events.");
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= maxLength ? normalized : throw new DomainException(ApiCodes.ValidationError, $"{field} must be {maxLength} characters or fewer.");
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= maxLength ? normalized : throw new DomainException(ApiCodes.ValidationError, $"value must be {maxLength} characters or fewer.");
+    }
+}

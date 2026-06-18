@@ -6,20 +6,14 @@ using WeCms.Persistence.Modules.System.TwoFactor;
 
 namespace WeCms.Tests.Integration.TwoFactor;
 
-public sealed class UserTwoFactorRepositoryTests : global::Xunit.IAsyncLifetime
+[Collection(nameof(SharedMySqlCollection))]
+public sealed class UserTwoFactorRepositoryTests : PerTestDatabaseResetBase
 {
-    public Task InitializeAsync()
-    {
-        return IntegrationTestDatabase.ResetDatabaseAsync(IntegrationTestDatabase.GetConnectionString());
-    }
-
-    public Task DisposeAsync() => Task.CompletedTask;
-
     [DbFact]
     public async Task SetupEnableAndRecoveryCodeUpdate_UseUserTwoFactorSchema()
     {
         using var db = new SqlSugarClientFactory(IntegrationTestDatabase.GetConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+        await PrepareDatabaseAsync(db);
         var repository = new UserTwoFactorRepository(db);
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
         var userId = await InsertUserAsync(db, "two-factor-user");
@@ -67,7 +61,7 @@ public sealed class UserTwoFactorRepositoryTests : global::Xunit.IAsyncLifetime
     public async Task ClearAsync_RemovesSensitiveTwoFactorState()
     {
         using var db = new SqlSugarClientFactory(IntegrationTestDatabase.GetConnectionString()).Create();
-        await new DbMigrationRunner(db).MigrateAsync(RepoPath("database", "migrations"));
+        await PrepareDatabaseAsync(db);
         var repository = new UserTwoFactorRepository(db);
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
         var userId = await InsertUserAsync(db, "clear-two-factor-user");

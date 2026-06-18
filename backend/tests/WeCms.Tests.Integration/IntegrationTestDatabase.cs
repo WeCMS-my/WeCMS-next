@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+using MySqlConnector;
 using SqlSugar;
 using WeCms.Persistence.Data;
 using Xunit;
@@ -12,6 +13,7 @@ internal static class IntegrationTestDatabase
     private const string EnvVarName = "WECMS_TEST_MYSQL_CONNECTION_STRING";
     private const string AllowedHost = "192.168.101.199";
     private const string AllowedDatabase = "wecms_dev";
+    private static readonly SemaphoreSlim ResetLock = new(1, 1);
 
     public static string GetConnectionString()
     {
@@ -66,146 +68,81 @@ internal static class IntegrationTestDatabase
         var validationFailure = GetTestConnectionValidationFailure(connectionString);
         Assert.True(string.IsNullOrWhiteSpace(validationFailure), validationFailure ?? "Integration test database connection is not allowed.");
 
-        using var db = new SqlSugarClientFactory(connectionString).Create();
-        await ResetDatabaseAsync(db);
+        await ResetLock.WaitAsync();
+        try
+        {
+            await using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+            await ResetDatabaseAsync(connection);
+        }
+        finally
+        {
+            ResetLock.Release();
+        }
     }
 
     public static async Task ResetDatabaseAsync(ISqlSugarClient db)
     {
-        var tables = db.Ado.GetDataTable(
-            "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME");
-        var foreignKeys = db.Ado.GetDataTable(
-            """
-            SELECT
-                TABLE_NAME AS table_name,
-                REFERENCED_TABLE_NAME AS referenced_table_name
-            FROM information_schema.KEY_COLUMN_USAGE
-            WHERE CONSTRAINT_SCHEMA = DATABASE()
-                AND REFERENCED_TABLE_NAME IS NOT NULL
-                AND TABLE_NAME <> REFERENCED_TABLE_NAME
-            """);
-        var selfRefFkColumns = db.Ado.GetDataTable(
-            """
-            SELECT
-                kcu.TABLE_NAME AS table_name,
-                kcu.COLUMN_NAME AS column_name
-            FROM information_schema.KEY_COLUMN_USAGE AS kcu
-            INNER JOIN information_schema.COLUMNS AS c
-                ON c.TABLE_SCHEMA = kcu.CONSTRAINT_SCHEMA
-                AND c.TABLE_NAME = kcu.TABLE_NAME
-                AND c.COLUMN_NAME = kcu.COLUMN_NAME
-            WHERE kcu.CONSTRAINT_SCHEMA = DATABASE()
-                AND kcu.REFERENCED_TABLE_NAME = kcu.TABLE_NAME
-                AND c.IS_NULLABLE = 'YES'
-            """);
+        await ResetLock.WaitAsync();
+        try
+        {
+            await using var connection = new MySqlConnection(db.Ado.Connection.ConnectionString);
+            await connection.OpenAsync();
+            await ResetDatabaseAsync(connection);
+        }
+        finally
+        {
+            ResetLock.Release();
+        }
+    }
 
-        if (tables.Rows.Count == 0)
+    private static async Task ResetDatabaseAsync(MySqlConnection connection)
+    {
+        var tableNames = new List<string>();
+
+        await using (var tablesCommand = connection.CreateCommand())
+        {
+            tablesCommand.CommandText = """
+                SELECT TABLE_NAME
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_TYPE = 'BASE TABLE'
+                ORDER BY TABLE_NAME
+                """;
+
+            await using var reader = await tablesCommand.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (!reader.IsDBNull(0))
+                {
+                    tableNames.Add(reader.GetString(0));
+                }
+            }
+        }
+
+        if (tableNames.Count == 0)
         {
             return;
         }
 
-        var tableNames = tables
-            .Rows
-            .Cast<DataRow>()
-            .Select(row => row["TABLE_NAME"]?.ToString())
-            .Where(tableName => !string.IsNullOrWhiteSpace(tableName))
-            .Select(tableName => tableName!)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var deleteOrder = GetChildFirstDeleteOrder(tableNames, foreignKeys);
-
-        await db.Ado.ExecuteCommandAsync("SET SESSION FOREIGN_KEY_CHECKS = 0");
+        await using var disableCommand = connection.CreateCommand();
+        disableCommand.CommandText = "SET SESSION FOREIGN_KEY_CHECKS = 0";
+        await disableCommand.ExecuteNonQueryAsync();
 
         try
         {
-            var selfRefColumns = selfRefFkColumns
-                .Rows
-                .Cast<DataRow>()
-                .Where(row => row["table_name"] != DBNull.Value && row["column_name"] != DBNull.Value)
-                .GroupBy(row => row["table_name"]!.ToString()!, StringComparer.Ordinal)
-                .ToDictionary(
-                    table => table.Key,
-                    table => table.Select(row => $"`{row["column_name"]!.ToString()}`").Distinct().ToArray(),
-                    StringComparer.Ordinal);
-
-            foreach (var entry in selfRefColumns)
+            foreach (var table in tableNames)
             {
-                var columns = string.Join(", ", entry.Value.Select(column => $"{column} = NULL"));
-                if (columns.Length > 0)
-                {
-                    await db.Ado.ExecuteCommandAsync($"UPDATE `{entry.Key}` SET {columns}");
-                }
-            }
-        }
-        catch
-        {
-            // Self-referencing foreign key cleanup is best effort.
-        }
-
-        try
-        {
-            foreach (var tableName in deleteOrder)
-            {
-                var quotedTableName = QuoteIdentifier(tableName);
-                await db.Ado.ExecuteCommandAsync($"DROP TABLE IF EXISTS {quotedTableName}");
+                await using var dropCommand = connection.CreateCommand();
+                dropCommand.CommandText = $"DROP TABLE IF EXISTS {QuoteIdentifier(table)}";
+                await dropCommand.ExecuteNonQueryAsync();
             }
         }
         finally
         {
-            await db.Ado.ExecuteCommandAsync("SET FOREIGN_KEY_CHECKS = 1");
-        }
-    }
-
-    private static IReadOnlyList<string> GetChildFirstDeleteOrder(IReadOnlyCollection<string> tableNames, DataTable foreignKeys)
-    {
-        var childrenByParent = foreignKeys
-            .Rows
-            .Cast<DataRow>()
-            .Select(row => new
-            {
-                Child = row["table_name"]?.ToString(),
-                Parent = row["referenced_table_name"]?.ToString()
-            })
-            .Where(row =>
-                !string.IsNullOrWhiteSpace(row.Child) &&
-                !string.IsNullOrWhiteSpace(row.Parent) &&
-                tableNames.Contains(row.Child) &&
-                tableNames.Contains(row.Parent))
-            .GroupBy(row => row.Parent!, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(row => row.Child!).Distinct(StringComparer.Ordinal).ToArray(),
-                StringComparer.Ordinal);
-
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        var visiting = new HashSet<string>(StringComparer.Ordinal);
-        var order = new List<string>();
-
-        foreach (var tableName in tableNames.Order(StringComparer.Ordinal))
-        {
-            Visit(tableName);
-        }
-
-        return order;
-
-        void Visit(string tableName)
-        {
-            if (visited.Contains(tableName) || !visiting.Add(tableName))
-            {
-                return;
-            }
-
-            if (childrenByParent.TryGetValue(tableName, out var children))
-            {
-                foreach (var child in children.Order(StringComparer.Ordinal))
-                {
-                    Visit(child);
-                }
-            }
-
-            visiting.Remove(tableName);
-            visited.Add(tableName);
-            order.Add(tableName);
+            await using var enableCommand = connection.CreateCommand();
+            enableCommand.CommandText = "SET SESSION FOREIGN_KEY_CHECKS = 1";
+            await enableCommand.ExecuteNonQueryAsync();
         }
     }
 

@@ -8,4 +8,5 @@ public interface ISettingRepository
     Task<SettingDetailDto?> GetAsync(string key, CancellationToken cancellationToken);
     Task UpdateAsync(SettingUpdateRecord record, CancellationToken cancellationToken);
     Task RecordAuditAsync(SettingAuditRecord record, CancellationToken cancellationToken);
+    Task RecordSecurityEventAsync(SettingSecurityEventRecord record, CancellationToken cancellationToken);
 }

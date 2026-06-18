@@ -10,6 +10,7 @@ public interface IMenuRepository
     Task<bool> IsDescendantAsync(long id, long candidateParentId, CancellationToken cancellationToken);
     Task<long> CreateAsync(MenuCreateRecord record, CancellationToken cancellationToken);
     Task UpdateAsync(MenuUpdateRecord record, CancellationToken cancellationToken);
+    Task SortAsync(IReadOnlyList<MenuSortRecord> records, CancellationToken cancellationToken);
     Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken);
     Task SetStatusAsync(long id, string status, DateTimeOffset now, CancellationToken cancellationToken);
     Task RecordAuditAsync(MenuAuditRecord record, CancellationToken cancellationToken);

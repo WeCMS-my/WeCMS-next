@@ -1,3 +1,4 @@
+using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.Roles;
 using WeCms.Shared;
 using WeCms.Shared.Data;
@@ -9,7 +10,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task DeleteAsync_RejectsSuperAdmin()
     {
-        var service = new RoleService(new FakeRoleRepository(), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DeleteAsync(1, Context(), CancellationToken.None));
@@ -20,7 +21,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task DisableAsync_RejectsSuperAdmin()
     {
-        var service = new RoleService(new FakeRoleRepository(), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DisableAsync(1, Context(), CancellationToken.None));
@@ -31,7 +32,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task ListAsync_RejectsPageSizeGreaterThanOneHundred()
     {
-        var service = new RoleService(new FakeRoleRepository(), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.ListAsync(new RoleListQuery(PageSize: 101), CancellationToken.None));
@@ -42,7 +43,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task UpdateAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.UpdateAsync(2, new UpdateRoleRequest("Locked"), Context(), CancellationToken.None));
@@ -54,7 +55,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task DeleteAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DeleteAsync(2, Context(), CancellationToken.None));
@@ -66,7 +67,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task DisableAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DisableAsync(2, Context(), CancellationToken.None));
@@ -78,7 +79,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task EnableAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.EnableAsync(2, Context(), CancellationToken.None));
@@ -90,7 +91,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task AssignPermissionsAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.AssignPermissionsAsync(2, new AssignRolePermissionsRequest([1]), Context(), CancellationToken.None));
@@ -102,7 +103,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task AssignMenusAsync_RejectsLockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(LockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(LockedRole()));
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.AssignMenusAsync(2, new AssignRoleMenusRequest([1]), Context(), CancellationToken.None));
@@ -114,7 +115,7 @@ public sealed class RoleServiceTests
     [Fact]
     public async Task UpdateAsync_AllowsUnlockedRole()
     {
-        var service = new RoleService(new FakeRoleRepository(UnlockedRole()), new FakeUnitOfWork());
+        var service = CreateService(new FakeRoleRepository(UnlockedRole()));
 
         var response = await service.UpdateAsync(3, new UpdateRoleRequest("Editor Updated"), Context(), CancellationToken.None);
 
@@ -130,6 +131,14 @@ public sealed class RoleServiceTests
             "unit-test",
             "trace",
             new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    private static RoleService CreateService(
+        FakeRoleRepository repository,
+        FakeUnitOfWork? unitOfWork = null,
+        FakePermissionVersionService? permissionVersionService = null)
+    {
+        return new RoleService(repository, unitOfWork ?? new FakeUnitOfWork(), permissionVersionService ?? new FakePermissionVersionService());
     }
 
     private static RoleDetailDto LockedRole()
@@ -232,5 +241,14 @@ public sealed class RoleServiceTests
         {
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakePermissionVersionService : IPermissionVersionService
+    {
+        public Task BumpUserAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByPermissionAsync(long permissionId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByMenuAsync(long menuId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByMenusAsync(IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

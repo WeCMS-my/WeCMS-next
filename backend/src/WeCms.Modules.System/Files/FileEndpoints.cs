@@ -1,10 +1,13 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Files;
@@ -16,14 +19,16 @@ public static class FileEndpoints
         var group = endpoints.MapGroup("/api/v1/system")
             .RequireAuthorization();
 
-        group.MapGet("/files", ListAsync).RequirePermission(FilePermissions.List);
-        group.MapGet("/files/{id:long}", DetailAsync).RequirePermission(FilePermissions.Detail);
         group.MapPost("/files", CreateAsync)
             .DisableAntiforgery()
-            .RequirePermission(FilePermissions.Upload);
+            .RequirePermission(FilePermissions.Upload)
+            .RequireRateLimiting(RateLimitPolicyNames.FileUpload);
+        group.MapGet("/files", ListAsync).RequirePermission(FilePermissions.List);
+        group.MapGet("/files/{id:long}", DetailAsync).RequirePermission(FilePermissions.Detail);
         group.MapGet("/files/{id:long}/download", DownloadAsync).RequirePermission(FilePermissions.Download);
         group.MapGet("/files/{id:long}/preview", PreviewAsync).RequirePermission(FilePermissions.Download);
-        group.MapDelete("/files/{id:long}", DeleteAsync).RequirePermission(FilePermissions.Delete);
+        var deleteEndpoint = group.MapDelete("/files/{id:long}", DeleteAsync).RequirePermission(FilePermissions.Delete);
+        deleteEndpoint.RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }
@@ -62,9 +67,14 @@ public static class FileEndpoints
     private static async Task<IResult> FileTransferAsync(long id, bool inline, HttpContext httpContext, IFileService service, IAuthClock clock, CancellationToken cancellationToken)
     {
         var payload = await service.GetDownloadPayloadAsync(id, inline, Context(httpContext, clock), cancellationToken);
-        if (inline)
+        httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+        if (payload.Inline)
         {
-            httpContext.Response.Headers.ContentDisposition = $"inline; filename=\"{payload.FileName}\"";
+            var contentDisposition = new ContentDispositionHeaderValue("inline")
+            {
+                FileNameStar = payload.FileName
+            };
+            httpContext.Response.Headers.ContentDisposition = contentDisposition.ToString();
             return Results.File(payload.Content, payload.ContentType, enableRangeProcessing: true);
         }
 

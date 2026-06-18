@@ -1,14 +1,20 @@
 using SqlSugar;
 using WeCms.Modules.System.Files;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Persistence.Modules.System.Files;
 
 public sealed class FileRepository : IFileRepository
 {
     private readonly ISqlSugarClient _db;
+    private readonly ISecurityEventClassifier _securityEventClassifier;
 
-    public FileRepository(ISqlSugarClient db) => _db = db;
+    public FileRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier)
+    {
+        _db = db;
+        _securityEventClassifier = securityEventClassifier;
+    }
 
     public async Task<PagedResult<FileSummaryDto>> ListAsync(FileListCriteria criteria, CancellationToken cancellationToken)
     {
@@ -89,6 +95,7 @@ public sealed class FileRepository : IFileRepository
             """
             SELECT object_key AS ObjectKey,
                    original_name AS OriginalName,
+                   file_ext AS FileExt,
                    mime_type AS MimeType,
                    size_bytes AS SizeBytes,
                    status AS Status
@@ -160,6 +167,26 @@ public sealed class FileRepository : IFileRepository
         new SugarParameter("@detail", record.Detail),
         new SugarParameter("@createdAt", record.Now.UtcDateTime));
 
+    public Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken)
+    {
+        var classification = _securityEventClassifier.Classify(record.EventType, record.TraceId);
+        return ExpectOneAsync(
+            """
+            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, source, message, trace_id, created_at)
+            VALUES (@eventType, @userId, @username, @ip, @severity, @source, @message, @traceId, @createdAt)
+            """,
+            cancellationToken,
+            new SugarParameter("@eventType", classification.EventType),
+            new SugarParameter("@userId", record.UserId),
+            new SugarParameter("@username", record.Username),
+            new SugarParameter("@ip", record.Ip),
+            new SugarParameter("@severity", classification.Severity),
+            new SugarParameter("@source", classification.Source),
+            new SugarParameter("@message", record.Message),
+            new SugarParameter("@traceId", classification.TraceId),
+            new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
+    }
+
     private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -191,10 +218,11 @@ public sealed class FileRepository : IFileRepository
     {
         public string ObjectKey { get; set; } = string.Empty;
         public string OriginalName { get; set; } = string.Empty;
+        public string FileExt { get; set; } = string.Empty;
         public string MimeType { get; set; } = string.Empty;
         public long SizeBytes { get; set; }
         public string Status { get; set; } = string.Empty;
 
-        public FileDownloadRecord ToDownloadRecord() => new(ObjectKey, OriginalName, MimeType, SizeBytes, Status);
+        public FileDownloadRecord ToDownloadRecord() => new(ObjectKey, OriginalName, FileExt, MimeType, SizeBytes, Status);
     }
 }

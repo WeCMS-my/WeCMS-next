@@ -42,6 +42,8 @@ if ! diff -u "${generated_tmp}" "${TYPES_FILE}" >/dev/null; then
 fi
 
 required_api_clients=(
+  account-profile.ts
+  account-two-factor.ts
   auth.ts
   menu.ts
   users.ts
@@ -53,6 +55,8 @@ required_api_clients=(
   settings.ts
   logs.ts
   files.ts
+  i18n.ts
+  security.ts
 )
 
 for client in "${required_api_clients[@]}"; do

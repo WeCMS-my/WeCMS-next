@@ -86,8 +86,7 @@ public sealed partial class AuthServiceTests
                 "Administrator",
                 PasswordHasher.HashForTest("correct"),
                 "enabled",
-                false,
-                true)
+                false, true)
         };
         var service = CreateService(repository);
 
@@ -212,8 +211,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 null,
@@ -269,8 +267,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
@@ -283,7 +280,7 @@ public sealed partial class AuthServiceTests
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
-        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal("auth.refresh_concurrent_replay", repository.LastSecurityEventType);
         Assert.Equal(1, repository.AuditLogCount);
         Assert.Equal("refresh", repository.LastAuditAction);
         Assert.Equal("failed", repository.LastAuditResult);
@@ -303,8 +300,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 16, 0, 0, 1, TimeSpan.Zero),
@@ -337,8 +333,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 0, TimeSpan.Zero),
@@ -367,8 +362,7 @@ public sealed partial class AuthServiceTests
             "admin",
             "Administrator",
             "enabled",
-            true,
-            issued.Hash,
+            true, issued.Hash,
             "family-1",
             new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
             null,
@@ -399,8 +393,7 @@ public sealed partial class AuthServiceTests
             "admin",
             "Administrator",
             "enabled",
-            true,
-            issued.Hash,
+            true, issued.Hash,
             "family-1",
             new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
             null,
@@ -415,7 +408,7 @@ public sealed partial class AuthServiceTests
 
         Assert.Equal(1, results.Count(response => response is not null));
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
-        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal("auth.refresh_concurrent_replay", repository.LastSecurityEventType);
         Assert.Equal("refresh", repository.LastAuditAction);
         Assert.Equal("failed", repository.LastAuditResult);
     }
@@ -432,8 +425,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
@@ -446,7 +438,7 @@ public sealed partial class AuthServiceTests
 
         Assert.Equal(ApiCodes.Unauthorized, exception.Code);
         Assert.Equal(string.Empty, repository.RevokedFamilyId);
-        Assert.Equal("auth.refresh_reuse", repository.LastSecurityEventType);
+        Assert.Equal("auth.refresh_concurrent_replay", repository.LastSecurityEventType);
         Assert.Equal(1, repository.SecurityEventCount);
         Assert.Equal("refresh", repository.LastAuditAction);
         Assert.Equal("failed", repository.LastAuditResult);
@@ -522,8 +514,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-logout",
                 new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
                 null,
@@ -569,8 +560,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true,
-                issued.Hash,
+                true, issued.Hash,
                 "family-logout",
                 new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero),

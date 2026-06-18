@@ -51,7 +51,7 @@ public sealed record AccountAvatarUpdateRecord(long UserId, string ObjectKey, st
 
 public sealed record AccountAuditRecord(long UserId, string Username, string Action, string Ip, string UserAgent, string TraceId, string Result, string Detail, DateTimeOffset CreatedAt);
 
-public sealed record AccountSecurityEventRecord(string EventType, long UserId, string Username, string Ip, string Severity, string Message, DateTimeOffset CreatedAt);
+public sealed record AccountSecurityEventRecord(string EventType, long UserId, string Username, string Ip, string Severity, string Message, DateTimeOffset CreatedAt, string TraceId = "");
 
 public interface IAccountProfileService
 {

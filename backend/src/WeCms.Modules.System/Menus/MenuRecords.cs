@@ -36,4 +36,6 @@ public sealed record MenuUpdateRecord(
     string Status,
     DateTimeOffset Now);
 
+public sealed record MenuSortRecord(long Id, long? ParentId, int Sort, DateTimeOffset Now);
+
 public sealed record MenuAuditRecord(long ActorUserId, string ActorUsername, string Action, long TargetMenuId, string Ip, string UserAgent, string TraceId, string Result, string Detail, DateTimeOffset Now);

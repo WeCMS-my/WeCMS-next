@@ -1,14 +1,20 @@
 using SqlSugar;
 using WeCms.Modules.System.Settings;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Persistence.Modules.System.Settings;
 
 public sealed class SettingRepository : ISettingRepository
 {
     private readonly ISqlSugarClient _db;
+    private readonly ISecurityEventClassifier _securityEventClassifier;
 
-    public SettingRepository(ISqlSugarClient db) => _db = db;
+    public SettingRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier)
+    {
+        _db = db;
+        _securityEventClassifier = securityEventClassifier;
+    }
 
     public async Task<PagedResult<SettingSummaryDto>> ListAsync(SettingListCriteria criteria, CancellationToken cancellationToken)
     {
@@ -109,6 +115,26 @@ public sealed class SettingRepository : ISettingRepository
         new SugarParameter("@result", record.Result),
         new SugarParameter("@detail", record.Detail),
         new SugarParameter("@createdAt", record.Now.UtcDateTime));
+
+    public Task RecordSecurityEventAsync(SettingSecurityEventRecord record, CancellationToken cancellationToken)
+    {
+        var classification = _securityEventClassifier.Classify(record.EventType, record.TraceId);
+        return ExpectOneAsync(
+            """
+            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, source, message, trace_id, created_at)
+            VALUES (@eventType, @userId, @username, @ip, @severity, @source, @message, @traceId, @createdAt)
+            """,
+            cancellationToken,
+            new SugarParameter("@eventType", classification.EventType),
+            new SugarParameter("@userId", record.UserId),
+            new SugarParameter("@username", record.Username),
+            new SugarParameter("@ip", record.Ip),
+            new SugarParameter("@severity", classification.Severity),
+            new SugarParameter("@source", classification.Source),
+            new SugarParameter("@message", record.Message),
+            new SugarParameter("@traceId", classification.TraceId),
+            new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
+    }
 
     private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
     {

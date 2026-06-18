@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Auth;
@@ -24,7 +26,8 @@ public static class AccountProfileEndpoints
         group.MapPost("/avatar", UploadAvatarAsync)
             .Accepts<AccountAvatarUploadRequest>("multipart/form-data")
             .WithMetadata(new OpenApiRequestBodyMetadata(typeof(AccountAvatarUploadRequest)))
-            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountAvatarResponse)));
+            .WithMetadata(new OpenApiResponseMetadata(typeof(AccountAvatarResponse)))
+            .RequireRateLimiting(RateLimitPolicyNames.FileUpload);
         group.MapGet("/avatar/content", GetAvatarAsync);
         group.MapGet("/security", GetSecurityAsync)
             .WithMetadata(new OpenApiResponseMetadata(typeof(AccountSecurityResponse)));
@@ -62,7 +65,9 @@ public static class AccountProfileEndpoints
     private static async Task<IResult> GetAvatarAsync(HttpContext httpContext, IAccountProfileService service, IAuthClock clock, CancellationToken cancellationToken)
     {
         var payload = await service.GetAvatarAsync(Context(httpContext, clock), cancellationToken);
-        return Results.File(payload.Content, payload.ContentType, payload.FileName);
+        httpContext.Response.Headers.XContentTypeOptions = "nosniff";
+        httpContext.Response.Headers.ContentDisposition = $"inline; filename*=UTF-8''{Uri.EscapeDataString(payload.FileName)}";
+        return Results.File(payload.Content, payload.ContentType, enableRangeProcessing: true);
     }
 
     private static async Task<ApiResult<AccountSecurityResponse>> GetSecurityAsync(HttpContext httpContext, IAccountProfileService service, IAuthClock clock, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using WeCms.Shared;
 using WeCms.Shared.Data;
+using WeCms.Modules.System.Permissions;
 
 namespace WeCms.Modules.System.Roles;
 
@@ -10,11 +11,13 @@ public sealed class RoleService : IRoleService
     private const string SuperAdminCode = "super_admin";
     private readonly IRoleRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPermissionVersionService _permissionVersionService;
 
-    public RoleService(IRoleRepository repository, IUnitOfWork unitOfWork)
+    public RoleService(IRoleRepository repository, IUnitOfWork unitOfWork, IPermissionVersionService permissionVersionService)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
+        _permissionVersionService = permissionVersionService;
     }
 
     public Task<PagedResult<RoleSummaryDto>> ListAsync(RoleListQuery query, CancellationToken cancellationToken)
@@ -98,6 +101,7 @@ public sealed class RoleService : IRoleService
         var role = await GetAsync(id, cancellationToken);
         EnsureRoleNotLocked(role, "Locked role cannot be enabled.");
         await _repository.SetStatusAsync(id, "enabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByRoleAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "enable", id, "success", "Role enabled.", cancellationToken);
     }
 
@@ -107,6 +111,7 @@ public sealed class RoleService : IRoleService
         EnsureRoleNotLocked(role, "Locked role cannot be disabled.");
         EnsureNotSuperAdmin(role, "disable");
         await _repository.SetStatusAsync(id, "disabled", context.Now, cancellationToken);
+        await _permissionVersionService.BumpUsersByRoleAsync(id, context.Now, cancellationToken);
         await AuditAsync(context, "disable", id, "success", "Role disabled.", cancellationToken);
     }
 
@@ -124,6 +129,7 @@ public sealed class RoleService : IRoleService
         try
         {
             await _repository.ReplacePermissionsAsync(id, permissionIds, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUsersByRoleAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "assign-permission", id, "success", "Role permissions assigned.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -143,6 +149,7 @@ public sealed class RoleService : IRoleService
         try
         {
             await _repository.ReplaceMenusAsync(id, menuIds, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUsersByRoleAsync(id, context.Now, cancellationToken);
             await AuditAsync(context, "assign-menu", id, "success", "Role menus assigned.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }

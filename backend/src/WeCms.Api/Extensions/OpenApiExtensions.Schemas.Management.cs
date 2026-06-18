@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Logs;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
@@ -75,6 +76,26 @@ public static partial class OpenApiExtensions
             [nameof(MenuDetailDto)] = MenuSchema(includeChildren: false, includeTimestamps: true),
             [nameof(CreateMenuRequest)] = MenuMutationSchema(includeCode: true),
             [nameof(UpdateMenuRequest)] = MenuMutationSchema(includeCode: false),
+            [nameof(SortMenusRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("items"),
+                ["properties"] = new JsonObject
+                {
+                    ["items"] = ArrayOf(SchemaRef(nameof(SortMenuItemRequest)))
+                }
+            },
+            [nameof(SortMenuItemRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("id", "sort"),
+                ["properties"] = new JsonObject
+                {
+                    ["id"] = IntegerSchema(),
+                    ["parentId"] = IntegerSchema(nullable: true),
+                    ["sort"] = IntegerSchema()
+                }
+            },
             [nameof(MenuMutationResponse)] = ObjectSchema(("id", "integer")),
             ["PermissionSummaryList"] = ArrayOf(SchemaRef(nameof(PermissionSummaryDto))),
             ["PermissionTreeList"] = ArrayOf(SchemaRef(nameof(PermissionTreeDto))),
@@ -112,6 +133,15 @@ public static partial class OpenApiExtensions
             [nameof(DictTypeDetailDto)] = DictTypeSchema(includeTimestamps: true),
             [nameof(CreateDictTypeRequest)] = DictTypeMutationSchema(includeCode: true),
             [nameof(UpdateDictTypeRequest)] = DictTypeMutationSchema(includeCode: false),
+            [nameof(DisableDictTypeRequest)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("cascadeValues"),
+                ["properties"] = new JsonObject
+                {
+                    ["cascadeValues"] = BooleanSchema()
+                }
+            },
             ["DictValueList"] = ArrayOf(SchemaRef(nameof(DictValueDto))),
             [nameof(DictValueDto)] = DictValueSchema(),
             [nameof(CreateDictValueRequest)] = DictValueMutationSchema(),
@@ -125,7 +155,39 @@ public static partial class OpenApiExtensions
                 ["type"] = "object",
                 ["properties"] = new JsonObject { ["value"] = NullableStringSchema() }
             },
+            [nameof(ValidateIpRulesRequest)] = ObjectSchema(("rules", "string")),
+            [nameof(ValidateIpRulesResponse)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("valid"),
+                ["properties"] = new JsonObject
+                {
+                    ["valid"] = BooleanSchema()
+                }
+            },
             [nameof(SettingMutationResponse)] = ObjectSchema(("key", "string")),
+            ["PagedI18nMessageSummary"] = PagedSchema(nameof(I18nMessageSummaryDto)),
+            [nameof(I18nMessageSummaryDto)] = I18nMessageSchema(includeDetail: false),
+            [nameof(I18nMessageDetailDto)] = I18nMessageSchema(includeDetail: true),
+            [nameof(CreateI18nMessageRequest)] = I18nCreateRequestSchema(),
+            [nameof(UpdateI18nMessageRequest)] = I18nUpdateRequestSchema(),
+            [nameof(SwitchAccountLocaleRequest)] = ObjectSchema(("locale", "string")),
+            [nameof(I18nMessagesResponse)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("locale", "messages"),
+                ["properties"] = new JsonObject
+                {
+                    ["locale"] = StringSchema(),
+                    ["messages"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["additionalProperties"] = StringSchema()
+                    }
+                }
+            },
+            [nameof(AccountI18nSwitchResponse)] = ObjectSchema(("locale", "string")),
+            [nameof(I18nMutationResponse)] = ObjectSchema(("id", "integer")),
             ["PagedLoginLogSummary"] = PagedSchema(nameof(LoginLogSummaryDto)),
             [nameof(LoginLogSummaryDto)] = LoginLogSchema(includeUserAgent: false),
             [nameof(LoginLogDetailDto)] = LoginLogSchema(includeUserAgent: true),
@@ -177,6 +239,7 @@ public static partial class OpenApiExtensions
                     ["mimeType"] = StringSchema(),
                     ["sizeBytes"] = IntegerSchema(),
                     ["sha256"] = StringSchema(),
+                    ["policy"] = StringSchema(),
                     ["file"] = new JsonObject { ["type"] = "string", ["format"] = "binary" }
                 }
             },
@@ -207,6 +270,69 @@ public static partial class OpenApiExtensions
             ["type"] = "object",
             ["required"] = Required(propertyName),
             ["properties"] = new JsonObject { [propertyName] = ArrayOf(IntegerSchema()) }
+        };
+    }
+
+    private static JsonObject I18nMessageSchema(bool includeDetail)
+    {
+        var properties = new JsonObject
+        {
+            ["id"] = IntegerSchema(),
+            ["locale"] = StringSchema(),
+            ["module"] = StringSchema(),
+            ["messageKey"] = StringSchema(),
+            ["messageValue"] = StringSchema(),
+            ["status"] = StringSchema(),
+            ["updatedAt"] = DateTimeSchema()
+        };
+
+        if (includeDetail)
+        {
+            properties["remark"] = NullableStringSchema();
+            properties["createdAt"] = DateTimeSchema();
+        }
+
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["required"] = includeDetail
+                ? Required("id", "locale", "module", "messageKey", "messageValue", "status", "createdAt", "updatedAt")
+                : Required("id", "locale", "module", "messageKey", "messageValue", "status", "updatedAt"),
+            ["properties"] = properties
+        };
+    }
+
+    private static JsonObject I18nCreateRequestSchema()
+    {
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["required"] = Required("locale", "module", "messageKey", "messageValue", "status"),
+            ["properties"] = new JsonObject
+            {
+                ["locale"] = StringSchema(),
+                ["module"] = StringSchema(),
+                ["messageKey"] = StringSchema(),
+                ["messageValue"] = StringSchema(),
+                ["remark"] = NullableStringSchema(),
+                ["status"] = StringSchema()
+            }
+        };
+    }
+
+    private static JsonObject I18nUpdateRequestSchema()
+    {
+        return new JsonObject
+        {
+            ["type"] = "object",
+            ["required"] = Required("module", "messageValue", "status"),
+            ["properties"] = new JsonObject
+            {
+                ["module"] = StringSchema(),
+                ["messageValue"] = StringSchema(),
+                ["remark"] = NullableStringSchema(),
+                ["status"] = StringSchema()
+            }
         };
     }
 }

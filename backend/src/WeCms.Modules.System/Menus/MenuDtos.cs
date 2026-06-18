@@ -90,6 +90,10 @@ public sealed record UpdateMenuRequest(
 
 public sealed record MenuMutationResponse(long Id);
 
+public sealed record SortMenusRequest(IReadOnlyList<SortMenuItemRequest> Items);
+
+public sealed record SortMenuItemRequest(long Id, long? ParentId, int Sort);
+
 public interface IMenuService
 {
     Task<IReadOnlyList<MenuSummaryDto>> ListAsync(CancellationToken cancellationToken);
@@ -97,6 +101,7 @@ public interface IMenuService
     Task<MenuDetailDto> GetAsync(long id, CancellationToken cancellationToken);
     Task<MenuMutationResponse> CreateAsync(CreateMenuRequest request, MenuRequestContext context, CancellationToken cancellationToken);
     Task<MenuMutationResponse> UpdateAsync(long id, UpdateMenuRequest request, MenuRequestContext context, CancellationToken cancellationToken);
+    Task SortAsync(SortMenusRequest request, MenuRequestContext context, CancellationToken cancellationToken);
     Task DeleteAsync(long id, MenuRequestContext context, CancellationToken cancellationToken);
     Task EnableAsync(long id, MenuRequestContext context, CancellationToken cancellationToken);
     Task DisableAsync(long id, MenuRequestContext context, CancellationToken cancellationToken);

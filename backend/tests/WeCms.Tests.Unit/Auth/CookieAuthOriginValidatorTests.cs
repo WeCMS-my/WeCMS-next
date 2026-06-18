@@ -84,6 +84,26 @@ public sealed class CookieAuthOriginValidatorTests
     }
 
     [Fact]
+    public async Task ValidateAsync_RejectsMissingOriginWithIllegalRefererFallback()
+    {
+        var repository = new FakeAuthRepository();
+        var validator = CreateValidator(repository, new Dictionary<string, string?>
+        {
+            ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+            ["Security:RequireOriginForCookieAuth"] = "true",
+            ["Security:AllowRefererFallbackForCookieAuth"] = "true"
+        });
+        var context = CreateHttpContext(referer: "https://evil.example.net/settings/security");
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => validator.ValidateAsync(context, CookieAuthOriginEndpoints.TwoFactorVerify, RequestContext(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.Forbidden, exception.Code);
+        Assert.Equal(1, repository.SecurityEventCount);
+        Assert.Contains(CookieAuthOriginEndpoints.TwoFactorVerify, repository.LastSecurityEventMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Constructor_RejectsWildcardAllowedOrigins()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => CreateValidator(new FakeAuthRepository(), new Dictionary<string, string?>
@@ -93,6 +113,17 @@ public sealed class CookieAuthOriginValidatorTests
         }));
 
         Assert.Equal("Security:AllowedOrigins must not contain wildcard origins.", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_RejectsEmptyAllowedOriginsOutsideDevelopment()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() => CreateValidator(new FakeAuthRepository(), new Dictionary<string, string?>
+        {
+            ["Security:RequireOriginForCookieAuth"] = "true"
+        }));
+
+        Assert.Equal("Security:AllowedOrigins must contain at least one origin outside Development.", exception.Message);
     }
 
     [Fact]
@@ -178,6 +209,8 @@ public sealed class CookieAuthOriginValidatorTests
 
         public string LastSecurityEventSeverity { get; private set; } = string.Empty;
 
+        public string LastSecurityEventMessage { get; private set; } = string.Empty;
+
         public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -218,6 +251,7 @@ public sealed class CookieAuthOriginValidatorTests
             SecurityEventCount++;
             LastSecurityEventType = record.EventType;
             LastSecurityEventSeverity = record.Severity;
+            LastSecurityEventMessage = record.Message;
             return Task.CompletedTask;
         }
 

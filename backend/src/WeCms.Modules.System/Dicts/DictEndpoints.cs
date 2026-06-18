@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Permissions;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Dicts;
@@ -17,13 +19,17 @@ public static class DictEndpoints
 
         group.MapGet("/dict-types", ListTypesAsync).RequirePermission(DictPermissions.TypeList);
         group.MapGet("/dict-types/{id:long}", DetailTypeAsync).RequirePermission(DictPermissions.TypeList);
-        group.MapPost("/dict-types", CreateTypeAsync).RequirePermission(DictPermissions.TypeCreate);
-        group.MapPut("/dict-types/{id:long}", UpdateTypeAsync).RequirePermission(DictPermissions.TypeUpdate);
-        group.MapDelete("/dict-types/{id:long}", DeleteTypeAsync).RequirePermission(DictPermissions.TypeDelete);
+        group.MapPost("/dict-types", CreateTypeAsync).RequirePermission(DictPermissions.TypeCreate).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/dict-types/{id:long}", UpdateTypeAsync).RequirePermission(DictPermissions.TypeUpdate).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/dict-types/{id:long}", DeleteTypeAsync).RequirePermission(DictPermissions.TypeDelete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/dict-types/{id:long}/enable", EnableTypeAsync).RequirePermission(DictPermissions.TypeEnable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/dict-types/{id:long}/disable", DisableTypeAsync).RequirePermission(DictPermissions.TypeDisable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
         group.MapGet("/dict-types/{typeCode}/values", ListValuesAsync).RequirePermission(DictPermissions.ValueList);
-        group.MapPost("/dict-types/{typeCode}/values", CreateValueAsync).RequirePermission(DictPermissions.ValueCreate);
-        group.MapPut("/dict-values/{id:long}", UpdateValueAsync).RequirePermission(DictPermissions.ValueUpdate);
-        group.MapDelete("/dict-values/{id:long}", DeleteValueAsync).RequirePermission(DictPermissions.ValueDelete);
+        group.MapPost("/dict-types/{typeCode}/values", CreateValueAsync).RequirePermission(DictPermissions.ValueCreate).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPut("/dict-values/{id:long}", UpdateValueAsync).RequirePermission(DictPermissions.ValueUpdate).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapDelete("/dict-values/{id:long}", DeleteValueAsync).RequirePermission(DictPermissions.ValueDelete).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/dict-values/{id:long}/enable", EnableValueAsync).RequirePermission(DictPermissions.ValueEnable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
+        group.MapPost("/dict-values/{id:long}/disable", DisableValueAsync).RequirePermission(DictPermissions.ValueDisable).RequireRateLimiting(RateLimitPolicyNames.AdminWrite);
 
         return endpoints;
     }
@@ -54,6 +60,18 @@ public static class DictEndpoints
         return ApiResult<object>.Ok(new { });
     }
 
+    private static async Task<ApiResult<object>> EnableTypeAsync(long id, HttpContext httpContext, IDictService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        await service.EnableTypeAsync(id, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
+    }
+
+    private static async Task<ApiResult<object>> DisableTypeAsync(long id, DisableDictTypeRequest request, HttpContext httpContext, IDictService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        await service.DisableTypeAsync(id, request, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
+    }
+
     private static async Task<ApiResult<IReadOnlyList<DictValueDto>>> ListValuesAsync(string typeCode, IDictService service, CancellationToken cancellationToken)
     {
         return ApiResult<IReadOnlyList<DictValueDto>>.Ok(await service.ListValuesAsync(typeCode, cancellationToken));
@@ -72,6 +90,18 @@ public static class DictEndpoints
     private static async Task<ApiResult<object>> DeleteValueAsync(long id, HttpContext httpContext, IDictService service, IAuthClock clock, CancellationToken cancellationToken)
     {
         await service.DeleteValueAsync(id, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
+    }
+
+    private static async Task<ApiResult<object>> EnableValueAsync(long id, HttpContext httpContext, IDictService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        await service.EnableValueAsync(id, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
+    }
+
+    private static async Task<ApiResult<object>> DisableValueAsync(long id, HttpContext httpContext, IDictService service, IAuthClock clock, CancellationToken cancellationToken)
+    {
+        await service.DisableValueAsync(id, Context(httpContext, clock), cancellationToken);
         return ApiResult<object>.Ok(new { });
     }
 

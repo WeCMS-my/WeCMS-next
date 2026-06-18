@@ -46,6 +46,7 @@ export interface LoginResponse {
   accessToken: string;
   expiresAt: string;
   user?: AuthUserDto | null;
+  permissionVersion: number;
   roles: string[];
   permissions: string[];
   menus: MenuTreeDto[];
@@ -56,6 +57,7 @@ export interface LoginResponse {
 
 export interface AuthMeResponse {
   user: AuthUserDto;
+  permissionVersion: number;
   roles: string[];
   permissions: string[];
   menus: MenuTreeDto[];
@@ -376,6 +378,16 @@ export interface UpdateMenuRequest {
   status: string;
 }
 
+export interface SortMenusRequest {
+  items: SortMenuItemRequest[];
+}
+
+export interface SortMenuItemRequest {
+  id: number;
+  parentId?: number | null;
+  sort: number;
+}
+
 export interface MenuMutationResponse {
   id: number;
 }
@@ -571,6 +583,10 @@ export interface UpdateDictTypeRequest {
   status: string;
 }
 
+export interface DisableDictTypeRequest {
+  cascadeValues: boolean;
+}
+
 export type DictValueList = DictValueDto[];
 
 export interface DictValueDto {
@@ -644,8 +660,78 @@ export interface UpdateSettingRequest {
   value?: string | null;
 }
 
+export interface ValidateIpRulesRequest {
+  rules: string;
+}
+
+export interface ValidateIpRulesResponse {
+  valid: boolean;
+}
+
 export interface SettingMutationResponse {
   key: string;
+}
+
+export interface PagedI18nMessageSummary {
+  records: I18nMessageSummaryDto[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface I18nMessageSummaryDto {
+  id: number;
+  locale: string;
+  module: string;
+  messageKey: string;
+  messageValue: string;
+  status: string;
+  updatedAt: string;
+}
+
+export interface I18nMessageDetailDto {
+  id: number;
+  locale: string;
+  module: string;
+  messageKey: string;
+  messageValue: string;
+  status: string;
+  updatedAt: string;
+  remark?: string | null;
+  createdAt: string;
+}
+
+export interface CreateI18nMessageRequest {
+  locale: string;
+  module: string;
+  messageKey: string;
+  messageValue: string;
+  remark?: string | null;
+  status: string;
+}
+
+export interface UpdateI18nMessageRequest {
+  module: string;
+  messageValue: string;
+  remark?: string | null;
+  status: string;
+}
+
+export interface SwitchAccountLocaleRequest {
+  locale: string;
+}
+
+export interface I18nMessagesResponse {
+  locale: string;
+  messages: Record<string, string>;
+}
+
+export interface AccountI18nSwitchResponse {
+  locale: string;
+}
+
+export interface I18nMutationResponse {
+  id: number;
 }
 
 export interface PagedLoginLogSummary {
@@ -789,6 +875,8 @@ export interface SecurityEventSummaryDto {
   username?: string | null;
   ip?: string | null;
   severity: string;
+  source: string;
+  traceId: string;
   message: string;
   createdAt: string;
 }
@@ -800,6 +888,8 @@ export interface SecurityEventDetailDto {
   username?: string | null;
   ip?: string | null;
   severity: string;
+  source: string;
+  traceId: string;
   message: string;
   createdAt: string;
 }
@@ -840,6 +930,7 @@ export interface CreateFileRequest {
   mimeType: string;
   sizeBytes: number;
   sha256: string;
+  policy?: string;
   file: string;
 }
 
@@ -885,6 +976,12 @@ export interface ApiOperations {
   "/api/v1/account/avatar/content": {
     get: {
       response: ApiResult<Object>;
+    };
+  };
+  "/api/v1/account/i18n/switch": {
+    post: {
+      response: ApiResult<AccountI18nSwitchResponse>;
+      requestBody: SwitchAccountLocaleRequest;
     };
   };
   "/api/v1/account/password": {
@@ -938,6 +1035,16 @@ export interface ApiOperations {
   "/api/v1/auth/refresh": {
     post: {
       response: ApiResult<LoginResponse>;
+    };
+  };
+  "/api/v1/i18n/messages": {
+    get: {
+      response: ApiResult<I18nMessagesResponse>;
+      parameters: {
+        query: {
+          locale?: string;
+        };
+      };
     };
   };
   "/api/v1/system/audit-logs": {
@@ -1033,6 +1140,17 @@ export interface ApiOperations {
       response: ApiResult<Object>;
     };
   };
+  "/api/v1/system/dict-types/{id:long}/disable": {
+    post: {
+      response: ApiResult<Object>;
+      requestBody: DisableDictTypeRequest;
+    };
+  };
+  "/api/v1/system/dict-types/{id:long}/enable": {
+    post: {
+      response: ApiResult<Object>;
+    };
+  };
   "/api/v1/system/dict-types/{typeCode}/values": {
     get: {
       response: ApiResult<DictValueList>;
@@ -1048,6 +1166,16 @@ export interface ApiOperations {
       requestBody: UpdateDictValueRequest;
     };
     delete: {
+      response: ApiResult<Object>;
+    };
+  };
+  "/api/v1/system/dict-values/{id:long}/disable": {
+    post: {
+      response: ApiResult<Object>;
+    };
+  };
+  "/api/v1/system/dict-values/{id:long}/enable": {
+    post: {
       response: ApiResult<Object>;
     };
   };
@@ -1087,6 +1215,37 @@ export interface ApiOperations {
       response: ApiResult<Object>;
     };
   };
+  "/api/v1/system/i18n/messages": {
+    get: {
+      response: ApiResult<PagedI18nMessageSummary>;
+      parameters: {
+        query: {
+          page?: number;
+          pageSize?: number;
+          locale?: string;
+          module?: string;
+          keyword?: string;
+          status?: string;
+        };
+      };
+    };
+    post: {
+      response: ApiResult<I18nMutationResponse>;
+      requestBody: CreateI18nMessageRequest;
+    };
+  };
+  "/api/v1/system/i18n/messages/{id:long}": {
+    get: {
+      response: ApiResult<I18nMessageDetailDto>;
+    };
+    put: {
+      response: ApiResult<I18nMutationResponse>;
+      requestBody: UpdateI18nMessageRequest;
+    };
+    delete: {
+      response: ApiResult<Object>;
+    };
+  };
   "/api/v1/system/login-logs": {
     get: {
       response: ApiResult<PagedLoginLogSummary>;
@@ -1115,6 +1274,12 @@ export interface ApiOperations {
     post: {
       response: ApiResult<MenuMutationResponse>;
       requestBody: CreateMenuRequest;
+    };
+  };
+  "/api/v1/system/menus/sort": {
+    put: {
+      response: ApiResult<Object>;
+      requestBody: SortMenusRequest;
     };
   };
   "/api/v1/system/menus/tree": {
@@ -1351,6 +1516,17 @@ export interface ApiOperations {
           groupCode?: string;
         };
       };
+    };
+  };
+  "/api/v1/system/settings/reload-cache": {
+    post: {
+      response: ApiResult<Object>;
+    };
+  };
+  "/api/v1/system/settings/validate-ip-rules": {
+    post: {
+      response: ApiResult<ValidateIpRulesResponse>;
+      requestBody: ValidateIpRulesRequest;
     };
   };
   "/api/v1/system/settings/{key}": {

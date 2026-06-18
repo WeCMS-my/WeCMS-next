@@ -4,6 +4,7 @@ using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
 using WeCms.Modules.System.Files;
+using WeCms.Modules.System.I18n;
 using WeCms.Modules.System.Logs;
 using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
@@ -205,6 +206,7 @@ public static partial class OpenApiExtensions
         new OpenApiEndpointDescriptor("get", "/api/v1/system/menus/{id:long}", true, MenuPermissions.Detail, null, nameof(MenuDetailDto)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/menus", true, MenuPermissions.Create, nameof(CreateMenuRequest), nameof(MenuMutationResponse)),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/menus/{id:long}", true, MenuPermissions.Update, nameof(UpdateMenuRequest), nameof(MenuMutationResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/menus/sort", true, MenuPermissions.Sort, nameof(SortMenusRequest), "Object"),
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/menus/{id:long}", true, MenuPermissions.Delete, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/menus/{id:long}/enable", true, MenuPermissions.Enable, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/menus/{id:long}/disable", true, MenuPermissions.Disable, null, "Object"),
@@ -236,13 +238,26 @@ public static partial class OpenApiExtensions
         new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-types", true, DictPermissions.TypeCreate, nameof(CreateDictTypeRequest), nameof(DictMutationResponse)),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/dict-types/{id:long}", true, DictPermissions.TypeUpdate, nameof(UpdateDictTypeRequest), nameof(DictMutationResponse)),
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/dict-types/{id:long}", true, DictPermissions.TypeDelete, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-types/{id:long}/enable", true, DictPermissions.TypeEnable, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-types/{id:long}/disable", true, DictPermissions.TypeDisable, nameof(DisableDictTypeRequest), "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/dict-types/{typeCode}/values", true, DictPermissions.ValueList, null, "DictValueList"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-types/{typeCode}/values", true, DictPermissions.ValueCreate, nameof(CreateDictValueRequest), nameof(DictMutationResponse)),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/dict-values/{id:long}", true, DictPermissions.ValueUpdate, nameof(UpdateDictValueRequest), nameof(DictMutationResponse)),
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/dict-values/{id:long}", true, DictPermissions.ValueDelete, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-values/{id:long}/enable", true, DictPermissions.ValueEnable, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-values/{id:long}/disable", true, DictPermissions.ValueDisable, null, "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/settings", true, SettingPermissions.List, null, "PagedSettingSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/settings/{key}", true, SettingPermissions.Detail, null, nameof(SettingDetailDto)),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/settings/{key}", true, SettingPermissions.Update, nameof(UpdateSettingRequest), nameof(SettingMutationResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/settings/validate-ip-rules", true, SettingPermissions.ValidateIpRules, nameof(ValidateIpRulesRequest), nameof(ValidateIpRulesResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/settings/reload-cache", true, SettingPermissions.ReloadCache, null, "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/i18n/messages", true, I18nPermissions.List, null, "PagedI18nMessageSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/i18n/messages/{id:long}", true, I18nPermissions.Detail, null, nameof(I18nMessageDetailDto)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/i18n/messages", true, I18nPermissions.Create, nameof(CreateI18nMessageRequest), nameof(I18nMutationResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/i18n/messages/{id:long}", true, I18nPermissions.Update, nameof(UpdateI18nMessageRequest), nameof(I18nMutationResponse)),
+        new OpenApiEndpointDescriptor("delete", "/api/v1/system/i18n/messages/{id:long}", true, I18nPermissions.Delete, null, "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/i18n/messages", false, null, null, nameof(I18nMessagesResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/i18n/switch", true, I18nPermissions.AccountSwitch, nameof(SwitchAccountLocaleRequest), nameof(AccountI18nSwitchResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs", true, LogPermissions.LoginLogList, null, "PagedLoginLogSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs/{id:long}", true, LogPermissions.LoginLogDetail, null, nameof(LoginLogDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs", true, LogPermissions.AuditLogList, null, "PagedAuditLogSummary"),
@@ -318,6 +333,13 @@ public static partial class OpenApiExtensions
         if (path.StartsWith("/api/v1/system/settings", StringComparison.OrdinalIgnoreCase))
         {
             return "Settings";
+        }
+
+        if (path.StartsWith("/api/v1/system/i18n", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/i18n", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/v1/account/i18n", StringComparison.OrdinalIgnoreCase))
+        {
+            return "I18n";
         }
 
         if (path.StartsWith("/api/v1/system/login-logs", StringComparison.OrdinalIgnoreCase))
@@ -435,6 +457,8 @@ public static partial class OpenApiExtensions
             "/api/v1/system/posts" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
             "/api/v1/system/dict-types" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
             "/api/v1/system/settings" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("groupCode", "string")),
+            "/api/v1/system/i18n/messages" => Parameters(("page", "integer"), ("pageSize", "integer"), ("locale", "string"), ("module", "string"), ("keyword", "string"), ("status", "string")),
+            "/api/v1/i18n/messages" => Parameters(("locale", "string")),
             "/api/v1/system/login-logs" => Parameters(("page", "integer"), ("pageSize", "integer"), ("username", "string"), ("ip", "string"), ("result", "string"), ("from", "date-time"), ("to", "date-time")),
             "/api/v1/system/audit-logs" => Parameters(("page", "integer"), ("pageSize", "integer"), ("user", "string"), ("module", "string"), ("resource", "string"), ("action", "string"), ("result", "string"), ("from", "date-time"), ("to", "date-time")),
             "/api/v1/system/security-events" => Parameters(("page", "integer"), ("pageSize", "integer"), ("eventType", "string"), ("severity", "string"), ("user", "string"), ("ip", "string"), ("from", "date-time"), ("to", "date-time")),

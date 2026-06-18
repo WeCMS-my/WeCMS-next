@@ -12,6 +12,7 @@ export interface FileListQuery {
 export interface UploadFileInput {
   file: File;
   sha256: string;
+  policy: "image" | "document";
 }
 
 export function getFilesApi(query: FileListQuery): Promise<ApiResult<PagedFileSummary>> {
@@ -35,6 +36,7 @@ export function uploadFileApi(input: UploadFileInput): Promise<ApiResult<FileMut
   form.set("mimeType", input.file.type);
   form.set("sizeBytes", String(input.file.size));
   form.set("sha256", input.sha256);
+  form.set("policy", input.policy);
   form.set("file", input.file);
   return requestJson<FileMutationResponse>("/api/v1/system/files", {
     method: "POST",
