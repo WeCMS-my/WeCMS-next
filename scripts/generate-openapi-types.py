@@ -170,6 +170,8 @@ def ts_type(schema: Any) -> str:
         return with_null("number", nullable)
     if schema_type == "boolean":
         return with_null("boolean", nullable)
+    if schema_type == "null":
+        return "null"
     if schema_type == "array":
         return with_null(f"{wrap_array_item(ts_type(schema.get('items', {})))}[]", nullable)
     if schema_type == "object" or "properties" in schema:

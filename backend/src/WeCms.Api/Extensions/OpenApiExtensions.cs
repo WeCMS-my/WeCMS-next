@@ -9,13 +9,14 @@ using WeCms.Modules.System.Menus;
 using WeCms.Modules.System.Permissions;
 using WeCms.Modules.System.Posts;
 using WeCms.Modules.System.Roles;
+using WeCms.Modules.System.Security;
 using WeCms.Modules.System.Settings;
 using WeCms.Modules.System.System;
 using WeCms.Modules.System.Users;
 
 namespace WeCms.Api.Extensions;
 
-public static class OpenApiExtensions
+public static partial class OpenApiExtensions
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -148,12 +149,37 @@ public static class OpenApiExtensions
             null,
             "Object"),
         new OpenApiEndpointDescriptor(
+            "post",
+            "/api/v1/auth/2fa/verify",
+            false,
+            null,
+            nameof(TwoFactorVerifyRequest),
+            nameof(LoginResponse)),
+        new OpenApiEndpointDescriptor(
+            "post",
+            "/api/v1/auth/2fa/recovery-code",
+            false,
+            null,
+            nameof(TwoFactorRecoveryCodeRequest),
+            nameof(LoginResponse)),
+        new OpenApiEndpointDescriptor(
             "get",
             "/api/v1/auth/me",
             true,
             null,
             null,
             nameof(AuthMeResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/account/2fa/status", true, null, null, nameof(AccountTwoFactorStatusResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/2fa/setup", true, null, null, nameof(AccountTwoFactorSetupResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/2fa/confirm", true, null, nameof(AccountTwoFactorConfirmRequest), nameof(AccountTwoFactorStatusResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/2fa/disable", true, null, nameof(AccountTwoFactorDisableRequest), "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/2fa/recovery-codes/regenerate", true, null, nameof(AccountTwoFactorRegenerateRecoveryCodesRequest), nameof(AccountTwoFactorRecoveryCodesResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/account/profile", true, null, null, nameof(AccountProfileResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/account/profile", true, null, nameof(UpdateAccountProfileRequest), nameof(AccountProfileResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/account/password", true, null, nameof(ChangeAccountPasswordRequest), "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/account/avatar", true, null, nameof(AccountAvatarUploadRequest), nameof(AccountAvatarResponse)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/account/avatar/content", true, null, null, "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/account/security", true, null, null, nameof(AccountSecurityResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/users", true, UserPermissions.List, null, "PagedUserSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/users/{id:long}", true, UserPermissions.Detail, null, nameof(UserDetailDto)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/users", true, UserPermissions.Create, nameof(CreateUserRequest), nameof(UserMutationResponse)),
@@ -162,6 +188,7 @@ public static class OpenApiExtensions
         new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/enable", true, UserPermissions.Enable, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/disable", true, UserPermissions.Disable, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-password", true, UserPermissions.ResetPassword, nameof(ResetUserPasswordRequest), "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-2fa", true, UserPermissions.ResetTwoFactor, nameof(ResetUserTwoFactorRequest), "Object"),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/roles", true, UserPermissions.AssignRole, nameof(AssignUserRolesRequest), "Object"),
         new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/posts", true, UserPermissions.AssignPost, nameof(AssignUserPostsRequest), "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/roles", true, RolePermissions.List, null, "PagedRoleSummary"),
@@ -220,6 +247,11 @@ public static class OpenApiExtensions
         new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs/{id:long}", true, LogPermissions.LoginLogDetail, null, nameof(LoginLogDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs", true, LogPermissions.AuditLogList, null, "PagedAuditLogSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs/{id:long}", true, LogPermissions.AuditLogDetail, null, nameof(AuditLogDetailDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/security/status", true, SecurityPermissions.Status, null, nameof(SecurityStatusDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/security/bans", true, SecurityPermissions.BanList, null, "PagedSecurityBanSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/security/bans/{id:long}", true, SecurityPermissions.BanDetail, null, nameof(SecurityBanDetailDto)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/security/bans/{id:long}/unban", true, SecurityPermissions.BanUnban, nameof(UnbanSecurityBanRequest), nameof(SecurityBanMutationResponse)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/security/bans/batch-unban", true, SecurityPermissions.BanBatchUnban, nameof(BatchUnbanSecurityBansRequest), nameof(BatchUnbanSecurityBansResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events", true, LogPermissions.SecurityEventList, null, "PagedSecurityEventSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events/{id:long}", true, LogPermissions.SecurityEventDetail, null, nameof(SecurityEventDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files", true, FilePermissions.List, null, "PagedFileSummary"),
@@ -303,6 +335,11 @@ public static class OpenApiExtensions
             return "SecurityEvents";
         }
 
+        if (path.StartsWith("/api/v1/system/security", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Security";
+        }
+
         if (path.StartsWith("/api/v1/system/files", StringComparison.OrdinalIgnoreCase))
         {
             return "Files";
@@ -348,7 +385,7 @@ public static class OpenApiExtensions
 
         if (requestRef is not null)
         {
-            var mediaType = path == "/api/v1/system/files" && string.Equals(method, "post", StringComparison.OrdinalIgnoreCase)
+            var mediaType = (path == "/api/v1/system/files" || path == "/api/v1/account/avatar") && string.Equals(method, "post", StringComparison.OrdinalIgnoreCase)
                 ? "multipart/form-data"
                 : "application/json";
 
@@ -401,6 +438,7 @@ public static class OpenApiExtensions
             "/api/v1/system/login-logs" => Parameters(("page", "integer"), ("pageSize", "integer"), ("username", "string"), ("ip", "string"), ("result", "string"), ("from", "date-time"), ("to", "date-time")),
             "/api/v1/system/audit-logs" => Parameters(("page", "integer"), ("pageSize", "integer"), ("user", "string"), ("module", "string"), ("resource", "string"), ("action", "string"), ("result", "string"), ("from", "date-time"), ("to", "date-time")),
             "/api/v1/system/security-events" => Parameters(("page", "integer"), ("pageSize", "integer"), ("eventType", "string"), ("severity", "string"), ("user", "string"), ("ip", "string"), ("from", "date-time"), ("to", "date-time")),
+            "/api/v1/system/security/bans" => Parameters(("page", "integer"), ("pageSize", "integer"), ("banType", "string"), ("target", "string"), ("severity", "string"), ("source", "string"), ("activeOnly", "boolean")),
             "/api/v1/system/files" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("mimeType", "string"), ("status", "string")),
             _ => null
         };
@@ -420,6 +458,7 @@ public static class OpenApiExtensions
                 {
                     "integer" => new JsonObject { ["type"] = "integer", ["format"] = "int32" },
                     "date-time" => DateTimeSchema(),
+                    "boolean" => BooleanSchema(),
                     _ => StringSchema()
                 }
             });
@@ -449,1045 +488,6 @@ public static class OpenApiExtensions
         }
 
         return responses;
-    }
-
-    private static JsonObject Components()
-    {
-        return new JsonObject
-        {
-            ["securitySchemes"] = new JsonObject
-            {
-                ["bearerAuth"] = new JsonObject
-                {
-                    ["type"] = "http",
-                    ["scheme"] = "bearer"
-                }
-            },
-            ["schemas"] = Schemas()
-        };
-    }
-
-    private static JsonObject Schemas()
-    {
-        return new JsonObject
-        {
-            ["ApiResult"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "msg", "data"),
-                ["properties"] = new JsonObject
-                {
-                    ["code"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["msg"] = StringSchema(),
-                    ["data"] = new JsonObject { ["nullable"] = true },
-                    ["traceId"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
-                    ["fieldErrors"] = new JsonObject
-                    {
-                        ["type"] = new JsonArray("object", "null"),
-                        ["additionalProperties"] = ArrayOf(StringSchema())
-                    }
-                }
-            },
-            ["Object"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["additionalProperties"] = true
-            },
-            ["LoginRequest"] = ObjectSchema(("username", "string"), ("password", "string")),
-            ["LoginResponse"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("accessToken", "expiresAt", "user", "roles", "permissions", "menus"),
-                ["properties"] = new JsonObject
-                {
-                    ["accessToken"] = StringSchema(),
-                    ["expiresAt"] = new JsonObject { ["type"] = "string", ["format"] = "date-time" },
-                    ["user"] = SchemaRef("AuthUserDto"),
-                    ["roles"] = ArrayOf(StringSchema()),
-                    ["permissions"] = ArrayOf(StringSchema()),
-                    ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)))
-                }
-            },
-            ["AuthMeResponse"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("user", "roles", "permissions", "menus"),
-                ["properties"] = new JsonObject
-                {
-                    ["user"] = SchemaRef("AuthUserDto"),
-                    ["roles"] = ArrayOf(StringSchema()),
-                    ["permissions"] = ArrayOf(StringSchema()),
-                    ["menus"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)))
-                }
-            },
-            ["AuthUserDto"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "isSuperAdmin"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["username"] = StringSchema(),
-                    ["displayName"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema()
-                }
-            },
-            ["SystemLiveResponse"] = ObjectSchema(("status", "string")),
-            ["SystemReadyResponse"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("status", "database"),
-                ["properties"] = new JsonObject
-                {
-                    ["status"] = StringSchema(),
-                    ["database"] = BooleanSchema()
-                }
-            },
-            ["SystemPingResponse"] = ObjectSchema(("status", "string")),
-            ["SystemVersionResponse"] = ObjectSchema(("version", "string")),
-            ["SystemDbCheckResponse"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("status", "database"),
-                ["properties"] = new JsonObject
-                {
-                    ["status"] = StringSchema(),
-                    ["database"] = BooleanSchema()
-                }
-            },
-            ["SecurePingResponse"] = ObjectSchema(("status", "string"))
-            ,
-            ["PagedUserSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(UserSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(UserSummaryDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "createdAt"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["username"] = StringSchema(),
-                    ["displayName"] = StringSchema(),
-                    ["email"] = NullableStringSchema(),
-                    ["phone"] = NullableStringSchema(),
-                    ["deptId"] = IntegerSchema(nullable: true),
-                    ["status"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema(),
-                    ["lastLoginAt"] = DateTimeSchema(nullable: true),
-                    ["createdAt"] = DateTimeSchema()
-                }
-            },
-            [nameof(UserDetailDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "permissionVersion", "roleIds", "postIds", "createdAt", "updatedAt"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["username"] = StringSchema(),
-                    ["displayName"] = StringSchema(),
-                    ["email"] = NullableStringSchema(),
-                    ["phone"] = NullableStringSchema(),
-                    ["deptId"] = IntegerSchema(nullable: true),
-                    ["status"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema(),
-                    ["permissionVersion"] = IntegerSchema(),
-                    ["lastLoginAt"] = DateTimeSchema(nullable: true),
-                    ["roleIds"] = ArrayOf(IntegerSchema()),
-                    ["postIds"] = ArrayOf(IntegerSchema()),
-                    ["createdAt"] = DateTimeSchema(),
-                    ["updatedAt"] = DateTimeSchema()
-                }
-            },
-            [nameof(CreateUserRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("username", "displayName", "password"),
-                ["properties"] = new JsonObject
-                {
-                    ["username"] = StringSchema(),
-                    ["displayName"] = StringSchema(),
-                    ["password"] = StringSchema(),
-                    ["email"] = NullableStringSchema(),
-                    ["phone"] = NullableStringSchema(),
-                    ["deptId"] = IntegerSchema(nullable: true),
-                    ["roleIds"] = NullableArrayOf(IntegerSchema()),
-                    ["postIds"] = NullableArrayOf(IntegerSchema())
-                }
-            },
-            [nameof(UpdateUserRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("displayName"),
-                ["properties"] = new JsonObject
-                {
-                    ["displayName"] = StringSchema(),
-                    ["email"] = NullableStringSchema(),
-                    ["phone"] = NullableStringSchema(),
-                    ["deptId"] = IntegerSchema(nullable: true)
-                }
-            },
-            [nameof(ResetUserPasswordRequest)] = ObjectSchema(("password", "string")),
-            [nameof(AssignUserRolesRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("roleIds"),
-                ["properties"] = new JsonObject { ["roleIds"] = ArrayOf(IntegerSchema()) }
-            },
-            [nameof(AssignUserPostsRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("postIds"),
-                ["properties"] = new JsonObject { ["postIds"] = ArrayOf(IntegerSchema()) }
-            },
-            [nameof(UserMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["PagedRoleSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(RoleSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(RoleSummaryDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "isLocked", "createdAt"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["status"] = StringSchema(),
-                    ["isBuiltin"] = BooleanSchema(),
-                    ["isLocked"] = BooleanSchema(),
-                    ["createdAt"] = DateTimeSchema()
-                }
-            },
-            [nameof(RoleDetailDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "code", "name", "status", "isBuiltin", "isLocked", "permissionIds", "menuIds", "createdAt", "updatedAt"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["status"] = StringSchema(),
-                    ["isBuiltin"] = BooleanSchema(),
-                    ["isLocked"] = BooleanSchema(),
-                    ["permissionIds"] = ArrayOf(IntegerSchema()),
-                    ["menuIds"] = ArrayOf(IntegerSchema()),
-                    ["createdAt"] = DateTimeSchema(),
-                    ["updatedAt"] = DateTimeSchema()
-                }
-            },
-            [nameof(CreateRoleRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "name"),
-                ["properties"] = new JsonObject
-                {
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["permissionIds"] = NullableArrayOf(IntegerSchema()),
-                    ["menuIds"] = NullableArrayOf(IntegerSchema())
-                }
-            },
-            [nameof(UpdateRoleRequest)] = ObjectSchema(("name", "string")),
-            [nameof(AssignRolePermissionsRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("permissionIds"),
-                ["properties"] = new JsonObject { ["permissionIds"] = ArrayOf(IntegerSchema()) }
-            },
-            [nameof(AssignRoleMenusRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("menuIds"),
-                ["properties"] = new JsonObject { ["menuIds"] = ArrayOf(IntegerSchema()) }
-            },
-            [nameof(RoleMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["MenuSummaryList"] = ArrayOf(SchemaRef(nameof(MenuSummaryDto))),
-            ["MenuTreeList"] = ArrayOf(SchemaRef(nameof(MenuTreeDto))),
-            [nameof(MenuSummaryDto)] = MenuSchema(includeChildren: false, includeTimestamps: false),
-            [nameof(MenuTreeDto)] = MenuSchema(includeChildren: true, includeTimestamps: false),
-            [nameof(MenuDetailDto)] = MenuSchema(includeChildren: false, includeTimestamps: true),
-            [nameof(CreateMenuRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required(
-                    "type",
-                    "code",
-                    "path",
-                    "title",
-                    "sort",
-                    "hidden",
-                    "keepAlive",
-                    "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["parentId"] = IntegerSchema(nullable: true),
-                    ["type"] = StringSchema(),
-                    ["code"] = StringSchema(),
-                    ["path"] = StringSchema(),
-                    ["component"] = NullableStringSchema(),
-                    ["title"] = StringSchema(),
-                    ["i18nKey"] = NullableStringSchema(),
-                    ["icon"] = NullableStringSchema(),
-                    ["sort"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["hidden"] = BooleanSchema(),
-                    ["keepAlive"] = BooleanSchema(),
-                    ["externalUrl"] = NullableStringSchema(),
-                    ["permissionCode"] = NullableStringSchema(),
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(UpdateMenuRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required(
-                    "type",
-                    "path",
-                    "title",
-                    "sort",
-                    "hidden",
-                    "keepAlive",
-                    "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["parentId"] = IntegerSchema(nullable: true),
-                    ["type"] = StringSchema(),
-                    ["path"] = StringSchema(),
-                    ["component"] = NullableStringSchema(),
-                    ["title"] = StringSchema(),
-                    ["i18nKey"] = NullableStringSchema(),
-                    ["icon"] = NullableStringSchema(),
-                    ["sort"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["hidden"] = BooleanSchema(),
-                    ["keepAlive"] = BooleanSchema(),
-                    ["externalUrl"] = NullableStringSchema(),
-                    ["permissionCode"] = NullableStringSchema(),
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(MenuMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["PermissionSummaryList"] = ArrayOf(SchemaRef(nameof(PermissionSummaryDto))),
-            ["PermissionTreeList"] = ArrayOf(SchemaRef(nameof(PermissionTreeDto))),
-            [nameof(PermissionSummaryDto)] = PermissionSchema(includeTimestamps: false),
-            [nameof(PermissionTreeDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("module", "permissions"),
-                ["properties"] = new JsonObject
-                {
-                    ["module"] = StringSchema(),
-                    ["permissions"] = ArrayOf(SchemaRef(nameof(PermissionSummaryDto)))
-                }
-            },
-            [nameof(PermissionDetailDto)] = PermissionSchema(includeTimestamps: true),
-            [nameof(CreatePermissionRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "name", "module"),
-                ["properties"] = new JsonObject
-                {
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["module"] = StringSchema(),
-                    ["description"] = NullableStringSchema()
-                }
-            },
-            [nameof(UpdatePermissionRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("name", "module"),
-                ["properties"] = new JsonObject
-                {
-                    ["name"] = StringSchema(),
-                    ["module"] = StringSchema(),
-                    ["description"] = NullableStringSchema()
-                }
-            },
-            [nameof(PermissionMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["DepartmentSummaryList"] = ArrayOf(SchemaRef(nameof(DepartmentSummaryDto))),
-            ["DepartmentTreeList"] = ArrayOf(SchemaRef(nameof(DepartmentTreeDto))),
-            [nameof(DepartmentSummaryDto)] = DepartmentSchema(includeChildren: false, includeTimestamps: false),
-            [nameof(DepartmentTreeDto)] = DepartmentSchema(includeChildren: true, includeTimestamps: false),
-            [nameof(DepartmentDetailDto)] = DepartmentSchema(includeChildren: false, includeTimestamps: true),
-            [nameof(CreateDepartmentRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["parentId"] = IntegerSchema(nullable: true),
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(UpdateDepartmentRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["parentId"] = IntegerSchema(nullable: true),
-                    ["name"] = StringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(DepartmentMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["PagedPostSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(PostSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(PostSummaryDto)] = PostSchema(includeTimestamps: false),
-            [nameof(PostDetailDto)] = PostSchema(includeTimestamps: true),
-            [nameof(CreatePostRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(UpdatePostRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["name"] = StringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(PostMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["PagedDictTypeSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(DictTypeSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(DictTypeSummaryDto)] = DictTypeSchema(includeTimestamps: false),
-            [nameof(DictTypeDetailDto)] = DictTypeSchema(includeTimestamps: true),
-            [nameof(CreateDictTypeRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("code", "name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["code"] = StringSchema(),
-                    ["name"] = StringSchema(),
-                    ["description"] = NullableStringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(UpdateDictTypeRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("name", "sortOrder", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["name"] = StringSchema(),
-                    ["description"] = NullableStringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["status"] = StringSchema()
-                }
-            },
-            ["DictValueList"] = ArrayOf(SchemaRef(nameof(DictValueDto))),
-            [nameof(DictValueDto)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("id", "typeId", "typeCode", "label", "value", "sortOrder", "isDefault", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["id"] = IntegerSchema(),
-                    ["typeId"] = IntegerSchema(),
-                    ["typeCode"] = StringSchema(),
-                    ["label"] = StringSchema(),
-                    ["value"] = StringSchema(),
-                    ["description"] = NullableStringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["isDefault"] = BooleanSchema(),
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(CreateDictValueRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("label", "value", "sortOrder", "isDefault", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["label"] = StringSchema(),
-                    ["value"] = StringSchema(),
-                    ["description"] = NullableStringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["isDefault"] = BooleanSchema(),
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(UpdateDictValueRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("label", "value", "sortOrder", "isDefault", "status"),
-                ["properties"] = new JsonObject
-                {
-                    ["label"] = StringSchema(),
-                    ["value"] = StringSchema(),
-                    ["description"] = NullableStringSchema(),
-                    ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["isDefault"] = BooleanSchema(),
-                    ["status"] = StringSchema()
-                }
-            },
-            [nameof(DictMutationResponse)] = ObjectSchema(("id", "integer"))
-            ,
-            ["PagedSettingSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(SettingSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(SettingSummaryDto)] = SettingSchema(),
-            [nameof(SettingDetailDto)] = SettingSchema(),
-            [nameof(UpdateSettingRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["value"] = NullableStringSchema()
-                }
-            },
-            [nameof(SettingMutationResponse)] = ObjectSchema(("key", "string"))
-            ,
-            ["PagedLoginLogSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(LoginLogSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(LoginLogSummaryDto)] = LoginLogSchema(includeUserAgent: false),
-            [nameof(LoginLogDetailDto)] = LoginLogSchema(includeUserAgent: true)
-            ,
-            ["PagedAuditLogSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(AuditLogSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(AuditLogSummaryDto)] = AuditLogSchema(includeRequest: false),
-            [nameof(AuditLogDetailDto)] = AuditLogSchema(includeRequest: true)
-            ,
-            ["PagedSecurityEventSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(SecurityEventSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(SecurityEventSummaryDto)] = SecurityEventSchema(),
-            [nameof(SecurityEventDetailDto)] = SecurityEventSchema()
-            ,
-            ["PagedFileSummary"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("records", "page", "pageSize", "total"),
-                ["properties"] = new JsonObject
-                {
-                    ["records"] = ArrayOf(SchemaRef(nameof(FileSummaryDto))),
-                    ["page"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["pageSize"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-                    ["total"] = IntegerSchema()
-                }
-            },
-            [nameof(FileSummaryDto)] = FileSchema(),
-            [nameof(FileDetailDto)] = FileSchema(),
-            [nameof(CreateFileRequest)] = new JsonObject
-            {
-                ["type"] = "object",
-                ["required"] = Required("originalName", "mimeType", "sizeBytes", "sha256", "file"),
-                ["properties"] = new JsonObject
-                {
-                    ["originalName"] = StringSchema(),
-                    ["mimeType"] = StringSchema(),
-                    ["sizeBytes"] = IntegerSchema(),
-                    ["sha256"] = StringSchema(),
-                    ["file"] = new JsonObject
-                    {
-                        ["type"] = "string",
-                        ["format"] = "binary"
-                    }
-                }
-            },
-            [nameof(FileMutationResponse)] = ObjectSchema(("id", "integer"))
-        };
-    }
-
-    private static JsonObject FileSchema()
-    {
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = Required("id", "originalName", "fileExt", "mimeType", "sizeBytes", "sha256", "status", "createdBy", "createdAt"),
-            ["properties"] = new JsonObject
-            {
-                ["id"] = IntegerSchema(),
-                ["originalName"] = StringSchema(),
-                ["fileExt"] = StringSchema(),
-                ["mimeType"] = StringSchema(),
-                ["sizeBytes"] = IntegerSchema(),
-                ["sha256"] = StringSchema(),
-                ["status"] = StringSchema(),
-                ["createdBy"] = IntegerSchema(),
-                ["createdAt"] = DateTimeSchema()
-            }
-        };
-    }
-
-    private static JsonObject SecurityEventSchema()
-    {
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = Required("id", "eventType", "severity", "message", "createdAt"),
-            ["properties"] = new JsonObject
-            {
-                ["id"] = IntegerSchema(),
-                ["eventType"] = StringSchema(),
-                ["userId"] = IntegerSchema(nullable: true),
-                ["username"] = NullableStringSchema(),
-                ["ip"] = NullableStringSchema(),
-                ["severity"] = StringSchema(),
-                ["message"] = StringSchema(),
-                ["createdAt"] = DateTimeSchema()
-            }
-        };
-    }
-
-    private static JsonObject AuditLogSchema(bool includeRequest)
-    {
-        var required = includeRequest
-            ? Required("id", "module", "resource", "action", "requestMethod", "requestPath", "result", "detail", "createdAt")
-            : Required("id", "module", "resource", "action", "result", "createdAt");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["userId"] = IntegerSchema(nullable: true),
-            ["username"] = NullableStringSchema(),
-            ["module"] = StringSchema(),
-            ["resource"] = StringSchema(),
-            ["action"] = StringSchema(),
-            ["targetId"] = NullableStringSchema(),
-            ["result"] = StringSchema(),
-            ["createdAt"] = DateTimeSchema()
-        };
-        if (includeRequest)
-        {
-            properties["requestMethod"] = StringSchema();
-            properties["requestPath"] = StringSchema();
-            properties["ipAddress"] = NullableStringSchema();
-            properties["userAgent"] = NullableStringSchema();
-            properties["traceId"] = NullableStringSchema();
-            properties["detail"] = StringSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject LoginLogSchema(bool includeUserAgent)
-    {
-        var required = includeUserAgent
-            ? Required("id", "username", "result", "createdAt")
-            : Required("id", "username", "result", "createdAt");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["username"] = StringSchema(),
-            ["userId"] = IntegerSchema(nullable: true),
-            ["ip"] = NullableStringSchema(),
-            ["result"] = StringSchema(),
-            ["reason"] = NullableStringSchema(),
-            ["createdAt"] = DateTimeSchema()
-        };
-        if (includeUserAgent)
-        {
-            properties["userAgent"] = NullableStringSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject SettingSchema()
-    {
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = Required("key", "valueType", "groupCode", "name", "isSensitive", "isSystem", "updatedAt"),
-            ["properties"] = new JsonObject
-            {
-                ["key"] = StringSchema(),
-                ["value"] = NullableStringSchema(),
-                ["valueType"] = StringSchema(),
-                ["groupCode"] = StringSchema(),
-                ["name"] = StringSchema(),
-                ["description"] = NullableStringSchema(),
-                ["isSensitive"] = BooleanSchema(),
-                ["isSystem"] = BooleanSchema(),
-                ["updatedAt"] = DateTimeSchema(),
-                ["updatedBy"] = IntegerSchema(nullable: true)
-            }
-        };
-    }
-
-    private static JsonObject DictTypeSchema(bool includeTimestamps)
-    {
-        var required = includeTimestamps
-            ? Required("id", "code", "name", "isSystem", "status", "sortOrder", "createdAt", "updatedAt")
-            : Required("id", "code", "name", "isSystem", "status", "sortOrder", "createdAt");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["code"] = StringSchema(),
-            ["name"] = StringSchema(),
-            ["description"] = NullableStringSchema(),
-            ["isSystem"] = BooleanSchema(),
-            ["status"] = StringSchema(),
-            ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-            ["createdAt"] = DateTimeSchema()
-        };
-        if (includeTimestamps)
-        {
-            properties["updatedAt"] = DateTimeSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject PostSchema(bool includeTimestamps)
-    {
-        var required = includeTimestamps
-            ? Required("id", "code", "name", "sortOrder", "status", "createdAt", "updatedAt")
-            : Required("id", "code", "name", "sortOrder", "status", "createdAt");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["code"] = StringSchema(),
-            ["name"] = StringSchema(),
-            ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-            ["status"] = StringSchema(),
-            ["createdAt"] = DateTimeSchema()
-        };
-        if (includeTimestamps)
-        {
-            properties["updatedAt"] = DateTimeSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject DepartmentSchema(bool includeChildren, bool includeTimestamps)
-    {
-        var required = includeTimestamps
-            ? Required("id", "code", "name", "sortOrder", "status", "createdAt", "updatedAt")
-            : Required("id", "code", "name", "sortOrder", "status");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["parentId"] = IntegerSchema(nullable: true),
-            ["code"] = StringSchema(),
-            ["name"] = StringSchema(),
-            ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-            ["status"] = StringSchema()
-        };
-        if (includeChildren)
-        {
-            properties["children"] = ArrayOf(SchemaRef(nameof(DepartmentTreeDto)));
-        }
-
-        if (includeTimestamps)
-        {
-            properties["createdAt"] = DateTimeSchema();
-            properties["updatedAt"] = DateTimeSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject PermissionSchema(bool includeTimestamps)
-    {
-        var required = includeTimestamps
-            ? Required("id", "code", "name", "module", "status", "isBuiltin", "isRoleBound", "createdAt", "updatedAt")
-            : Required("id", "code", "name", "module", "status", "isBuiltin", "isRoleBound");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["code"] = StringSchema(),
-            ["name"] = StringSchema(),
-            ["module"] = StringSchema(),
-            ["description"] = NullableStringSchema(),
-            ["status"] = StringSchema(),
-            ["isBuiltin"] = BooleanSchema(),
-            ["isRoleBound"] = BooleanSchema()
-        };
-        if (includeTimestamps)
-        {
-            properties["createdAt"] = DateTimeSchema();
-            properties["updatedAt"] = DateTimeSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject MenuSchema(bool includeChildren, bool includeTimestamps)
-    {
-        var required = includeTimestamps
-            ? Required("id", "type", "code", "path", "title", "sort", "hidden", "keepAlive", "status", "isBuiltin", "createdAt", "updatedAt")
-            : Required("id", "type", "code", "path", "title", "sort", "hidden", "keepAlive", "status", "isBuiltin");
-        var properties = new JsonObject
-        {
-            ["id"] = IntegerSchema(),
-            ["parentId"] = IntegerSchema(nullable: true),
-            ["type"] = StringSchema(),
-            ["code"] = StringSchema(),
-            ["path"] = StringSchema(),
-            ["component"] = NullableStringSchema(),
-            ["title"] = StringSchema(),
-            ["i18nKey"] = NullableStringSchema(),
-            ["icon"] = NullableStringSchema(),
-            ["sort"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
-            ["hidden"] = BooleanSchema(),
-            ["keepAlive"] = BooleanSchema(),
-            ["externalUrl"] = NullableStringSchema(),
-            ["permissionCode"] = NullableStringSchema(),
-            ["status"] = StringSchema(),
-            ["isBuiltin"] = BooleanSchema()
-        };
-        if (includeChildren)
-        {
-            properties["children"] = ArrayOf(SchemaRef(nameof(MenuTreeDto)));
-        }
-
-        if (includeTimestamps)
-        {
-            properties["createdAt"] = DateTimeSchema();
-            properties["updatedAt"] = DateTimeSchema();
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = required,
-            ["properties"] = properties
-        };
-    }
-
-    private static JsonObject ObjectSchema(params (string Name, string Type)[] properties)
-    {
-        var schemaProperties = new JsonObject();
-        foreach (var (name, type) in properties)
-        {
-            schemaProperties[name] = new JsonObject { ["type"] = type };
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["required"] = Required(properties.Select(property => property.Name).ToArray()),
-            ["properties"] = schemaProperties
-        };
-    }
-
-    private static JsonObject ApiResultRef(string dataRef)
-    {
-        return new JsonObject
-        {
-            ["allOf"] = new JsonArray
-            {
-                SchemaRef("ApiResult"),
-                new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["data"] = SchemaRef(dataRef)
-                    }
-                }
-            }
-        };
-    }
-
-    private static JsonObject JsonContent(JsonObject schema, string mediaType = "application/json")
-    {
-        return new JsonObject
-        {
-            [mediaType] = new JsonObject
-            {
-                ["schema"] = schema
-            }
-        };
-    }
-
-    private static JsonObject SchemaRef(string name)
-    {
-        return new JsonObject
-        {
-            ["$ref"] = $"#/components/schemas/{name}"
-        };
-    }
-
-    private static JsonObject StringSchema()
-    {
-        return new JsonObject { ["type"] = "string" };
-    }
-
-    private static JsonObject NullableStringSchema()
-    {
-        return new JsonObject { ["type"] = new JsonArray("string", "null") };
-    }
-
-    private static JsonObject DateTimeSchema(bool nullable = false)
-    {
-        return nullable
-            ? new JsonObject { ["type"] = new JsonArray("string", "null"), ["format"] = "date-time" }
-            : new JsonObject { ["type"] = "string", ["format"] = "date-time" };
-    }
-
-    private static JsonObject IntegerSchema(bool nullable = false)
-    {
-        return nullable
-            ? new JsonObject { ["type"] = new JsonArray("integer", "null"), ["format"] = "int64" }
-            : new JsonObject { ["type"] = "integer", ["format"] = "int64" };
-    }
-
-    private static JsonObject BooleanSchema()
-    {
-        return new JsonObject { ["type"] = "boolean" };
-    }
-
-    private static JsonObject ArrayOf(JsonObject itemSchema)
-    {
-        return new JsonObject
-        {
-            ["type"] = "array",
-            ["items"] = itemSchema
-        };
-    }
-
-    private static JsonObject NullableArrayOf(JsonObject itemSchema)
-    {
-        return new JsonObject
-        {
-            ["type"] = new JsonArray("array", "null"),
-            ["items"] = itemSchema
-        };
-    }
-
-    private static JsonArray Required(params string[] names)
-    {
-        var required = new JsonArray();
-        foreach (var name in names)
-        {
-            required.Add(name);
-        }
-
-        return required;
     }
 
     private sealed record OpenApiEndpointDescriptor(

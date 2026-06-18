@@ -6,11 +6,15 @@ declare module "vue-router" {
     requiresAuth?: boolean;
     permissions?: string[];
     hideInMenu?: boolean;
+    skipSessionRestore?: boolean;
   }
 }
 
 const LoginView = () => import("@/views/LoginView.vue");
+const TwoFactorLoginView = () => import("@/views/auth/TwoFactorLoginView.vue");
 const DashboardView = () => import("@/views/DashboardView.vue");
+const AccountProfileView = () => import("@/views/account/AccountProfileView.vue");
+const AccountSecurityView = () => import("@/views/account/AccountSecurityView.vue");
 const UsersView = () => import("@/views/system/users/UsersView.vue");
 const RolesView = () => import("@/views/system/roles/RolesView.vue");
 const PermissionsView = () => import("@/views/system/permissions/PermissionsView.vue");
@@ -21,6 +25,7 @@ const DictsView = () => import("@/views/system/dicts/DictsView.vue");
 const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
 const LoginLogsView = () => import("@/views/system/logs/LoginLogsView.vue");
 const AuditLogsView = () => import("@/views/system/logs/AuditLogsView.vue");
+const SecurityCenterView = () => import("@/views/system/security/SecurityCenterView.vue");
 const SecurityEventsView = () => import("@/views/system/logs/SecurityEventsView.vue");
 const FilesView = () => import("@/views/system/files/FilesView.vue");
 
@@ -38,10 +43,37 @@ export const staticRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: "/auth/two-factor",
+    component: TwoFactorLoginView,
+    meta: {
+      title: "二次验证",
+      hideInMenu: true,
+      skipSessionRestore: true
+    }
+  },
+  {
     path: "/dashboard",
     component: DashboardView,
     meta: {
       title: "工作台",
+      requiresAuth: true,
+      permissions: []
+    }
+  },
+  {
+    path: "/account/profile",
+    component: AccountProfileView,
+    meta: {
+      title: "个人中心",
+      requiresAuth: true,
+      permissions: []
+    }
+  },
+  {
+    path: "/account/security",
+    component: AccountSecurityView,
+    meta: {
+      title: "账户安全",
       requiresAuth: true,
       permissions: []
     }
@@ -134,6 +166,15 @@ export const staticRoutes: RouteRecordRaw[] = [
       title: "操作审计日志",
       requiresAuth: true,
       permissions: ["sys:audit-log:list"]
+    }
+  },
+  {
+    path: "/system/security",
+    component: SecurityCenterView,
+    meta: {
+      title: "安全中心",
+      requiresAuth: true,
+      permissions: ["sys:security:page"]
     }
   },
   {

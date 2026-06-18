@@ -43,3 +43,12 @@ public sealed record UserAuditRecord(
     string Result,
     string Detail,
     DateTimeOffset CreatedAt);
+
+public sealed record UserSecurityEventRecord(
+    string EventType,
+    long? UserId,
+    string? Username,
+    string Ip,
+    string Severity,
+    string Message,
+    DateTimeOffset CreatedAt);

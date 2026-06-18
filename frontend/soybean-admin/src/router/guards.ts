@@ -10,7 +10,9 @@ export function installRouterGuards(router: Router): void {
     const menuStore = useMenuStore();
     const permissionStore = usePermissionStore();
 
-    await authStore.restoreSession();
+    if (!to.meta.skipSessionRestore) {
+      await authStore.restoreSession();
+    }
     if (authStore.isAuthenticated) {
       await menuStore.loadMenuTreeIfAllowed();
       registerDynamicRoutes(router, menuStore.effectiveMenuTree, permissionStore.permissions);

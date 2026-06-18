@@ -17,21 +17,34 @@ document = json.loads(path.read_text(encoding="utf-8"))
 paths = document.get("paths", {})
 
 expected = {
-    "/health/live": "get",
-    "/health/ready": "get",
-    "/api/v1/system/ping": "get",
-    "/api/v1/system/version": "get",
-    "/api/v1/system/db-check": "get",
-    "/api/v1/system/secure-ping": "get",
-    "/api/v1/auth/login": "post",
-    "/api/v1/auth/refresh": "post",
-    "/api/v1/auth/logout": "post",
-    "/api/v1/auth/me": "get",
+    "/health/live": ["get"],
+    "/health/ready": ["get"],
+    "/api/v1/system/ping": ["get"],
+    "/api/v1/system/version": ["get"],
+    "/api/v1/system/db-check": ["get"],
+    "/api/v1/system/secure-ping": ["get"],
+    "/api/v1/auth/login": ["post"],
+    "/api/v1/auth/refresh": ["post"],
+    "/api/v1/auth/logout": ["post"],
+    "/api/v1/auth/2fa/verify": ["post"],
+    "/api/v1/auth/2fa/recovery-code": ["post"],
+    "/api/v1/auth/me": ["get"],
+    "/api/v1/account/2fa/status": ["get"],
+    "/api/v1/account/2fa/setup": ["post"],
+    "/api/v1/account/2fa/confirm": ["post"],
+    "/api/v1/account/2fa/disable": ["post"],
+    "/api/v1/account/2fa/recovery-codes/regenerate": ["post"],
+    "/api/v1/account/profile": ["get", "put"],
+    "/api/v1/account/password": ["put"],
+    "/api/v1/account/avatar": ["post"],
+    "/api/v1/account/avatar/content": ["get"],
+    "/api/v1/account/security": ["get"],
 }
 
-for route, method in expected.items():
-    if method not in paths.get(route, {}):
-        raise SystemExit(f"check-openapi-endpoint-coverage: missing {method.upper()} {route}")
+for route, methods in expected.items():
+    for method in methods:
+        if method not in paths.get(route, {}):
+            raise SystemExit(f"check-openapi-endpoint-coverage: missing {method.upper()} {route}")
 
 secure_ping = paths["/api/v1/system/secure-ping"]["get"]
 security = secure_ping.get("security")

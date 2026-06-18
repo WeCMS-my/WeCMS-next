@@ -10,10 +10,19 @@ public sealed class AuthEndpointSourceTests
         Assert.Contains("group.MapPost(\"/login\"", source, StringComparison.Ordinal);
         Assert.Contains(".AllowAnonymous();", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/refresh\"", source, StringComparison.Ordinal);
+        Assert.Contains("ICookieAuthOriginValidator cookieAuthOriginValidator", source, StringComparison.Ordinal);
+        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Refresh, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("ReadRefreshTokenCookie(context)", source, StringComparison.Ordinal);
         Assert.Contains("authService.RefreshAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/logout\"", source, StringComparison.Ordinal);
+        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Logout, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("authService.LogoutAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/2fa/verify\"", source, StringComparison.Ordinal);
+        Assert.Contains("CookieAuthOriginEndpoints.TwoFactorVerify", source, StringComparison.Ordinal);
+        Assert.Contains("authService.VerifyTwoFactorAsync(request, requestContext, cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/2fa/recovery-code\"", source, StringComparison.Ordinal);
+        Assert.Contains("CookieAuthOriginEndpoints.TwoFactorRecoveryCode", source, StringComparison.Ordinal);
+        Assert.Contains("authService.VerifyTwoFactorRecoveryCodeAsync(request, requestContext, cancellationToken)", source, StringComparison.Ordinal);
 
         var logoutRouteIndex = source.IndexOf("group.MapPost(\"/logout\"", StringComparison.Ordinal);
         Assert.True(logoutRouteIndex >= 0);
@@ -40,6 +49,39 @@ public sealed class AuthEndpointSourceTests
         Assert.Contains("Path = \"/\"", source, StringComparison.Ordinal);
         Assert.Contains("context.Response.Cookies.Append(RefreshCookieName", source, StringComparison.Ordinal);
         Assert.Contains("context.Response.Cookies.Delete(RefreshCookieName", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AccountTwoFactorEndpoints_AreExplicitlyAuthenticatedSelfServiceRoutes()
+    {
+        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AccountTwoFactorEndpoints.cs"));
+        var programSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+
+        Assert.Contains("app.MapAccountTwoFactorEndpoints();", programSource, StringComparison.Ordinal);
+        Assert.Contains("MapGroup(\"/api/v1/account/2fa\").RequireAuthorization()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/status\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/setup\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/confirm\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/disable\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/recovery-codes/regenerate\"", endpointSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AllowAnonymous", endpointSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AccountProfileEndpoints_AreExplicitlyAuthenticatedSelfServiceRoutes()
+    {
+        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AccountProfileEndpoints.cs"));
+        var programSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+
+        Assert.Contains("app.MapAccountProfileEndpoints();", programSource, StringComparison.Ordinal);
+        Assert.Contains("MapGroup(\"/api/v1/account\").RequireAuthorization()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/profile\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPut(\"/profile\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPut(\"/password\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapPost(\"/avatar\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/avatar/content\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/security\"", endpointSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AllowAnonymous", endpointSource, StringComparison.Ordinal);
     }
 
     private static string RepoPath(params string[] segments)

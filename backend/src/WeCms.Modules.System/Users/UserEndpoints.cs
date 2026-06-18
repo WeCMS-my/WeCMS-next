@@ -23,6 +23,7 @@ public static class UserEndpoints
         group.MapPost("/{id:long}/enable", EnableAsync).RequirePermission(UserPermissions.Enable);
         group.MapPost("/{id:long}/disable", DisableAsync).RequirePermission(UserPermissions.Disable);
         group.MapPost("/{id:long}/reset-password", ResetPasswordAsync).RequirePermission(UserPermissions.ResetPassword);
+        group.MapPost("/{id:long}/reset-2fa", ResetTwoFactorAsync).RequirePermission(UserPermissions.ResetTwoFactor);
         group.MapPut("/{id:long}/roles", AssignRolesAsync).RequirePermission(UserPermissions.AssignRole);
         group.MapPut("/{id:long}/posts", AssignPostsAsync).RequirePermission(UserPermissions.AssignPost);
 
@@ -95,6 +96,18 @@ public static class UserEndpoints
         CancellationToken cancellationToken)
     {
         await service.ResetPasswordAsync(id, request, Context(httpContext, clock), cancellationToken);
+        return ApiResult<object>.Ok(new { });
+    }
+
+    private static async Task<ApiResult<object>> ResetTwoFactorAsync(
+        long id,
+        ResetUserTwoFactorRequest request,
+        HttpContext httpContext,
+        IUserService service,
+        IAuthClock clock,
+        CancellationToken cancellationToken)
+    {
+        await service.ResetTwoFactorAsync(id, request, Context(httpContext, clock), cancellationToken);
         return ApiResult<object>.Ok(new { });
     }
 

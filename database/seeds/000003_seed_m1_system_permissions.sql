@@ -10,6 +10,7 @@ FROM (
   SELECT 'sys:user:enable', 'User enable', 'Enable users' UNION ALL
   SELECT 'sys:user:disable', 'User disable', 'Disable users' UNION ALL
   SELECT 'sys:user:reset-password', 'User reset password', 'Reset user passwords' UNION ALL
+  SELECT 'sys:user:reset-2fa', 'User reset 2FA', 'Reset user two-factor authentication' UNION ALL
   SELECT 'sys:user:assign-role', 'User assign role', 'Assign roles to users' UNION ALL
   SELECT 'sys:user:assign-post', 'User assign post', 'Assign posts to users' UNION ALL
   SELECT 'sys:role:page', 'Role page', 'Access role management page' UNION ALL
@@ -76,6 +77,12 @@ FROM (
   SELECT 'sys:audit-log:page', 'Audit log page', 'Access audit log page' UNION ALL
   SELECT 'sys:audit-log:list', 'Audit log list', 'List audit logs' UNION ALL
   SELECT 'sys:audit-log:detail', 'Audit log detail', 'View audit log details' UNION ALL
+  SELECT 'sys:security:page', 'Security center page', 'Access security center page' UNION ALL
+  SELECT 'sys:security:status', 'Security status', 'View security status' UNION ALL
+  SELECT 'sys:security:ban:list', 'Security ban list', 'List security bans' UNION ALL
+  SELECT 'sys:security:ban:detail', 'Security ban detail', 'View security ban details' UNION ALL
+  SELECT 'sys:security:ban:unban', 'Security ban unban', 'Unban security bans' UNION ALL
+  SELECT 'sys:security:ban:batch-unban', 'Security ban batch unban', 'Batch unban security bans' UNION ALL
   SELECT 'sys:security-event:page', 'Security event page', 'Access security event page' UNION ALL
   SELECT 'sys:security-event:list', 'Security event list', 'List security events' UNION ALL
   SELECT 'sys:security-event:detail', 'Security event detail', 'View security event details' UNION ALL

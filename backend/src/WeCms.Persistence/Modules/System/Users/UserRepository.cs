@@ -384,6 +384,23 @@ public sealed class UserRepository : IUserRepository
             new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
     }
 
+    public Task RecordSecurityEventAsync(UserSecurityEventRecord record, CancellationToken cancellationToken)
+    {
+        return ExpectOneAsync(
+            """
+            INSERT INTO sys_security_event (event_type, user_id, username, ip, severity, message, created_at)
+            VALUES (@eventType, @userId, @username, @ip, @severity, @message, @createdAt)
+            """,
+            cancellationToken,
+            new SugarParameter("@eventType", record.EventType),
+            new SugarParameter("@userId", record.UserId),
+            new SugarParameter("@username", record.Username),
+            new SugarParameter("@ip", record.Ip),
+            new SugarParameter("@severity", record.Severity),
+            new SugarParameter("@message", record.Message),
+            new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
+    }
+
     private async Task<bool> ExistsAsync(string column, string value, long? exceptUserId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

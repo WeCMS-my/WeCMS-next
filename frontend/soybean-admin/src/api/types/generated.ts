@@ -18,13 +18,40 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface TwoFactorVerifyRequest {
+  challengeId: string;
+  code: string;
+}
+
+export interface TwoFactorRecoveryCodeRequest {
+  challengeId: string;
+  recoveryCode: string;
+}
+
+export interface AccountTwoFactorConfirmRequest {
+  code: string;
+}
+
+export interface AccountTwoFactorDisableRequest {
+  currentPassword?: string | null;
+  code?: string | null;
+}
+
+export interface AccountTwoFactorRegenerateRecoveryCodesRequest {
+  currentPassword?: string | null;
+  code?: string | null;
+}
+
 export interface LoginResponse {
   accessToken: string;
   expiresAt: string;
-  user: AuthUserDto;
+  user?: AuthUserDto | null;
   roles: string[];
   permissions: string[];
   menus: MenuTreeDto[];
+  requiresTwoFactor: boolean;
+  twoFactorChallengeId?: string | null;
+  twoFactorChallengeExpiresAt?: string | null;
 }
 
 export interface AuthMeResponse {
@@ -39,6 +66,63 @@ export interface AuthUserDto {
   username: string;
   displayName: string;
   isSuperAdmin: boolean;
+}
+
+export interface AccountTwoFactorStatusResponse {
+  enabled: boolean;
+  confirmedAt: string | null;
+  recoveryCodesRemaining: number;
+  resetRequired: boolean;
+}
+
+export interface AccountTwoFactorSetupResponse {
+  secret: string;
+  otpAuthUri: string;
+  recoveryCodes: string[];
+}
+
+export interface AccountTwoFactorRecoveryCodesResponse {
+  recoveryCodes: string[];
+}
+
+export interface AccountProfileResponse {
+  id: number;
+  username: string;
+  displayName: string;
+  email?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface UpdateAccountProfileRequest {
+  displayName: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface ChangeAccountPasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface AccountAvatarUploadRequest {
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  file: string;
+}
+
+export interface AccountAvatarResponse {
+  avatarUrl: string;
+}
+
+export interface AccountSecurityResponse {
+  twoFactorEnabled: boolean;
+  twoFactorResetRequired: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt?: string | null;
+  lastLoginIp?: string | null;
 }
 
 export interface SystemLiveResponse {
@@ -124,6 +208,10 @@ export interface UpdateUserRequest {
 
 export interface ResetUserPasswordRequest {
   password: string;
+}
+
+export interface ResetUserTwoFactorRequest {
+  reason: string;
 }
 
 export interface AssignUserRolesRequest {
@@ -258,7 +346,6 @@ export interface MenuDetailDto {
 export interface CreateMenuRequest {
   parentId?: number | null;
   type: string;
-  code: string;
   path: string;
   component?: string | null;
   title: string;
@@ -270,6 +357,7 @@ export interface CreateMenuRequest {
   externalUrl?: string | null;
   permissionCode?: string | null;
   status: string;
+  code: string;
 }
 
 export interface UpdateMenuRequest {
@@ -326,10 +414,10 @@ export interface PermissionDetailDto {
 }
 
 export interface CreatePermissionRequest {
-  code: string;
   name: string;
   module: string;
   description?: string | null;
+  code: string;
 }
 
 export interface UpdatePermissionRequest {
@@ -378,10 +466,10 @@ export interface DepartmentDetailDto {
 
 export interface CreateDepartmentRequest {
   parentId?: number | null;
-  code: string;
   name: string;
   sortOrder: number;
   status: string;
+  code: string;
 }
 
 export interface UpdateDepartmentRequest {
@@ -422,10 +510,10 @@ export interface PostDetailDto {
 }
 
 export interface CreatePostRequest {
-  code: string;
   name: string;
   sortOrder: number;
   status: string;
+  code: string;
 }
 
 export interface UpdatePostRequest {
@@ -469,11 +557,11 @@ export interface DictTypeDetailDto {
 }
 
 export interface CreateDictTypeRequest {
-  code: string;
   name: string;
   description?: string | null;
   sortOrder: number;
   status: string;
+  code: string;
 }
 
 export interface UpdateDictTypeRequest {
@@ -486,15 +574,15 @@ export interface UpdateDictTypeRequest {
 export type DictValueList = DictValueDto[];
 
 export interface DictValueDto {
-  id: number;
-  typeId: number;
-  typeCode: string;
   label: string;
   value: string;
   description?: string | null;
   sortOrder: number;
   isDefault: boolean;
   status: string;
+  id: number;
+  typeId: number;
+  typeCode: string;
 }
 
 export interface CreateDictValueRequest {
@@ -625,6 +713,68 @@ export interface AuditLogDetailDto {
   detail: string;
 }
 
+export interface SecurityStatusDto {
+  activeBans: number;
+  activeIpBans: number;
+  activeUserBans: number;
+  criticalActiveBans: number;
+  generatedAt: string;
+}
+
+export interface PagedSecurityBanSummary {
+  records: SecurityBanSummaryDto[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface SecurityBanSummaryDto {
+  id: number;
+  banType: string;
+  target: string;
+  reason: string;
+  severity: string;
+  source: string;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecurityBanDetailDto {
+  id: number;
+  banType: string;
+  target: string;
+  reason: string;
+  severity: string;
+  source: string;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  revokedBy?: number | null;
+  revokeReason?: string | null;
+  createdBy?: number | null;
+  createdByUsername?: string | null;
+}
+
+export interface UnbanSecurityBanRequest {
+  reason: string;
+}
+
+export interface BatchUnbanSecurityBansRequest {
+  ids: number[];
+  reason: string;
+}
+
+export interface SecurityBanMutationResponse {
+  id: number;
+}
+
+export interface BatchUnbanSecurityBansResponse {
+  ids: number[];
+}
+
 export interface PagedSecurityEventSummary {
   records: SecurityEventSummaryDto[];
   page: number;
@@ -698,6 +848,77 @@ export interface FileMutationResponse {
 }
 
 export interface ApiOperations {
+  "/api/v1/account/2fa/confirm": {
+    post: {
+      response: ApiResult<AccountTwoFactorStatusResponse>;
+      requestBody: AccountTwoFactorConfirmRequest;
+    };
+  };
+  "/api/v1/account/2fa/disable": {
+    post: {
+      response: ApiResult<Object>;
+      requestBody: AccountTwoFactorDisableRequest;
+    };
+  };
+  "/api/v1/account/2fa/recovery-codes/regenerate": {
+    post: {
+      response: ApiResult<AccountTwoFactorRecoveryCodesResponse>;
+      requestBody: AccountTwoFactorRegenerateRecoveryCodesRequest;
+    };
+  };
+  "/api/v1/account/2fa/setup": {
+    post: {
+      response: ApiResult<AccountTwoFactorSetupResponse>;
+    };
+  };
+  "/api/v1/account/2fa/status": {
+    get: {
+      response: ApiResult<AccountTwoFactorStatusResponse>;
+    };
+  };
+  "/api/v1/account/avatar": {
+    post: {
+      response: ApiResult<AccountAvatarResponse>;
+      requestBody: unknown;
+    };
+  };
+  "/api/v1/account/avatar/content": {
+    get: {
+      response: ApiResult<Object>;
+    };
+  };
+  "/api/v1/account/password": {
+    put: {
+      response: ApiResult<Object>;
+      requestBody: ChangeAccountPasswordRequest;
+    };
+  };
+  "/api/v1/account/profile": {
+    get: {
+      response: ApiResult<AccountProfileResponse>;
+    };
+    put: {
+      response: ApiResult<AccountProfileResponse>;
+      requestBody: UpdateAccountProfileRequest;
+    };
+  };
+  "/api/v1/account/security": {
+    get: {
+      response: ApiResult<AccountSecurityResponse>;
+    };
+  };
+  "/api/v1/auth/2fa/recovery-code": {
+    post: {
+      response: ApiResult<LoginResponse>;
+      requestBody: TwoFactorRecoveryCodeRequest;
+    };
+  };
+  "/api/v1/auth/2fa/verify": {
+    post: {
+      response: ApiResult<LoginResponse>;
+      requestBody: TwoFactorVerifyRequest;
+    };
+  };
   "/api/v1/auth/login": {
     post: {
       response: ApiResult<LoginResponse>;
@@ -1081,6 +1302,44 @@ export interface ApiOperations {
       response: ApiResult<SecurityEventDetailDto>;
     };
   };
+  "/api/v1/system/security/bans": {
+    get: {
+      response: ApiResult<PagedSecurityBanSummary>;
+      parameters: {
+        query: {
+          page?: number;
+          pageSize?: number;
+          banType?: string;
+          target?: string;
+          severity?: string;
+          source?: string;
+          activeOnly?: boolean;
+        };
+      };
+    };
+  };
+  "/api/v1/system/security/bans/batch-unban": {
+    post: {
+      response: ApiResult<BatchUnbanSecurityBansResponse>;
+      requestBody: BatchUnbanSecurityBansRequest;
+    };
+  };
+  "/api/v1/system/security/bans/{id:long}": {
+    get: {
+      response: ApiResult<SecurityBanDetailDto>;
+    };
+  };
+  "/api/v1/system/security/bans/{id:long}/unban": {
+    post: {
+      response: ApiResult<SecurityBanMutationResponse>;
+      requestBody: UnbanSecurityBanRequest;
+    };
+  };
+  "/api/v1/system/security/status": {
+    get: {
+      response: ApiResult<SecurityStatusDto>;
+    };
+  };
   "/api/v1/system/settings": {
     get: {
       response: ApiResult<PagedSettingSummary>;
@@ -1146,6 +1405,12 @@ export interface ApiOperations {
     put: {
       response: ApiResult<Object>;
       requestBody: AssignUserPostsRequest;
+    };
+  };
+  "/api/v1/system/users/{id:long}/reset-2fa": {
+    post: {
+      response: ApiResult<Object>;
+      requestBody: ResetUserTwoFactorRequest;
     };
   };
   "/api/v1/system/users/{id:long}/reset-password": {

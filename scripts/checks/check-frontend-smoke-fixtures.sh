@@ -30,6 +30,7 @@ expected_routes = {
     "/system/settings": "views/system/settings/SettingsView.vue",
     "/system/logs/login": "views/system/logs/LoginLogsView.vue",
     "/system/logs/audit": "views/system/logs/AuditLogsView.vue",
+    "/system/security": "views/system/security/SecurityCenterView.vue",
     "/system/logs/security": "views/system/logs/SecurityEventsView.vue",
     "/system/files": "views/system/files/FilesView.vue",
 }

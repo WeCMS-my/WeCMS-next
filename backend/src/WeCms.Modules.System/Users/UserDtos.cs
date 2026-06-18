@@ -55,6 +55,8 @@ public sealed record UpdateUserRequest(
 
 public sealed record ResetUserPasswordRequest(string Password);
 
+public sealed record ResetUserTwoFactorRequest(string Reason);
+
 public sealed record AssignUserRolesRequest(IReadOnlyList<long> RoleIds);
 
 public sealed record AssignUserPostsRequest(IReadOnlyList<long> PostIds);
@@ -78,6 +80,8 @@ public interface IUserService
     Task DisableAsync(long id, UserRequestContext context, CancellationToken cancellationToken);
 
     Task ResetPasswordAsync(long id, ResetUserPasswordRequest request, UserRequestContext context, CancellationToken cancellationToken);
+
+    Task ResetTwoFactorAsync(long id, ResetUserTwoFactorRequest request, UserRequestContext context, CancellationToken cancellationToken);
 
     Task AssignRolesAsync(long id, AssignUserRolesRequest request, UserRequestContext context, CancellationToken cancellationToken);
 

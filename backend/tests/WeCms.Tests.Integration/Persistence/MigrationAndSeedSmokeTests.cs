@@ -32,9 +32,9 @@ public sealed class MigrationAndSeedSmokeTests : global::Xunit.IAsyncLifetime
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
-            Assert.Equal(12, firstMigrationRun.Count);
+            Assert.Equal(17, firstMigrationRun.Count);
             Assert.Empty(secondMigrationRun);
-            Assert.Equal(12, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
+            Assert.Equal(17, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin'"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND must_change_password = TRUE"));
@@ -46,15 +46,23 @@ public sealed class MigrationAndSeedSmokeTests : global::Xunit.IAsyncLifetime
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_role' AND column_name = 'is_locked' AND is_nullable = 'NO' AND column_default = '0'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_role_menu'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code = 'sys:system:secure-ping' AND status = 'enabled' AND is_builtin = TRUE AND deleted_at IS NULL"));
-            Assert.Equal(84, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND code <> 'sys:system:secure-ping'"));
-            Assert.Equal(85, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND status = 'enabled' AND is_builtin = TRUE AND deleted_at IS NULL"));
-            Assert.Equal(13, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%'"));
-            Assert.Equal(13, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(91, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND code <> 'sys:system:secure-ping'"));
+            Assert.Equal(92, Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission WHERE code LIKE 'sys:%' AND status = 'enabled' AND is_builtin = TRUE AND deleted_at IS NULL"));
+            Assert.Equal(14, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%'"));
+            Assert.Equal(14, Scalar<int>(db, "SELECT COUNT(1) FROM sys_menu WHERE name LIKE 'sys.%' AND is_builtin = TRUE AND deleted_at IS NULL"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_dict_type'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_dict_value'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_setting'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_setting WHERE `key` = 'security.passwordPepper' AND is_sensitive = TRUE"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_file'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_security_ban'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_login_failure_counter'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_user_two_factor'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_user_two_factor' AND column_name = 'last_totp_step' AND is_nullable = 'YES'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'sys_auth_challenge'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_user' AND column_name = 'avatar_object_key' AND is_nullable = 'YES'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_user' AND column_name = 'avatar_mime_type' AND is_nullable = 'YES'"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_user' AND column_name = 'avatar_file_ext' AND is_nullable = 'YES'"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user_role"));
             Assert.Equal(
                 Scalar<int>(db, "SELECT COUNT(1) FROM sys_permission"),

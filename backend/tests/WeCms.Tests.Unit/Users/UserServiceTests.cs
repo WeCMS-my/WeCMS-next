@@ -1,4 +1,5 @@
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.TwoFactor;
 using WeCms.Modules.System.Users;
 using WeCms.Shared;
 using WeCms.Shared.Data;
@@ -10,7 +11,7 @@ public sealed class UserServiceTests
     [Fact]
     public async Task ListAsync_RejectsPageSizeGreaterThanOneHundred()
     {
-        var service = new UserService(new FakeUserRepository(), new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(new FakeUserRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.ListAsync(new UserListQuery(PageSize: 101), CancellationToken.None));
@@ -21,7 +22,7 @@ public sealed class UserServiceTests
     [Fact]
     public async Task DeleteAsync_RejectsSelfDelete()
     {
-        var service = new UserService(new FakeUserRepository(), new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(new FakeUserRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DeleteAsync(1, Context(actorUserId: 1), CancellationToken.None));
@@ -33,7 +34,7 @@ public sealed class UserServiceTests
     public async Task DisableAsync_RejectsLastLockedRoleHolder()
     {
         var repository = new FakeUserRepository { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 1 } };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DisableAsync(1, Context(actorUserId: 2), CancellationToken.None));
@@ -46,7 +47,7 @@ public sealed class UserServiceTests
     public async Task DeleteAsync_RejectsLastEnabledLockedRoleHolder()
     {
         var repository = new FakeUserRepository { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 1 } };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DeleteAsync(1, Context(actorUserId: 2), CancellationToken.None));
@@ -59,7 +60,7 @@ public sealed class UserServiceTests
     public async Task DisableAsync_RejectsLastEnabledLockedRoleHolder()
     {
         var repository = new FakeUserRepository { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 1 } };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.DisableAsync(1, Context(actorUserId: 2), CancellationToken.None));
@@ -72,7 +73,7 @@ public sealed class UserServiceTests
     public async Task AssignRolesAsync_RejectsRemovingLockedRoleFromLastHolder()
     {
         var repository = new FakeUserRepository { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 1 } };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.AssignRolesAsync(1, new AssignUserRolesRequest([2]), Context(actorUserId: 2), CancellationToken.None));
@@ -85,7 +86,7 @@ public sealed class UserServiceTests
     public async Task AssignRolesAsync_AllowsRemovingLockedRoleWhenAnotherEnabledHolderExists()
     {
         var repository = new FakeUserRepository { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 2 } };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         await service.AssignRolesAsync(1, new AssignUserRolesRequest([2]), Context(actorUserId: 2), CancellationToken.None);
 
@@ -101,7 +102,7 @@ public sealed class UserServiceTests
             RequestedLockedRoleIds = new HashSet<long> { 9 },
             EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 1 }
         };
-        var service = new UserService(repository, new FakePasswordHasher(), new FakeUnitOfWork());
+        var service = CreateService(repository);
 
         await service.AssignRolesAsync(1, new AssignUserRolesRequest([9]), Context(actorUserId: 2), CancellationToken.None);
 
@@ -114,7 +115,7 @@ public sealed class UserServiceTests
         var operations = new List<string>();
         var repository = new FakeUserRepository(operations);
         var unitOfWork = new FakeUnitOfWork(operations);
-        var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
+        var service = CreateService(repository, unitOfWork: unitOfWork);
 
         await service.DeleteAsync(1, Context(actorUserId: 2), CancellationToken.None);
 
@@ -133,7 +134,7 @@ public sealed class UserServiceTests
         var operations = new List<string>();
         var repository = new FakeUserRepository(operations);
         var unitOfWork = new FakeUnitOfWork(operations);
-        var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
+        var service = CreateService(repository, unitOfWork: unitOfWork);
 
         await service.DisableAsync(1, Context(actorUserId: 2), CancellationToken.None);
 
@@ -153,7 +154,7 @@ public sealed class UserServiceTests
         var operations = new List<string>();
         var repository = new FakeUserRepository(operations) { EnabledUsersByLockedRole = new Dictionary<long, int> { [9] = 2 } };
         var unitOfWork = new FakeUnitOfWork(operations);
-        var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
+        var service = CreateService(repository, unitOfWork: unitOfWork);
 
         await service.AssignRolesAsync(1, new AssignUserRolesRequest([2]), Context(actorUserId: 2), CancellationToken.None);
 
@@ -169,7 +170,7 @@ public sealed class UserServiceTests
     {
         var repository = new FakeUserRepository();
         var unitOfWork = new FakeUnitOfWork();
-        var service = new UserService(repository, new FakePasswordHasher(), unitOfWork);
+        var service = CreateService(repository, unitOfWork: unitOfWork);
 
         await service.ResetPasswordAsync(1, new ResetUserPasswordRequest("NewPass@123"), Context(actorUserId: 2), CancellationToken.None);
 
@@ -179,6 +180,51 @@ public sealed class UserServiceTests
         Assert.Equal(1, unitOfWork.BeginTransactionCalls);
         Assert.Equal(1, unitOfWork.CommitCalls);
         Assert.Equal(0, unitOfWork.RollbackCalls);
+    }
+
+    [Fact]
+    public async Task ResetTwoFactorAsync_ClearsTwoFactorRevokesTokensAuditsAndWritesSecurityEvent()
+    {
+        var repository = new FakeUserRepository();
+        var twoFactorService = new FakeTwoFactorService();
+        var unitOfWork = new FakeUnitOfWork();
+        var service = CreateService(repository, twoFactorService, unitOfWork);
+
+        await service.ResetTwoFactorAsync(1, new ResetUserTwoFactorRequest("Support ticket SEC-42"), Context(actorUserId: 2), CancellationToken.None);
+
+        Assert.Equal(1, twoFactorService.ClearCalls);
+        Assert.Equal(1, repository.RevokeRefreshTokenCalls);
+        Assert.Equal(1, repository.RecordAuditCalls);
+        Assert.Equal(1, repository.RecordSecurityEventCalls);
+        Assert.Equal("auth.user_2fa_reset", repository.LastSecurityEventType);
+        Assert.Contains("SEC-42", repository.LastAuditDetail, StringComparison.Ordinal);
+        Assert.Contains("SEC-42", repository.LastSecurityEventMessage, StringComparison.Ordinal);
+        Assert.Equal(1, unitOfWork.BeginTransactionCalls);
+        Assert.Equal(1, unitOfWork.CommitCalls);
+        Assert.Equal(0, unitOfWork.RollbackCalls);
+    }
+
+    [Fact]
+    public async Task ResetTwoFactorAsync_RejectsMissingReason()
+    {
+        var service = CreateService(new FakeUserRepository());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.ResetTwoFactorAsync(1, new ResetUserTwoFactorRequest(" "), Context(actorUserId: 2), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+    }
+
+    private static UserService CreateService(
+        FakeUserRepository repository,
+        FakeTwoFactorService? twoFactorService = null,
+        FakeUnitOfWork? unitOfWork = null)
+    {
+        return new UserService(
+            repository,
+            new FakePasswordHasher(),
+            unitOfWork ?? new FakeUnitOfWork(),
+            twoFactorService ?? new FakeTwoFactorService());
     }
 
     private static UserRequestContext Context(long actorUserId)
@@ -226,6 +272,10 @@ public sealed class UserServiceTests
         public int ResetPasswordCalls { get; private set; }
         public int RevokeRefreshTokenCalls { get; private set; }
         public int RecordAuditCalls { get; private set; }
+        public int RecordSecurityEventCalls { get; private set; }
+        public string LastAuditDetail { get; private set; } = string.Empty;
+        public string LastSecurityEventType { get; private set; } = string.Empty;
+        public string LastSecurityEventMessage { get; private set; } = string.Empty;
         public IReadOnlyList<long> CurrentLockedRoleIds { get; init; } = [9];
         public IReadOnlySet<long> RequestedLockedRoleIds { get; init; } = new HashSet<long>();
         public IReadOnlyDictionary<long, int> EnabledUsersByLockedRole { get; init; } = new Dictionary<long, int> { [9] = 2 };
@@ -318,6 +368,51 @@ public sealed class UserServiceTests
         {
             _operations?.Add("audit");
             RecordAuditCalls++;
+            LastAuditDetail = record.Detail;
+            return Task.CompletedTask;
+        }
+
+        public Task RecordSecurityEventAsync(UserSecurityEventRecord record, CancellationToken cancellationToken)
+        {
+            RecordSecurityEventCalls++;
+            LastSecurityEventType = record.EventType;
+            LastSecurityEventMessage = record.Message;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeTwoFactorService : ITwoFactorService
+    {
+        public int ClearCalls { get; private set; }
+
+        public Task<TwoFactorSetupResult> BeginSetupAsync(long userId, string accountName, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorConfirmResult> ConfirmSetupAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorRecoveryCodeUseResult> UseRecoveryCodeAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorRecoveryCodeRegenerationResult> RegenerateRecoveryCodesAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<TwoFactorVerificationResult> VerifyCodeAsync(long userId, string code, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task ClearAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            ClearCalls++;
             return Task.CompletedTask;
         }
     }

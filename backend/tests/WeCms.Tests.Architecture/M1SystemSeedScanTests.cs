@@ -13,6 +13,7 @@ public sealed class M1SystemSeedScanTests
         "sys:user:enable",
         "sys:user:disable",
         "sys:user:reset-password",
+        "sys:user:reset-2fa",
         "sys:user:assign-role",
         "sys:user:assign-post",
         "sys:role:page",

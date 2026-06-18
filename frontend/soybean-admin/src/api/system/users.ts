@@ -6,6 +6,7 @@ import type {
   CreateUserRequest,
   PagedUserSummary,
   ResetUserPasswordRequest,
+  ResetUserTwoFactorRequest,
   UpdateUserRequest,
   UserDetailDto,
   UserMutationResponse
@@ -64,6 +65,16 @@ export function resetUserPasswordApi(
   request: ResetUserPasswordRequest
 ): Promise<ApiResult<unknown>> {
   return requestJson<unknown>(`/api/v1/system/users/${id}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function resetUserTwoFactorApi(
+  id: number,
+  request: ResetUserTwoFactorRequest
+): Promise<ApiResult<unknown>> {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/reset-2fa`, {
     method: "POST",
     body: JSON.stringify(request)
   });

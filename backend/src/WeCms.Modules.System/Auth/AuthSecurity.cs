@@ -271,3 +271,16 @@ public sealed class AuthTokenEntropy : IAuthTokenEntropy
         return new Guid(RandomNumberGenerator.GetBytes(16)).ToString("D");
     }
 }
+
+public sealed class AuthChallengeEntropy : IAuthChallengeEntropy
+{
+    private const int ChallengeBytes = 32;
+
+    public string NewChallengeId()
+    {
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(ChallengeBytes))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+}
