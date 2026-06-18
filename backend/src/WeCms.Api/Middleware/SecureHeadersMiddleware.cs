@@ -27,7 +27,6 @@ public sealed class SecureHeadersMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        ApplyHeaders(context.Response.Headers);
         context.Response.OnStarting(() =>
         {
             ApplyHeaders(context.Response.Headers);

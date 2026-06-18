@@ -96,8 +96,7 @@ public static class WeCmsRateLimitingExtensions
         var actor = TryGetUserId(context)?.ToString(CultureInfo.InvariantCulture)
             ?? context.Connection.RemoteIpAddress?.ToString()
             ?? "unknown";
-        var path = context.Request.Path.Value ?? "/";
-        return $"user:{actor}:{context.Request.Method}:{path}";
+        return $"user:{actor}";
     }
 
     private static long? TryGetUserId(HttpContext context)

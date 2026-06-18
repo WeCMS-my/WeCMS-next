@@ -29,6 +29,26 @@ public sealed class SecureHeadersMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_SetsSecurityHeadersAfterNext()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var middleware = new SecureHeadersMiddleware(
+            httpContext =>
+            {
+                Assert.False(httpContext.Response.Headers.ContainsKey("X-Content-Type-Options"));
+                return httpContext.Response.WriteAsync("ok");
+            },
+            new ConfigurationBuilder().Build(),
+            new FakeHostEnvironment("Production"));
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("nosniff", context.Response.Headers["X-Content-Type-Options"]);
+    }
+
+    [Fact]
     public async Task InvokeAsync_DoesNotOverwriteExistingEndpointHeaders()
     {
         var context = new DefaultHttpContext();
