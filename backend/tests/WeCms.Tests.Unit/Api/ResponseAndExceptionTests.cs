@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Api.Middleware;
 using WeCms.Shared;
@@ -37,6 +39,46 @@ public sealed class ResponseAndExceptionTests
         Assert.NotEqual(new string('x', 65), context.TraceIdentifier);
         Assert.Matches("^[A-Za-z0-9._-]{1,64}$", context.TraceIdentifier);
         Assert.Equal(context.TraceIdentifier, context.Response.Headers["X-Trace-Id"]);
+    }
+
+    [Fact]
+    public async Task RequestLoggingMiddleware_LogsRequestMetadataWithoutSensitiveHeadersOrBody()
+    {
+        var context = new DefaultHttpContext();
+        context.TraceIdentifier = "trace-log";
+        context.Request.Method = "POST";
+        context.Request.Path = "/api/v1/auth/login";
+        context.Request.Headers.Authorization = "Bearer secret-token";
+        context.Request.Headers.Cookie = "__Host-wecms_refresh=secret-cookie";
+        context.Request.Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""{"password":"secret-password"}"""));
+        var logger = new CapturingLogger<RequestLoggingMiddleware>();
+        var middleware = new RequestLoggingMiddleware(
+            next =>
+            {
+                next.User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [
+                        new Claim(ClaimTypes.NameIdentifier, "42"),
+                        new Claim(ClaimTypes.Name, "admin")
+                    ],
+                    authenticationType: "unit"));
+                next.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            logger);
+
+        await middleware.InvokeAsync(context);
+
+        var entry = Assert.Single(logger.Messages);
+        Assert.Contains("trace-log", entry, StringComparison.Ordinal);
+        Assert.Contains("42", entry, StringComparison.Ordinal);
+        Assert.Contains("admin", entry, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/auth/login", entry, StringComparison.Ordinal);
+        Assert.Contains("401", entry, StringComparison.Ordinal);
+        Assert.DoesNotContain("Authorization", entry, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cookie", entry, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret-token", entry, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-cookie", entry, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-password", entry, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -102,5 +144,31 @@ public sealed class ResponseAndExceptionTests
         context.Response.Body.Position = 0;
 
         return JsonDocument.Parse(context.Response.Body);
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
     }
 }

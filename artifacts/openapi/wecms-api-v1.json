@@ -5215,6 +5215,44 @@
         }
       }
     },
+    "/health/dependencies": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "GET /health/dependencies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SystemDependenciesResponse"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-permission": "sys:system:secure-ping"
+      }
+    },
     "/health/live": {
       "get": {
         "tags": [
@@ -5777,7 +5815,9 @@
         "type": "object",
         "required": [
           "status",
-          "database"
+          "database",
+          "migrations",
+          "criticalConfiguration"
         ],
         "properties": {
           "status": {
@@ -5785,6 +5825,65 @@
           },
           "database": {
             "type": "boolean"
+          },
+          "migrations": {
+            "type": "boolean"
+          },
+          "criticalConfiguration": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SystemDependencyStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "available",
+          "latencyMs",
+          "failureCode"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "latencyMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "failureCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SystemDependenciesResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "database",
+          "migrations",
+          "criticalConfiguration"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "database": {
+            "$ref": "#/components/schemas/SystemDependencyStatus"
+          },
+          "migrations": {
+            "$ref": "#/components/schemas/SystemDependencyStatus"
+          },
+          "criticalConfiguration": {
+            "$ref": "#/components/schemas/SystemDependencyStatus"
           }
         }
       },

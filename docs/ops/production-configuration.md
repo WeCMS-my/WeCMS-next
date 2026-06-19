@@ -64,6 +64,7 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Database:SeedAdminPassword` | Yes in Production | Staging/Production | `__SET_BY_SECRET_MANAGER__` | Critical | Development only | Production rejects empty, placeholder, `Admin@123`, or weak value | Ops |
 | `Database:RunMigrationsOnStartup` | Yes | Dev/Staging/Production | `false` | Public | Yes | Production default is false; `--migrate` is the production entry | Backend/Ops |
 | `Database:CommandTimeoutSeconds` | Yes | Dev/Staging/Production | `30` | Public | Yes | Persistence rejects values outside 1-300 | Backend/Ops |
+| `Database:LatestRequiredMigration` | Yes | Dev/Staging/Production | `000019_h2_security_event_classifier` | Public | Yes | Readiness reports migration unavailable when this version is absent from `sys_schema_migration` | Backend/Ops |
 
 ## Frontend Configuration
 

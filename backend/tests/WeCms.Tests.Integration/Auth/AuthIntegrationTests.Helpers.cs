@@ -78,11 +78,13 @@ public sealed partial class AuthIntegrationTests
         var authRepository = new AuthRepository(db, securityEventClassifier);
         var unitOfWork = new SqlSugarUnitOfWork(db);
         var clock = new FixedAuthClock(now);
+        var securityAlertService = new SecurityAlertService(new NoopSecurityAlertSink());
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
         var loginFailureLimiter = new LoginFailureLimiter(
             new LoginFailureCounterRepository(db, securityEventClassifier),
-            new SecurityBanService(securityBanRepository),
+            new SecurityBanService(securityBanRepository, securityAlertService),
+            securityAlertService,
             loginFailureOptions ?? new LoginFailurePolicyOptions(true, TimeSpan.FromMinutes(10), 5, 20, 10, TimeSpan.FromMinutes(15)));
         var twoFactorService = new TwoFactorService(
             twoFactorRepository,
@@ -91,7 +93,7 @@ public sealed partial class AuthIntegrationTests
             new RecoveryCodeService(twoFactorOptions, new TwoFactorEntropy()),
             twoFactorOptions);
         var auditWriter = new AuthAuditWriter(authRepository, clock);
-        var securityEventWriter = new AuthSecurityEventWriter(authRepository);
+        var securityEventWriter = new AuthSecurityEventWriter(authRepository, securityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             authRepository,
             accessTokenService,
@@ -127,7 +129,8 @@ public sealed partial class AuthIntegrationTests
                 loginFailureLimiter,
                 unitOfWork,
                 clock,
-                challengeOptions ?? new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5)));
+                challengeOptions ?? new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5),
+                securityAlertService));
     }
 
     private static UserService CreateUserService(SqlSugar.ISqlSugarClient db, UserRepository? repository = null)
@@ -368,6 +371,14 @@ public sealed partial class AuthIntegrationTests
         }
 
         public DateTimeOffset UtcNow { get; }
+    }
+
+    private sealed class NoopSecurityAlertSink : ISecurityAlertSink
+    {
+        public Task SendAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 
 }

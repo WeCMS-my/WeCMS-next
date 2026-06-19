@@ -8,7 +8,7 @@ public sealed class SecurityBanServiceTests
     [Fact]
     public async Task FindActiveAsync_RejectsUnknownBanType()
     {
-        var service = new SecurityBanService(new FakeSecurityBanRepository());
+        var service = CreateService(new FakeSecurityBanRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.FindActiveAsync("device", "device-1", Now, CancellationToken.None));
@@ -23,7 +23,7 @@ public sealed class SecurityBanServiceTests
         {
             ActiveBan = new SecurityBanRecord(7, SecurityBanTypes.Ip, "192.168.1.10", "bruteforce", "warning", "login", Now.AddMinutes(10), null)
         };
-        var service = new SecurityBanService(repository);
+        var service = CreateService(repository);
 
         var ban = await service.FindActiveAsync(SecurityBanTypes.Ip, " 192.168.1.10 ", Now, CancellationToken.None);
 
@@ -36,7 +36,8 @@ public sealed class SecurityBanServiceTests
     public async Task RecordHitAsync_WritesSecurityEvent()
     {
         var repository = new FakeSecurityBanRepository();
-        var service = new SecurityBanService(repository);
+        var alertService = new FakeSecurityAlertService();
+        var service = CreateService(repository, alertService);
 
         await service.RecordHitAsync(
             new SecurityBanRecord(7, SecurityBanTypes.User, "42", "admin reset", "critical", "manual", null, null),
@@ -46,12 +47,13 @@ public sealed class SecurityBanServiceTests
         Assert.Equal(1, repository.SecurityEventCount);
         Assert.Equal("security.ban_hit", repository.LastSecurityEventType);
         Assert.Equal("critical", repository.LastSecurityEventSeverity);
+        Assert.Equal(1, alertService.Count);
     }
 
     [Fact]
     public async Task ListAsync_RejectsOversizedPageSize()
     {
-        var service = new SecurityBanService(new FakeSecurityBanRepository());
+        var service = CreateService(new FakeSecurityBanRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.ListAsync(new SecurityBanListQuery(PageSize: 101), CancellationToken.None));
@@ -62,7 +64,7 @@ public sealed class SecurityBanServiceTests
     [Fact]
     public async Task UnbanAsync_RequiresReason()
     {
-        var service = new SecurityBanService(new FakeSecurityBanRepository());
+        var service = CreateService(new FakeSecurityBanRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.UnbanAsync(7, new UnbanSecurityBanRequest(" "), Context, CancellationToken.None));
@@ -77,7 +79,7 @@ public sealed class SecurityBanServiceTests
         {
             BanDetail = new SecurityBanDetailDto(7, SecurityBanTypes.Ip, "192.168.1.10", "bruteforce", "warning", "login", null, 1, Now, "fixed", Now, Now, null, null)
         };
-        var service = new SecurityBanService(repository);
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.UnbanAsync(7, new UnbanSecurityBanRequest("reviewed"), Context, CancellationToken.None));
@@ -93,7 +95,7 @@ public sealed class SecurityBanServiceTests
         {
             BanDetail = new SecurityBanDetailDto(7, SecurityBanTypes.User, "42", "manual", "critical", "admin", null, null, null, null, Now, Now, null, null)
         };
-        var service = new SecurityBanService(repository);
+        var service = CreateService(repository);
 
         var response = await service.UnbanAsync(7, new UnbanSecurityBanRequest("reviewed"), Context, CancellationToken.None);
 
@@ -113,7 +115,7 @@ public sealed class SecurityBanServiceTests
             BanDetail = new SecurityBanDetailDto(7, SecurityBanTypes.User, "9", "manual", "critical", "admin", null, null, null, null, Now, Now, null, null),
             IsSuperAdmin = false
         };
-        var service = new SecurityBanService(repository);
+        var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(
             () => service.UnbanAsync(7, new UnbanSecurityBanRequest("reviewed"), Context, CancellationToken.None));
@@ -125,7 +127,7 @@ public sealed class SecurityBanServiceTests
     [Fact]
     public async Task BatchUnbanAsync_RejectsTooManyIds()
     {
-        var service = new SecurityBanService(new FakeSecurityBanRepository());
+        var service = CreateService(new FakeSecurityBanRepository());
         var ids = Enumerable.Range(1, 51).Select(static value => (long)value).ToArray();
 
         var exception = await Assert.ThrowsAsync<DomainException>(
@@ -137,6 +139,13 @@ public sealed class SecurityBanServiceTests
     private static readonly DateTimeOffset Now = new(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
     private static readonly SecurityBanRequestContext Context = new(9, "operator", "127.0.0.1", "unit-test", "trace-security", Now);
+
+    private static SecurityBanService CreateService(
+        ISecurityBanRepository repository,
+        FakeSecurityAlertService? alertService = null)
+    {
+        return new SecurityBanService(repository, alertService ?? new FakeSecurityAlertService());
+    }
 
     private sealed class FakeSecurityBanRepository : ISecurityBanRepository
     {
@@ -212,6 +221,17 @@ public sealed class SecurityBanServiceTests
             SecurityEventCount++;
             LastSecurityEventType = record.EventType;
             LastSecurityEventSeverity = record.Severity;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    {
+        public int Count { get; private set; }
+
+        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            Count++;
             return Task.CompletedTask;
         }
     }

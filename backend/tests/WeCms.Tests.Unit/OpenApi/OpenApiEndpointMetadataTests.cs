@@ -28,6 +28,7 @@ public sealed partial class OpenApiExportTests
         {
             { ("/health/live", "get"), (false, null) },
             { ("/health/ready", "get"), (false, null) },
+            { ("/health/dependencies", "get"), (true, "sys:system:secure-ping") },
             { ("/api/v1/system/ping", "get"), (false, null) },
             { ("/api/v1/system/version", "get"), (false, null) },
             { ("/api/v1/system/db-check", "get"), (false, null) },
@@ -168,7 +169,7 @@ public sealed partial class OpenApiExportTests
 
     private static bool IsSystemAuthOrAccountEndpoint(string path)
     {
-        return path is "/health/live" or "/health/ready"
+        return path is "/health/live" or "/health/ready" or "/health/dependencies"
             || path.StartsWith("/api/v1/system/", StringComparison.Ordinal)
             || path.StartsWith("/api/v1/auth/", StringComparison.Ordinal)
             || path.StartsWith("/api/v1/account/", StringComparison.Ordinal)
@@ -192,6 +193,7 @@ public sealed partial class OpenApiExportTests
     [
         new RegisteredEndpoint("/health/live", "get", null, false, null),
         new RegisteredEndpoint("/health/ready", "get", null, false, null),
+        new RegisteredEndpoint("/health/dependencies", "get", SystemPermissions.SecurePing, true, null),
         new RegisteredEndpoint("/api/v1/system/ping", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/system/version", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/system/db-check", "get", null, false, null),

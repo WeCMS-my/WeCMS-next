@@ -55,7 +55,7 @@ component_tokens = {
     "backend/src/WeCms.Modules.System/Permissions/PermissionEndpointFilter.cs": ["PermissionEndpointFilter"],
     "backend/src/WeCms.Modules.System/Auth/AuthTwoFactorChallengeService.cs": ["AuthTwoFactorChallengeService"],
     "backend/src/WeCms.Shared/Security/SecurityEventClassifier.cs": ["csrf_origin_rejected", "permission_denied"],
-    "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": ["IIpRuleMatcher", "security.ip_access_denied"],
+    "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": ["IIpRuleMatcher", "security.ip_rejected"],
     "backend/src/WeCms.Modules.System/Security/SecurityBanService.cs": ["SecurityBanService"],
     "backend/src/WeCms.Api/Middleware/SecurityBanMiddleware.cs": ["SecurityBanMiddleware"],
     "backend/src/WeCms.Modules.System/Logs/AuditLogEndpoints.cs": ["AuditLog"],

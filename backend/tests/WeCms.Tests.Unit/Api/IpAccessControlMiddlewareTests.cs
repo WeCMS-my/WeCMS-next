@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using WeCms.Api.Middleware;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Menus;
+using WeCms.Modules.System.Security;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Unit.Api;
@@ -20,6 +21,7 @@ public sealed class IpAccessControlMiddlewareTests
             return Task.CompletedTask;
         });
         var context = CreateContext("/api/v1/auth/login", "203.0.113.20");
+        context.TraceIdentifier = "trace-ip-denied";
         var repository = new FakeAuthRepository();
 
         await middleware.InvokeAsync(
@@ -27,6 +29,7 @@ public sealed class IpAccessControlMiddlewareTests
             Configuration(new Dictionary<string, string?>()),
             new IpRuleMatcher(),
             repository,
+            new FakeSecurityAlertService(),
             new FakeAuthClock());
 
         Assert.True(nextCalled);
@@ -44,7 +47,9 @@ public sealed class IpAccessControlMiddlewareTests
             return Task.CompletedTask;
         });
         var context = CreateContext("/api/v1/auth/login", "203.0.113.20");
+        context.TraceIdentifier = "trace-ip-denied";
         var repository = new FakeAuthRepository();
+        var alertService = new FakeSecurityAlertService();
 
         await middleware.InvokeAsync(
             context,
@@ -55,13 +60,16 @@ public sealed class IpAccessControlMiddlewareTests
             }),
             new IpRuleMatcher(),
             repository,
+            alertService,
             new FakeAuthClock());
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
         Assert.Equal(1, repository.SecurityEventCount);
-        Assert.Equal("security.ip_access_denied", repository.LastSecurityEventType);
-        Assert.Equal("warning", repository.LastSecurityEventSeverity);
+        Assert.Equal("security.ip_rejected", repository.LastSecurityEventType);
+        Assert.Equal("critical", repository.LastSecurityEventSeverity);
+        Assert.Equal("trace-ip-denied", repository.LastTraceId);
+        Assert.Equal(1, alertService.Count);
     }
 
     [Fact]
@@ -84,6 +92,7 @@ public sealed class IpAccessControlMiddlewareTests
             }),
             new IpRuleMatcher(),
             new FakeAuthRepository(),
+            new FakeSecurityAlertService(),
             new FakeAuthClock());
 
         Assert.True(nextCalled);
@@ -111,6 +120,7 @@ public sealed class IpAccessControlMiddlewareTests
             }),
             new IpRuleMatcher(),
             new FakeAuthRepository(),
+            new FakeSecurityAlertService(),
             new FakeAuthClock());
 
         Assert.True(nextCalled);
@@ -144,6 +154,8 @@ public sealed class IpAccessControlMiddlewareTests
         public string LastSecurityEventType { get; private set; } = string.Empty;
 
         public string LastSecurityEventSeverity { get; private set; } = string.Empty;
+
+        public string LastTraceId { get; private set; } = string.Empty;
 
         public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
         {
@@ -185,6 +197,7 @@ public sealed class IpAccessControlMiddlewareTests
             SecurityEventCount++;
             LastSecurityEventType = record.EventType;
             LastSecurityEventSeverity = record.Severity;
+            LastTraceId = record.TraceId ?? string.Empty;
             return Task.CompletedTask;
         }
 
@@ -206,6 +219,17 @@ public sealed class IpAccessControlMiddlewareTests
         public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
+        }
+    }
+
+    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    {
+        public int Count { get; private set; }
+
+        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            Count++;
+            return Task.CompletedTask;
         }
     }
 }

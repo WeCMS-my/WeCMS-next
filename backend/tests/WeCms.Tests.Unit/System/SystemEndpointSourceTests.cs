@@ -14,11 +14,33 @@ public sealed class SystemEndpointSourceTests
 
         Assert.Contains("MapGet(\"/health/live\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/health/ready\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/health/dependencies\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/ping\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/version\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/db-check\"", source, StringComparison.Ordinal);
         Assert.Contains("DatabaseUnavailableMessage", source, StringComparison.Ordinal);
+        Assert.Contains("ISystemMigrationProbe", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".Message", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DependenciesEndpoint_IsProtected()
+    {
+        var source = await File.ReadAllTextAsync(RepoPath(
+            "backend",
+            "src",
+            "WeCms.Modules.System",
+            "System",
+            "SystemEndpointExtensions.cs"));
+
+        var dependenciesStart = source.IndexOf("MapGet(\"/health/dependencies\"", StringComparison.Ordinal);
+        var nextRoute = source.IndexOf("MapGet(\"/api/v1/system/ping\"", dependenciesStart, StringComparison.Ordinal);
+        Assert.True(dependenciesStart >= 0);
+        Assert.True(nextRoute > dependenciesStart);
+
+        var dependenciesBlock = source[dependenciesStart..nextRoute];
+        Assert.Contains(".RequireAuthorization()", dependenciesBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain(".AllowAnonymous()", dependenciesBlock, StringComparison.Ordinal);
     }
 
     [Fact]

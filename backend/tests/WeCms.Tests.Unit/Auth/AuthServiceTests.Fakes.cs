@@ -1,5 +1,6 @@
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Menus;
+using WeCms.Modules.System.Security;
 using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
 using WeCms.Shared.Data;
@@ -23,7 +24,8 @@ public sealed partial class AuthServiceTests
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(new FixedAuthTokenEntropy());
         var auditWriter = new AuthAuditWriter(repository, clock);
-        var securityEventWriter = new AuthSecurityEventWriter(repository);
+        var securityAlertService = new FakeSecurityAlertService();
+        var securityEventWriter = new AuthSecurityEventWriter(repository, securityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
             accessTokenService,
@@ -59,7 +61,8 @@ public sealed partial class AuthServiceTests
                 limiter,
                 unitOfWork,
                 clock,
-                new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5)));
+                new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5),
+                securityAlertService));
     }
 
     private static AuthService CreateService(IAuthRepository repository, IAuthClock clock)
@@ -70,7 +73,8 @@ public sealed partial class AuthServiceTests
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(new FixedAuthTokenEntropy());
         var auditWriter = new AuthAuditWriter(repository, clock);
-        var securityEventWriter = new AuthSecurityEventWriter(repository);
+        var securityAlertService = new FakeSecurityAlertService();
+        var securityEventWriter = new AuthSecurityEventWriter(repository, securityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
             accessTokenService,
@@ -106,7 +110,8 @@ public sealed partial class AuthServiceTests
                 limiter,
                 unitOfWork,
                 clock,
-                new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5)));
+                new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5),
+                securityAlertService));
     }
 
     private static AuthRequestContext RequestContext()
@@ -125,6 +130,14 @@ public sealed partial class AuthServiceTests
         catch
         {
             return null;
+        }
+    }
+
+    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    {
+        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
     }
 

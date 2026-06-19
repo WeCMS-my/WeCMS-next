@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using WeCms.Api.Json;
 using WeCms.Modules.System.Auth;
+using WeCms.Modules.System.Security;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 
@@ -9,7 +10,7 @@ namespace WeCms.Api.Middleware;
 
 public sealed class IpAccessControlMiddleware
 {
-    private const string DeniedEventType = "security.ip_access_denied";
+    private const string DeniedEventType = "security.ip_rejected";
     private const string DeniedMessage = "IP access is not allowed.";
 
     private readonly RequestDelegate _next;
@@ -24,12 +25,14 @@ public sealed class IpAccessControlMiddleware
         IConfiguration configuration,
         IIpRuleMatcher ipRuleMatcher,
         IAuthRepository authRepository,
+        ISecurityAlertService alertService,
         IAuthClock clock)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(ipRuleMatcher);
         ArgumentNullException.ThrowIfNull(authRepository);
+        ArgumentNullException.ThrowIfNull(alertService);
         ArgumentNullException.ThrowIfNull(clock);
 
         if (!ReadBool(configuration, "Security:IpAccessControl:Enabled", defaultValue: false)
@@ -53,15 +56,25 @@ public sealed class IpAccessControlMiddleware
             return;
         }
 
-        await authRepository.RecordSecurityEventAsync(
-            new SecurityEventRecord(
-                DeniedEventType,
-                null,
-                null,
-                remoteIp?.ToString() ?? string.Empty,
-                "warning",
-                DeniedMessage,
-                clock.UtcNow),
+        var now = clock.UtcNow;
+        var securityEvent = new SecurityEventRecord(
+            DeniedEventType,
+            null,
+            null,
+            remoteIp?.ToString() ?? string.Empty,
+            "critical",
+            DeniedMessage,
+            now,
+            context.TraceIdentifier);
+
+        await authRepository.RecordSecurityEventAsync(securityEvent, context.RequestAborted);
+        await alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId ?? context.TraceIdentifier,
+                now),
             context.RequestAborted);
 
         await WriteForbiddenAsync(context);

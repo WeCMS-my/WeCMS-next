@@ -15,8 +15,8 @@ checks = {
         ("backend/tests/WeCms.Tests.Unit/Auth/CookieAuthOriginValidatorTests.cs", "auth.cookie_origin_rejected"),
     ],
     "IP access rejection": [
-        ("backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs", "security.ip_access_denied"),
-        ("backend/tests/WeCms.Tests.Unit/Api/IpAccessControlMiddlewareTests.cs", "security.ip_access_denied"),
+        ("backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs", "security.ip_rejected"),
+        ("backend/tests/WeCms.Tests.Unit/Api/IpAccessControlMiddlewareTests.cs", "security.ip_rejected"),
     ],
     "security ban hit": [
         ("backend/src/WeCms.Modules.System/Security/SecurityBanService.cs", "security.ban_hit"),

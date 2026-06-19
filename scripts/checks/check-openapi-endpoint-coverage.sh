@@ -19,6 +19,7 @@ paths = document.get("paths", {})
 expected = {
     "/health/live": ["get"],
     "/health/ready": ["get"],
+    "/health/dependencies": ["get"],
     "/api/v1/system/ping": ["get"],
     "/api/v1/system/version": ["get"],
     "/api/v1/system/db-check": ["get"],
@@ -48,7 +49,7 @@ for route, methods in expected.items():
         if method not in paths.get(route, {}):
             raise SystemExit(f"check-openapi-endpoint-coverage: missing {method.upper()} {route}")
 
-secure_ping = paths["/api/v1/system/secure-ping"]["get"]
+    secure_ping = paths["/api/v1/system/secure-ping"]["get"]
 security = secure_ping.get("security")
 if security != [{"bearerAuth": []}]:
     raise SystemExit("check-openapi-endpoint-coverage: secure-ping missing bearerAuth security")
@@ -56,6 +57,12 @@ if security != [{"bearerAuth": []}]:
 permission = secure_ping.get("x-wecms-permission")
 if permission != "sys:system:secure-ping":
     raise SystemExit("check-openapi-endpoint-coverage: secure-ping missing permission metadata")
+
+dependencies = paths["/health/dependencies"]["get"]
+if dependencies.get("security") != [{"bearerAuth": []}]:
+    raise SystemExit("check-openapi-endpoint-coverage: health dependencies missing bearerAuth security")
+if dependencies.get("x-wecms-permission") != "sys:system:secure-ping":
+    raise SystemExit("check-openapi-endpoint-coverage: health dependencies missing permission metadata")
 
 schemes = document.get("components", {}).get("securitySchemes", {})
 if schemes.get("bearerAuth", {}).get("scheme") != "bearer":

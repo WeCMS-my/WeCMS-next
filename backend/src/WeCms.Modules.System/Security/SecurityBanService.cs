@@ -9,10 +9,12 @@ public sealed class SecurityBanService : ISecurityBanService
     private const int MaxTargetLength = 128;
     private const int MaxReasonLength = 500;
     private readonly ISecurityBanRepository _repository;
+    private readonly ISecurityAlertService _alertService;
 
-    public SecurityBanService(ISecurityBanRepository repository)
+    public SecurityBanService(ISecurityBanRepository repository, ISecurityAlertService alertService)
     {
         _repository = repository;
+        _alertService = alertService;
     }
 
     public Task<SecurityStatusDto> GetStatusAsync(
@@ -124,7 +126,7 @@ public sealed class SecurityBanService : ISecurityBanService
         return _repository.FindActiveAsync(normalizedType, normalizedTarget, now, cancellationToken);
     }
 
-    public Task RecordHitAsync(
+    public async Task RecordHitAsync(
         SecurityBanRecord ban,
         SecurityBanHitContext context,
         CancellationToken cancellationToken)
@@ -132,16 +134,24 @@ public sealed class SecurityBanService : ISecurityBanService
         ArgumentNullException.ThrowIfNull(ban);
         ArgumentNullException.ThrowIfNull(context);
 
-        return _repository.RecordSecurityEventAsync(
-            new SecurityBanSecurityEventRecord(
-                "security.ban_hit",
-                context.UserId,
-                context.Username,
-                context.Ip,
-                NormalizeSeverity(ban.Severity),
-                "Security ban matched request.",
-                context.Now,
-                context.TraceId),
+        var securityEvent = new SecurityBanSecurityEventRecord(
+            "security.ban_hit",
+            context.UserId,
+            context.Username,
+            context.Ip,
+            NormalizeSeverity(ban.Severity),
+            "Security ban matched request.",
+            context.Now,
+            context.TraceId);
+
+        await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId,
+                securityEvent.CreatedAt),
             cancellationToken);
     }
 
@@ -168,23 +178,31 @@ public sealed class SecurityBanService : ISecurityBanService
             cancellationToken);
     }
 
-    private Task RecordSecurityEventAsync(
+    private async Task RecordSecurityEventAsync(
         string eventType,
         SecurityBanDetailDto ban,
         SecurityBanRequestContext context,
         string message,
         CancellationToken cancellationToken)
     {
-        return _repository.RecordSecurityEventAsync(
-            new SecurityBanSecurityEventRecord(
-                eventType,
-                context.ActorUserId,
-                context.ActorUsername,
-                context.Ip,
-                NormalizeSeverity(ban.Severity),
-                message,
-                context.Now,
-                context.TraceId),
+        var securityEvent = new SecurityBanSecurityEventRecord(
+            eventType,
+            context.ActorUserId,
+            context.ActorUsername,
+            context.Ip,
+            NormalizeSeverity(ban.Severity),
+            message,
+            context.Now,
+            context.TraceId);
+
+        await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId,
+                securityEvent.CreatedAt),
             cancellationToken);
     }
 

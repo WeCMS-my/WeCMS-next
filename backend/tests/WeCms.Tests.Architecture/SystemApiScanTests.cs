@@ -30,6 +30,7 @@ public sealed class SystemApiScanTests
 
         Assert.Contains("ApiResult<SystemLiveResponse>", source, StringComparison.Ordinal);
         Assert.Contains("ApiResult<SystemReadyResponse>", source, StringComparison.Ordinal);
+        Assert.Contains("ApiResult<SystemDependenciesResponse>", source, StringComparison.Ordinal);
         Assert.Contains("ApiResult<SystemPingResponse>", source, StringComparison.Ordinal);
         Assert.Contains("ApiResult<SystemVersionResponse>", source, StringComparison.Ordinal);
         Assert.Contains("ApiResult<SystemDbCheckResponse>", source, StringComparison.Ordinal);
@@ -132,6 +133,7 @@ public sealed class SystemApiScanTests
     private static bool IsSystemOrAuthEndpoint(string path)
     {
         return path is "/health/live" or "/health/ready"
+            or "/health/dependencies"
             || path.StartsWith("/api/v1/system/", StringComparison.Ordinal)
             || path.StartsWith("/api/v1/auth/", StringComparison.Ordinal);
     }
