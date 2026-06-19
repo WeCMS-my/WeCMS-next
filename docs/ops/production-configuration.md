@@ -1,0 +1,93 @@
+# WeCMS Next Production Configuration
+
+This document is the PH-0 production configuration inventory. It defines which keys are required, how they differ by environment, and which values must never be committed.
+
+Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
+
+## Rules
+
+- Real production secrets must come from environment variables or a secret manager.
+- Do not commit production connection strings, JWT secrets, 2FA keys, seed passwords, storage keys, SMTP passwords, webhook secrets, or tokens.
+- Production startup fails when required keys are missing or still use placeholders.
+- Development may use local `user-secrets` or local environment variables.
+- Staging must follow production secret rules, with staging-only hosts and credentials.
+
+## Backend Configuration
+
+| Key | Required | Environment | Example | Secret level | Default allowed | Fail-fast behavior | Owner |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `ConnectionStrings:Default` | Yes | Dev/Staging/Production | `__SET_BY_ENV__` | High | No in Production | Production rejects empty or placeholder | Ops |
+| `Auth:AccessTokenSecret` | Yes | Dev/Staging/Production | `__SET_BY_ENV__` | Critical | No | Production rejects empty, placeholder, or length < 32 | Backend |
+| `Auth:Issuer` | Yes | Dev/Staging/Production | `wecms-production` | Public | Yes | Falls back in lower env; production template must declare | Backend |
+| `Auth:AccessTokenMinutes` | Yes | Dev/Staging/Production | `15` | Public | Yes | Existing Auth registration validates integer | Backend |
+| `Auth:RefreshTokenDays` | Yes | Dev/Staging/Production | `7` | Public | Yes | Existing Auth registration validates integer | Backend |
+| `Security:TwoFactor:SecretProtectionKey` | Yes | Dev/Staging/Production | `__SET_BY_ENV__` | Critical | No | Production rejects empty, placeholder, or length < 32 | Backend |
+| `Security:TwoFactor:Issuer` | Yes | Dev/Staging/Production | `WeCMS` | Public | Yes | Existing 2FA registration applies default | Backend |
+| `Security:TwoFactor:PeriodSeconds` | Yes | Dev/Staging/Production | `30` | Public | Yes | Existing 2FA registration validates integer | Backend |
+| `Security:TwoFactor:CodeDigits` | Yes | Dev/Staging/Production | `6` | Public | Yes | Existing 2FA registration validates integer | Backend |
+| `Security:TwoFactor:AllowedWindowSteps` | Yes | Dev/Staging/Production | `1` | Public | Yes | Existing 2FA registration validates integer | Backend |
+| `Security:TwoFactor:RecoveryCodeCount` | Yes | Dev/Staging/Production | `10` | Public | Yes | Existing 2FA registration validates integer | Backend |
+| `Security:TwoFactor:ChallengeMinutes` | Yes | Dev/Staging/Production | `5` | Public | Yes | Existing Auth registration validates integer | Backend |
+| `Security:TwoFactor:ChallengeMaxFailedAttempts` | Yes | Dev/Staging/Production | `5` | Public | Yes | Existing Auth registration validates integer | Backend |
+| `Security:AllowedOrigins` | Yes | Dev/Staging/Production | `https://admin.example.com` | Public deploy setting | No in Production | Production rejects empty, wildcard, localhost, or HTTP origins | Ops |
+| `Security:RequireOriginForCookieAuth` | Yes | Dev/Staging/Production | `true` | Public | No in Production | Existing Cookie auth validator rejects false outside Development | Backend |
+| `Security:AllowRefererFallbackForCookieAuth` | Yes | Dev/Staging/Production | `false` | Public | Yes | Recommended false in Production | Security |
+| `Security:SecureHeaders:CspReportOnlyEnabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | PH-1 owns CSP enforce rollout | Security |
+| `Security:SecureHeaders:PermissionsPolicy` | Yes | Dev/Staging/Production | `geolocation=(), microphone=(), camera=()` | Public | Yes | Middleware applies configured value | Security |
+| `Security:SecureHeaders:CspReportOnly` | Yes | Dev/Staging/Production | `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'` | Public | Yes | PH-1 tightens CSP checks | Security |
+| `Security:LoginFailure:Enabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | Existing Auth registration validates boolean | Security |
+| `Security:LoginFailure:WindowMinutes` | Yes | Dev/Staging/Production | `10` | Public | Yes | Existing Auth registration validates integer | Security |
+| `Security:LoginFailure:UsernameThreshold` | Yes | Dev/Staging/Production | `5` | Public | Yes | Existing Auth registration validates integer | Security |
+| `Security:LoginFailure:IpThreshold` | Yes | Dev/Staging/Production | `20` | Public | Yes | Existing Auth registration validates integer | Security |
+| `Security:LoginFailure:BanThreshold` | Yes | Dev/Staging/Production | `10` | Public | Yes | Existing Auth registration validates integer | Security |
+| `Security:LoginFailure:BanMinutes` | Yes | Dev/Staging/Production | `15` | Public | Yes | Existing Auth registration validates integer | Security |
+| `Security:RateLimiting:AuthLogin` | Yes | Dev/Staging/Production | `PermitLimit=5, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `Security:RateLimiting:AuthRefresh` | Yes | Dev/Staging/Production | `PermitLimit=20, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `Security:RateLimiting:AuthTwoFactor` | Yes | Dev/Staging/Production | `PermitLimit=5, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `Security:RateLimiting:AdminWrite` | Yes | Dev/Staging/Production | `PermitLimit=60, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `Security:RateLimiting:FileUpload` | Yes | Dev/Staging/Production | `PermitLimit=10, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `Security:RateLimiting:SecurityUnban` | Yes | Dev/Staging/Production | `PermitLimit=5, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
+| `FileStorage:Provider` | PH-4 | Staging/Production | `local` | Public | Development only | PH-4 owns provider validation | Backend/Ops |
+| `FileStorage:Local:BasePath` | PH-4 | Staging/Production | `/var/lib/wecms/files` | Sensitive path | No in Production after PH-4 | PH-4 owns fail-fast | Ops |
+| `FileStorage:PublicBaseUrl` | PH-4 | Staging/Production | `https://files.example.com` | Public deploy setting | No in Production after PH-4 | PH-4 owns fail-fast | Ops |
+| `FileStorage:MaxUploadBytes` | PH-4 | Dev/Staging/Production | `10485760` | Public | Yes | PH-4 owns fail-fast | Backend |
+| `FileStorage:AllowedMimeTypes` | PH-4 | Dev/Staging/Production | `image/png,image/jpeg` | Public | Yes | PH-4 owns fail-fast | Backend |
+| `FileStorage:VirusScanEnabled` | PH-4 | Staging/Production | `false` | Public | Yes | PH-4 owns scan-provider validation | Security |
+| `Logging:LogLevel:Default` | Yes | Dev/Staging/Production | `Information` | Public | Yes | ASP.NET configuration applies default | Ops |
+| `Logging:LogLevel:Microsoft.AspNetCore` | Yes | Dev/Staging/Production | `Warning` | Public | Yes | ASP.NET configuration applies default | Ops |
+| `Database:SeedAdminPassword` | Yes in Production | Staging/Production | `__SET_BY_SECRET_MANAGER__` | Critical | Development only | Production rejects empty, placeholder, `Admin@123`, or weak value | Ops |
+
+## Frontend Configuration
+
+| Key | Required | Environment | Example | Secret level | Default allowed | Fail-fast behavior | Owner |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `VITE_API_BASE_URL` | Depends on deploy mode | Dev/Staging/Production | `https://api.example.com` | Public deploy setting | Empty allowed for same-origin | PH-6 owns production frontend config test | Frontend/Ops |
+| Build mode | Yes | Staging/Production | `production` | Public | No | PH-6 owns gate | Frontend |
+| Route permission source | Yes | All | Backend `/api/v1/auth/me` menus and permissions | Public | No static override | Existing frontend gate checks route permission coverage | Frontend |
+
+## Environment Behavior
+
+Development:
+
+- Use `dotnet user-secrets` or local environment variables for DB and secrets.
+- `Database:SeedAdminPassword` may be absent, and Development seed may use `Admin@123`.
+- `Security:AllowedOrigins` may include localhost.
+
+Staging:
+
+- Use staging-specific secret manager entries.
+- Do not reuse Development passwords or keys.
+- Use HTTPS origins matching staging admin URLs.
+
+Production:
+
+- Required keys must be present before startup.
+- Secrets must be injected outside git.
+- `Security:AllowedOrigins` must be HTTPS, explicit, and non-localhost.
+- `Database:SeedAdminPassword` must be strong and must not equal `Admin@123`.
+
+## Current Deviations Recorded In PH-0
+
+- Migration / seed runners are registered, but the current API host does not automatically execute them at startup. PH-0 corrects README wording; PH-2 owns the production migration execution strategy.
+- FileStorage still uses local storage implementation defaults. PH-4 owns production FileStorage configuration and provider validation.
+- `Security:AllowedOrigins` currently protects Cookie-authenticated endpoints. PH-1 owns full CORS production policy.

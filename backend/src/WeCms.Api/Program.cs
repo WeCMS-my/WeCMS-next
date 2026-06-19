@@ -2,6 +2,7 @@ using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
 using WeCms.Api.RateLimiting;
+using WeCms.Api.Configuration;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
@@ -28,6 +29,8 @@ if (await OpenApiExtensions.ExportOpenApiAsync(args))
 }
 
 var builder = WebApplication.CreateSlimBuilder(args);
+
+ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment);
 
 builder.Services.AddWeCmsPersistence(builder.Configuration);
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
