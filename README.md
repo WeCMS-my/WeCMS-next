@@ -64,7 +64,7 @@ dotnet run --project backend/src/WeCms.Api --launch-profile http
 dotnet user-secrets init --project backend/src/WeCms.Api/WeCms.Api.csproj
 dotnet user-secrets set "Auth:AccessTokenSecret" "your-local-dev-secret-at-least-32-chars" --project backend/src/WeCms.Api/WeCms.Api.csproj
 dotnet user-secrets set "Security:TwoFactor:SecretProtectionKey" "your-local-2fa-secret-key-at-least-32-chars" --project backend/src/WeCms.Api/WeCms.Api.csproj
-dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;" --project backend/src/WeCms.Api/WeCms.Api.csproj
+dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;" --project backend/src/WeCms.Api/WeCms.Api.csproj
 ```
 
 也可复制 `backend/src/WeCms.Api/appsettings.Development.example.json` 为本地模板，并按需覆盖 `user-secrets` 或环境变量。
@@ -99,7 +99,7 @@ curl -X POST http://localhost:5261/api/v1/auth/login \
 ### Backend gate
 
 ```bash
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;"
 bash scripts/quality-gate-backend.sh
 ```
 
@@ -141,7 +141,7 @@ export MYSQL_PASSWORD="wecms_dev"
 export MYSQL_ROOT_PASSWORD="wecms_root"
 
 export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}"
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;"
 
 # 启动本地 MySQL（若已有可用实例可跳过这步）
 docker run -d --name wecms-mysql \
@@ -164,7 +164,7 @@ docker run -d --name wecms-mysql -p 3306:3306 \
   -e MYSQL_DATABASE=wecms_dev -e MYSQL_USER=wecms_dev -e MYSQL_PASSWORD=wecms_dev -e MYSQL_ROOT_PASSWORD=wecms_root mysql:8.0 && \
 export MYSQL_HOST="127.0.0.1" && \
 export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}" && \
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;" && \
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;" && \
 WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
 ```
 
@@ -177,7 +177,7 @@ export MYSQL_DATABASE="wecms_dev"
 export MYSQL_USER="wecms_dev"
 export MYSQL_PASSWORD="wecms_dev"
 export MYSQL_ROOT_PASSWORD="wecms_root"
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;"
 
 docker rm -f wecms-mysql 2>/dev/null || true; \
 docker run -d --name wecms-mysql -p ${MYSQL_PORT}:3306 \
