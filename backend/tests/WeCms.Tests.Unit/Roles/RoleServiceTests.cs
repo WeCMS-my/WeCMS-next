@@ -65,6 +65,17 @@ public sealed class RoleServiceTests
     }
 
     [Fact]
+    public async Task DeleteAsync_BumpsPermissionVersion_ForDeletedRole()
+    {
+        var permissionVersionService = new FakePermissionVersionService();
+        var service = CreateService(new FakeRoleRepository(UnlockedRole()), permissionVersionService: permissionVersionService);
+
+        await service.DeleteAsync(3, Context(), CancellationToken.None);
+
+        Assert.True(permissionVersionService.BumpUsersByRoleCalled);
+    }
+
+    [Fact]
     public async Task DisableAsync_RejectsLockedRole()
     {
         var service = CreateService(new FakeRoleRepository(LockedRole()));
@@ -245,8 +256,15 @@ public sealed class RoleServiceTests
 
     private sealed class FakePermissionVersionService : IPermissionVersionService
     {
+        public bool BumpUsersByRoleCalled { get; private set; }
+
         public Task BumpUserAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            BumpUsersByRoleCalled = true;
+            return Task.CompletedTask;
+        }
+
         public Task BumpUsersByPermissionAsync(long permissionId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task BumpUsersByMenuAsync(long menuId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task BumpUsersByMenusAsync(IReadOnlyList<long> menuIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;

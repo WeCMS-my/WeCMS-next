@@ -92,8 +92,19 @@ public sealed class RoleService : IRoleService
         var role = await GetAsync(id, cancellationToken);
         EnsureRoleNotLocked(role, "Locked role cannot be deleted.");
         EnsureCanDelete(role);
-        await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
-        await AuditAsync(context, "delete", id, "success", "Role deleted.", cancellationToken);
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.SoftDeleteAsync(id, context.Now, cancellationToken);
+            await _permissionVersionService.BumpUsersByRoleAsync(id, context.Now, cancellationToken);
+            await AuditAsync(context, "delete", id, "success", "Role deleted.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task EnableAsync(long id, RoleRequestContext context, CancellationToken cancellationToken)

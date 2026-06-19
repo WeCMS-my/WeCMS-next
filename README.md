@@ -52,6 +52,16 @@ bash scripts/db/reset-dev-db.sh
 dotnet run --project backend/src/WeCms.Api --launch-profile http
 ```
 
+开发前先写入本机配置（避免把密钥/连接串落库）：
+
+```bash
+dotnet user-secrets init --project backend/src/WeCms.Api/WeCms.Api.csproj
+dotnet user-secrets set "Auth:AccessTokenSecret" "your-local-dev-secret-at-least-32-chars" --project backend/src/WeCms.Api/WeCms.Api.csproj
+dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;" --project backend/src/WeCms.Api/WeCms.Api.csproj
+```
+
+也可复制 `backend/src/WeCms.Api/appsettings.Development.example.json` 为本地模板，并按需覆盖 `user-secrets` 或环境变量。
+
 ### 4. 运行前端
 
 ```bash

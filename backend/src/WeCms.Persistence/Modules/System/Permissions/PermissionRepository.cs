@@ -129,11 +129,12 @@ public sealed class PermissionRepository : IPermissionRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _db.Ado.ExecuteCommandAsync(
+        await ExpectOneAsync(
             """
             INSERT INTO sys_permission (code, name, module, description, status, is_builtin, created_at, updated_at, deleted_at)
             VALUES (@code, @name, @module, @description, 'enabled', FALSE, @createdAt, @updatedAt, NULL)
             """,
+            cancellationToken,
             new SugarParameter("@code", record.Code),
             new SugarParameter("@name", record.Name),
             new SugarParameter("@module", record.Module),

@@ -112,11 +112,12 @@ public sealed class FileRepository : IFileRepository
     public async Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _db.Ado.ExecuteCommandAsync(
+        await ExpectOneAsync(
             """
             INSERT INTO sys_file (storage_provider, bucket, object_key, original_name, file_ext, mime_type, size_bytes, sha256, status, created_by, created_at, deleted_at)
             VALUES (@storageProvider, @bucket, @objectKey, @originalName, @fileExt, @mimeType, @sizeBytes, @sha256, @status, @createdBy, @createdAt, NULL)
             """,
+            cancellationToken,
             new SugarParameter("@storageProvider", record.StorageProvider),
             new SugarParameter("@bucket", record.Bucket),
             new SugarParameter("@objectKey", record.ObjectKey),

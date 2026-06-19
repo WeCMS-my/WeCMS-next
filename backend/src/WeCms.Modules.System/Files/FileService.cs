@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.Files;
@@ -10,17 +11,20 @@ public sealed class FileService : IFileService
     private readonly IFileStorage _storage;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
     private readonly IFileUploadPolicyResolver _policyResolver;
+    private readonly ILogger<FileService> _logger;
 
     public FileService(
         IFileRepository repository,
         IFileStorage storage,
         IFileObjectKeyGenerator objectKeyGenerator,
-        IFileUploadPolicyResolver policyResolver)
+        IFileUploadPolicyResolver policyResolver,
+        ILogger<FileService> logger)
     {
         _repository = repository;
         _storage = storage;
         _objectKeyGenerator = objectKeyGenerator;
         _policyResolver = policyResolver;
+        _logger = logger;
     }
 
     public Task<PagedResult<FileSummaryDto>> ListAsync(FileListQuery query, CancellationToken cancellationToken)
@@ -152,9 +156,9 @@ public sealed class FileService : IFileService
         {
             await _storage.DeleteAsync(objectKey, cancellationToken);
         }
-        catch
+        catch (Exception exception)
         {
-            // Keep cleanup best-effort.
+            _logger.LogWarning(exception, "Failed to cleanup file after upload failure. objectKey={ObjectKey}", objectKey);
         }
     }
 

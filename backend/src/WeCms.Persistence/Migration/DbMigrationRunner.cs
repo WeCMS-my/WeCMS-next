@@ -87,37 +87,170 @@ public sealed class DbMigrationRunner : IDbMigrationRunner
     internal static IReadOnlyList<string> SplitSqlStatements(string sql)
     {
         var statements = new List<string>();
-        var builder = new StringBuilder();
-
-        foreach (var rawLine in sql.Split('\n'))
+        if (string.IsNullOrWhiteSpace(sql))
         {
-            var line = rawLine.TrimEnd();
-            if (line.TrimStart().StartsWith("--", StringComparison.Ordinal))
+            return statements;
+        }
+
+        var statementBuilder = new StringBuilder();
+        var beginDepth = 0;
+        var inSingleQuote = false;
+        var inDoubleQuote = false;
+        var inLineComment = false;
+        var inBlockComment = false;
+
+        for (var index = 0; index < sql.Length; index++)
+        {
+            var current = sql[index];
+
+            if (inLineComment)
             {
+                if (current == '\n')
+                {
+                    inLineComment = false;
+                }
+
                 continue;
             }
 
-            builder.AppendLine(line);
-
-            if (line.EndsWith(";", StringComparison.Ordinal))
+            if (inBlockComment)
             {
-                var statement = builder.ToString().Trim();
-                if (statement.Length > 1)
+                if (current == '*' && index + 1 < sql.Length && sql[index + 1] == '/')
                 {
-                    statements.Add(statement.TrimEnd(';').Trim());
+                    inBlockComment = false;
+                    index++;
                 }
 
-                builder.Clear();
+                continue;
             }
+
+            if (inSingleQuote)
+            {
+                statementBuilder.Append(current);
+                if (current == '\'')
+                {
+                    var escaped = index + 1 < sql.Length && sql[index + 1] == '\'';
+                    if (escaped)
+                    {
+                        statementBuilder.Append(sql[index + 1]);
+                        index++;
+                    }
+                    else
+                    {
+                        inSingleQuote = false;
+                    }
+                }
+
+                continue;
+            }
+
+            if (inDoubleQuote)
+            {
+                statementBuilder.Append(current);
+                if (current == '"')
+                {
+                    var escaped = index + 1 < sql.Length && sql[index + 1] == '"';
+                    if (escaped)
+                    {
+                        statementBuilder.Append(sql[index + 1]);
+                        index++;
+                    }
+                    else
+                    {
+                        inDoubleQuote = false;
+                    }
+                }
+
+                continue;
+            }
+
+            if (current == '-' && index + 1 < sql.Length && sql[index + 1] == '-')
+            {
+                inLineComment = true;
+                index++;
+                continue;
+            }
+
+            if (current == '/' && index + 1 < sql.Length && sql[index + 1] == '*')
+            {
+                inBlockComment = true;
+                index++;
+                continue;
+            }
+
+            if (current == '\'')
+            {
+                inSingleQuote = true;
+                statementBuilder.Append(current);
+                continue;
+            }
+
+            if (current == '"')
+            {
+                inDoubleQuote = true;
+                statementBuilder.Append(current);
+                continue;
+            }
+
+            if (current == ';')
+            {
+                statementBuilder.Append(current);
+                if (beginDepth == 0)
+                {
+                    var statement = statementBuilder.ToString().Trim();
+                    if (statement.Length > 1)
+                    {
+                        statements.Add(statement.TrimEnd(';').Trim());
+                    }
+
+                    statementBuilder.Clear();
+                }
+
+                continue;
+            }
+
+            if (IsKeyword(sql, index, "BEGIN"))
+            {
+                beginDepth++;
+            }
+            else if (IsKeyword(sql, index, "END"))
+            {
+                if (beginDepth > 0)
+                {
+                    beginDepth--;
+                }
+            }
+
+            statementBuilder.Append(current);
         }
 
-        var trailingStatement = builder.ToString().Trim();
+        var trailingStatement = statementBuilder.ToString().Trim();
         if (trailingStatement.Length > 0)
         {
-            statements.Add(trailingStatement);
+            statements.Add(trailingStatement.TrimEnd(';').Trim());
         }
 
         return statements;
+    }
+
+    private static bool IsKeyword(string sql, int index, string keyword)
+    {
+        if (!sql.AsSpan(index).StartsWith(keyword, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var beforeIndex = index - 1;
+        var afterIndex = index + keyword.Length;
+        var beforeChar = beforeIndex >= 0 ? sql[beforeIndex] : ' ';
+        var afterChar = afterIndex < sql.Length ? sql[afterIndex] : ' ';
+
+        return IsWordBoundary(beforeChar) && IsWordBoundary(afterChar);
+    }
+
+    private static bool IsWordBoundary(char value)
+    {
+        return !char.IsLetterOrDigit(value) && value != '_';
     }
 
     private Dictionary<string, string> LoadAppliedMigrations()

@@ -353,7 +353,7 @@ public sealed class AccountProfileServiceTests
         public IReadOnlySet<string> AllowedExtensions { get; } = new HashSet<string>([".png", ".jpg", ".jpeg", ".webp"], StringComparer.OrdinalIgnoreCase);
         public IReadOnlySet<string> AllowedMimeTypes { get; } = new HashSet<string>(["image/png", "image/jpeg", "image/webp"], StringComparer.OrdinalIgnoreCase);
         public long MaxSizeBytes => 512 * 1024;
-        public bool RequireImageDecode => false;
+        public bool RequireImageSignatureValidation => false;
         public bool ReencodeImage => false;
         public bool AllowPreview => true;
         public string StorageScope => "avatars";

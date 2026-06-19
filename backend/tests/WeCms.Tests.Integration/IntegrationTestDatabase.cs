@@ -11,6 +11,7 @@ namespace WeCms.Tests.Integration;
 internal static class IntegrationTestDatabase
 {
     private const string EnvVarName = "WECMS_TEST_MYSQL_CONNECTION_STRING";
+    private const string AllowedHostsEnvVar = "WECMS_TEST_MYSQL_ALLOWED_HOSTS";
     private const string AllowedHost = "192.168.101.199";
     private const string AllowedDatabase = "wecms_dev";
     private static readonly SemaphoreSlim ResetLock = new(1, 1);
@@ -27,7 +28,7 @@ internal static class IntegrationTestDatabase
         Assert.True(
             string.IsNullOrWhiteSpace(validationFailure),
             validationFailure ??
-            $"Integration test database must use development database only. Expected host='{AllowedHost}' and database='{AllowedDatabase}'. Use: server={AllowedHost};port=3306;database={AllowedDatabase};uid=wecms_dev;pwd=****;charset=utf8mb4;SslMode=None;.");
+            $"Integration test database must use development database only. Expected host='{GetAllowedHostsText()}' and database='{AllowedDatabase}'. Use: server={AllowedHost};port=3306;database={AllowedDatabase};uid=wecms_dev;pwd=****;charset=utf8mb4;SslMode=None;.");
 
         return connectionString!;
     }
@@ -183,16 +184,9 @@ internal static class IntegrationTestDatabase
 
             host = NormalizeHost(host);
 
-            if (string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase))
+            if (!GetAllowedHosts().Contains(host, StringComparer.OrdinalIgnoreCase))
             {
-                return "Forbidden test database host: 127.0.0.1/localhost. Integration tests are restricted to development server 192.168.101.199.";
-            }
-
-            if (!string.Equals(host, AllowedHost, StringComparison.OrdinalIgnoreCase))
-            {
-                return $"Forbidden test database host: {host}. Integration tests are restricted to development server {AllowedHost}.";
+                return $"Forbidden test database host: {host}. Integration tests are restricted to development hosts {GetAllowedHostsText()}.";
             }
 
             var database = ExtractConnectionStringValue(builder, "database")?.Trim() ??
@@ -240,6 +234,27 @@ internal static class IntegrationTestDatabase
         return builder.TryGetValue(key, out var value) && value is not null
             ? value.ToString()
             : null;
+    }
+
+    private static string GetAllowedHostsText()
+    {
+        return string.Join(", ", GetAllowedHosts());
+    }
+
+    private static string[] GetAllowedHosts()
+    {
+        var configured = Environment.GetEnvironmentVariable(AllowedHostsEnvVar);
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(NormalizeHost)
+                .Where(host => !string.IsNullOrWhiteSpace(host))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        return [AllowedHost];
     }
 
     private static string? ReadConnectionStringFromAppSettings(string name)
