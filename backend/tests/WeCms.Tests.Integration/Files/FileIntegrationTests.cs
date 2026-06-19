@@ -41,7 +41,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
             var service = new FileService(
                 new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(storageDirectory),
-                new NoopFileScanService(),
+                new WeCms.Shared.NoopFileScanService(),
                 new DeterministicObjectKeyGenerator(),
                 new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
 
@@ -115,7 +115,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
             var service = new FileService(
                 new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(Path.Combine(AppContext.BaseDirectory, "storage", "files")),
-                new NoopFileScanService(),
+                new WeCms.Shared.NoopFileScanService(),
                 new DeterministicObjectKeyGenerator(),
                 new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
 

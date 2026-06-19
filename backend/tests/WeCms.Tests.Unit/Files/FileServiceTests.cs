@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +11,24 @@ namespace WeCms.Tests.Unit.Files;
 
 public sealed class FileServiceTests
 {
+    [Fact]
+    public void AddWeCmsSystemFiles_DefaultsToNoopScannerAndResolvesFileService()
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<IFileRepository, FakeFileRepository>()
+            .AddSingleton<IFileStorage, FakeFileStorage>()
+            .AddWeCmsSystemFiles();
+
+        using var provider = services.BuildServiceProvider();
+        var scanner = provider.GetRequiredService<IFileScanService>();
+
+        Assert.IsType<NoopFileScanService>(scanner);
+        var service = provider.GetRequiredService<IFileService>();
+
+        Assert.IsType<FileService>(service);
+    }
+
     [Fact]
     public async Task CreateAsync_RejectsFileLargerThanTenMiB()
     {

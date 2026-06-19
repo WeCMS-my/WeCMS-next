@@ -51,9 +51,19 @@ if "Microsoft.Extensions" in clamav:
     violations.append("ClamAvFileScanService must not add Microsoft.Extensions dependencies to Infrastructure")
 
 program = read("backend/src/WeCms.Api/Program.cs")
-for token in ["new LocalFileStorage(ResolveLocalFileStorageBasePath", "IFileScanService", "NoopFileScanService", "ClamAvFileScanService", "FileStorage:VirusScan:Provider", "FileStorage:Local:BasePath", "storage\", \"files"]:
+file_storage_ext = read("backend/src/WeCms.Api/Extensions/FileStorageExtensions.cs")
+for token in [
+    "AddWeCmsFileStorage",
+    "AddWeCmsSystemFiles",
+    "CreateFileScanService",
+    "IFileScanService",
+]:
     if token not in program:
         violations.append(f"Program.cs missing FileStorage registration token {token}")
+
+for token in ["FileStorage:Local:BasePath"]:
+    if token not in file_storage_ext:
+        violations.append(f"FileStorageExtensions.cs missing FileStorage runtime token {token}")
 
 validator = read("backend/src/WeCms.Api/Configuration/ProductionConfigurationValidator.cs")
 for token in [

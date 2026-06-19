@@ -14,6 +14,15 @@ public sealed class DatabaseGovernanceSourceTests
     }
 
     [Fact]
+    public async Task Program_UsesWeCmsFileStorageExtensionRegistration()
+    {
+        var program = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+
+        Assert.Contains("builder.Services.AddWeCmsFileStorage(", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddScoped<IFileStorage>", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task StartupMigrationOptions_DefaultToDevelopmentOnly()
     {
         var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Extensions", "DatabaseStartupMigrationOptions.cs"));

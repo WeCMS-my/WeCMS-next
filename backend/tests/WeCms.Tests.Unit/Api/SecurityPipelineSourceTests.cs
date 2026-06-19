@@ -22,8 +22,10 @@ public sealed class SecurityPipelineSourceTests
         var authorizationIndex = source.IndexOf("app.UseAuthorization", StringComparison.Ordinal);
 
         Assert.True(forwardedIndex >= 0);
-        Assert.True(hstsIndex > forwardedIndex);
-        Assert.True(requestIdIndex > hstsIndex);
+        Assert.True(hstsIndex >= 0);
+        Assert.True(requestIdIndex >= 0);
+        Assert.True(forwardedIndex < hstsIndex);
+        Assert.True(hstsIndex < requestIdIndex);
         Assert.True(corsIndex > requestIdIndex);
         Assert.True(authIndex > corsIndex);
         Assert.True(authorizationIndex > authIndex);

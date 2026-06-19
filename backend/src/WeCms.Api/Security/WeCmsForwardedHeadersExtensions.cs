@@ -1,11 +1,14 @@
 using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Builder;
 
 namespace WeCms.Api.Security;
 
 public static class WeCmsForwardedHeadersExtensions
 {
     private const string SectionName = "Security:ForwardedHeaders";
+    private const int DefaultForwardLimit = 1;
+    private const int MaxForwardLimit = 32;
 
     public static IServiceCollection AddWeCmsForwardedHeaders(
         this IServiceCollection services,
@@ -18,6 +21,7 @@ public static class WeCmsForwardedHeadersExtensions
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             options.RequireHeaderSymmetry = true;
+            options.ForwardLimit = ReadForwardLimit(configuration);
             options.KnownProxies.Clear();
             options.KnownIPNetworks.Clear();
 
@@ -71,6 +75,22 @@ public static class WeCmsForwardedHeadersExtensions
         }
 
         return address;
+    }
+
+    private static int ReadForwardLimit(IConfiguration configuration)
+    {
+        var value = configuration["Security:ForwardedHeaders:ForwardLimit"];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return DefaultForwardLimit;
+        }
+
+        if (int.TryParse(value, out var limit) && limit > 0 && limit <= MaxForwardLimit)
+        {
+            return limit;
+        }
+
+        throw new InvalidOperationException("Security:ForwardedHeaders:ForwardLimit must be an integer between 1 and 32.");
     }
 
     private static System.Net.IPNetwork ParseNetwork(string value)

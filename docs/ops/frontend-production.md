@@ -14,6 +14,8 @@ Do not commit real production hostnames if they reveal private topology. Do not 
 
 ## Deployment Modes
 
+For P1 Production v1, split-domain deployment is supported and secured by `VITE_API_BASE_URL` + `Security:AllowedOrigins`; same-origin remains the simpler default.
+
 Same-origin mode:
 
 - `VITE_API_BASE_URL` is empty.

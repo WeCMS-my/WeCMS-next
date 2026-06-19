@@ -26,3 +26,13 @@ public sealed record FileScanResult(bool Clean, string? Reason)
 {
     public static FileScanResult CleanResult { get; } = new(true, null);
 }
+
+public sealed class NoopFileScanService : IFileScanService
+{
+    public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(FileScanResult.CleanResult);
+    }
+}

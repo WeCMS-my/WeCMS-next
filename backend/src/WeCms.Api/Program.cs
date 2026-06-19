@@ -35,14 +35,13 @@ var isMigrationCommand = DatabaseMigrationCommand.IsMigrationCommand(args);
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment);
 
 builder.Services.AddWeCmsPersistence(builder.Configuration, useMigrationConnectionString: isMigrationCommand);
-builder.Services.AddScoped<IFileStorage>(_ => new LocalFileStorage(ResolveLocalFileStorageBasePath(builder.Configuration, builder.Environment)));
-builder.Services.AddSingleton<IFileScanService>(_ => CreateFileScanService(builder.Configuration));
+builder.Services.AddWeCmsFileStorage(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);
 builder.Services.AddWeCmsSystemDepartments();
 builder.Services.AddWeCmsSystemDicts();
-builder.Services.AddWeCmsSystemFiles();
+builder.Services.AddWeCmsSystemFiles(_ => CreateFileScanService(builder.Configuration));
 builder.Services.AddWeCmsSystemI18n();
 builder.Services.AddWeCmsSystemLogs();
 builder.Services.AddWeCmsSystemMenus();
@@ -79,7 +78,6 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
 }
-
 app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<SecureHeadersMiddleware>();
@@ -113,19 +111,11 @@ app.MapUserEndpoints();
 
 app.Run();
 
-static string ResolveLocalFileStorageBasePath(IConfiguration configuration, IWebHostEnvironment environment)
-{
-    var configured = configuration["FileStorage:Local:BasePath"];
-    return string.IsNullOrWhiteSpace(configured)
-        ? Path.Combine(environment.ContentRootPath, "storage", "files")
-        : configured;
-}
-
 static IFileScanService CreateFileScanService(IConfiguration configuration)
 {
     if (!configuration.GetValue("FileStorage:VirusScanEnabled", false))
     {
-        return new NoopFileScanService();
+        return new WeCms.Shared.NoopFileScanService();
     }
 
     var provider = configuration["FileStorage:VirusScan:Provider"];

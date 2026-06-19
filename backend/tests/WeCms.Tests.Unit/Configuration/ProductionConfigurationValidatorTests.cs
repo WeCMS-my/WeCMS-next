@@ -163,6 +163,48 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Validate_ProductionRejectsFileStorageDirectoryWithoutWritePermission()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), "wecms-ph4-unwritable", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        var directory = new DirectoryInfo(path);
+
+        try
+        {
+            directory.UnixFileMode = UnixFileMode.UserRead | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Default"] = ValidConnectionString(),
+                    ["Auth:AccessTokenSecret"] = ValidSecret(),
+                    ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                    ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                    ["FileStorage:Local:BasePath"] = path,
+                    ["FileStorage:VirusScanEnabled"] = "false",
+                    ["FileStorage:Provider"] = "local",
+                    ["Database:SeedAdminPassword"] = ValidSeedPassword()
+                }), Environment("Production")));
+
+            Assert.Equal("FileStorage:Local:BasePath must be writable in Production.", exception.Message);
+        }
+        finally
+        {
+            directory.UnixFileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+            Directory.Delete(path, true);
+        }
+    }
+
+    [Fact]
     public void Validate_ProductionRejectsVirusScanEnabledWithNoopScanner()
     {
         var exception = Assert.Throws<InvalidOperationException>(
@@ -366,6 +408,41 @@ public sealed class ProductionConfigurationValidatorTests
             }), Environment("Production")));
 
         Assert.Equal("Security:ForwardedHeaders:KnownProxies contains invalid IP address 'not-an-ip'.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsInvalidForwardedHeaderForwardLimit()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Security:ForwardedHeaders:Enabled"] = "true",
+                ["Security:ForwardedHeaders:KnownProxies:0"] = "10.0.0.10",
+                ["Security:ForwardedHeaders:ForwardLimit"] = "0",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:ForwardedHeaders:ForwardLimit must be an integer between 1 and 32.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionAllowsForwardedHeadersWithForwardLimit()
+    {
+        ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Default"] = ValidConnectionString(),
+            ["Auth:AccessTokenSecret"] = ValidSecret(),
+            ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+            ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+            ["Security:ForwardedHeaders:Enabled"] = "true",
+            ["Security:ForwardedHeaders:KnownNetworks:0"] = "10.0.0.0/24",
+            ["Security:ForwardedHeaders:ForwardLimit"] = "2",
+            ["Database:SeedAdminPassword"] = ValidSeedPassword()
+        }), Environment("Production"));
     }
 
     [Fact]

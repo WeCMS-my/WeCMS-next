@@ -34,6 +34,7 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Security:RequireOriginForCookieAuth` | Yes | Dev/Staging/Production | `true` | Public | No in Production | Existing Cookie auth validator rejects false outside Development | Backend |
 | `Security:AllowRefererFallbackForCookieAuth` | Yes | Dev/Staging/Production | `false` | Public | Yes | Recommended false in Production | Security |
 | `Security:ForwardedHeaders:Enabled` | Yes | Dev/Staging/Production | `true` | Public | No | Production trusts forwarded headers only when enabled | Ops |
+| `Security:ForwardedHeaders:ForwardLimit` | Yes | Dev/Staging/Production | `1` | Public | Yes | Production rejects values outside 1-32 | Ops |
 | `Security:ForwardedHeaders:KnownProxies` | Required when enabled | Staging/Production | `10.0.0.10` | Sensitive topology | No | Production rejects enabled forwarded headers without proxies or networks | Ops |
 | `Security:ForwardedHeaders:KnownNetworks` | Required when enabled | Staging/Production | `10.0.0.0/24` | Sensitive topology | No | Production rejects invalid CIDR networks | Ops |
 | `Security:SecureHeaders:CspEnabled` | Yes | Dev/Staging/Production | `false` | Public | Yes | Production requires CSP value when enabled | Security |

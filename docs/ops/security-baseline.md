@@ -10,6 +10,7 @@ This document defines the PH-1 production security baseline.
 - The app does not call HTTPS redirection by default, because TLS termination at the edge can otherwise create redirect loops.
 - Forwarded headers are disabled unless `Security:ForwardedHeaders:Enabled=true`.
 - Production forwarded headers require `KnownProxies` or `KnownNetworks`.
+- `Security:ForwardedHeaders:ForwardLimit` is applied to cap trusted `X-Forwarded-*` depth (default/Production value: `1`, Production range: `1-32`).
 
 See `docs/ops/deployment-reverse-proxy.md`.
 
@@ -28,6 +29,8 @@ Refresh tokens are issued only through `__Host-wecms_refresh`.
 Split-domain deployments must keep HTTPS and explicit origins. If a future browser deployment requires cross-site cookies, it must get a separate ADR before changing `__Host-` or `SameSite`.
 
 ## CORS
+
+- P1 Production v1 supports split-domain deployments with explicit origin whitelist enforced by ASP.NET CORS middleware.
 
 Production CORS uses `Security:AllowedOrigins`.
 

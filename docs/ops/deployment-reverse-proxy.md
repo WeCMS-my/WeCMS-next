@@ -25,6 +25,7 @@ Kestrel should not be exposed directly to the public internet.
   "Security": {
     "ForwardedHeaders": {
       "Enabled": true,
+      "ForwardLimit": 1,
       "KnownProxies": [
         "10.0.0.10"
       ],
@@ -39,6 +40,7 @@ Kestrel should not be exposed directly to the public internet.
 Production fail-fast rules:
 
 - If forwarded headers are disabled, the app does not trust `X-Forwarded-*`.
+- `ForwardLimit` defaults to 1 when not configured, and accepts only 1-32 in Production.
 - If forwarded headers are enabled, at least one known proxy or network must be configured.
 - Proxy and network values must parse as IP addresses or CIDR networks.
 

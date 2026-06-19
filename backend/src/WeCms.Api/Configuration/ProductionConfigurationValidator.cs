@@ -108,6 +108,7 @@ public static class ProductionConfigurationValidator
 
         var proxies = ReadStringArray(configuration, "Security:ForwardedHeaders:KnownProxies");
         var networks = ReadStringArray(configuration, "Security:ForwardedHeaders:KnownNetworks");
+        _ = ReadInt(configuration, "Security:ForwardedHeaders:ForwardLimit", defaultValue: 1, minValue: 1, maxValue: 32);
 
         if (proxies.Length == 0 && networks.Length == 0)
         {

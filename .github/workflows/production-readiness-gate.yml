@@ -1,0 +1,64 @@
+name: Production readiness gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_mysql_integration_tests:
+        description: "Skip MySQL integration tests in production readiness gate"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  production-readiness-gate:
+    name: Production readiness gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wecms_dev
+          MYSQL_USER: wecms_dev
+          MYSQL_PASSWORD: wecms_dev
+          MYSQL_ROOT_PASSWORD: wecms_root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      WECMS_SKIP_MYSQL_INTEGRATION_TESTS: ${{ github.event.inputs.skip_mysql_integration_tests }}
+      WECMS_TEST_MYSQL_CONNECTION_STRING: "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;AllowPublicKeyRetrieval=True;"
+      WECMS_TEST_MYSQL_ALLOWED_HOSTS: "127.0.0.1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install quality gate tools
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Setup Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Setup pnpm 10.5.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.0
+
+      - name: Run production readiness gate
+        run: bash scripts/quality-gate-production.sh
