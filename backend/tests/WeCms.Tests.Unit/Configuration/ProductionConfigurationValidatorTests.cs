@@ -91,6 +91,95 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Validate_ProductionRejectsMissingFileStorageBasePath()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:Local:BasePath"] = "",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Local:BasePath must be configured for Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsRelativeFileStorageBasePath()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:Local:BasePath"] = "storage/files",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Local:BasePath must be an absolute path in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsMissingFileStorageDirectory()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:Local:BasePath"] = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")),
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Local:BasePath must exist in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsFileStorageUnderWebRoot()
+    {
+        var environment = Environment("Production");
+        var webRootStorage = Path.Combine(environment.ContentRootPath, "wwwroot", "uploads");
+        Directory.CreateDirectory(webRootStorage);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:Local:BasePath"] = webRootStorage,
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), environment));
+
+        Assert.Equal("FileStorage:Local:BasePath must not be under the web root in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsVirusScanEnabledWithNoopScanner()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:VirusScanEnabled"] = "true",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:VirusScanEnabled requires a non-noop scanner implementation before Production startup.", exception.Message);
+    }
+
+    [Fact]
     public void Validate_ProductionRejectsMissingAllowedOrigins()
     {
         var exception = Assert.Throws<InvalidOperationException>(
@@ -257,7 +346,10 @@ public sealed class ProductionConfigurationValidatorTests
         var merged = new Dictionary<string, string?>
         {
             ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
-            ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+            ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+            ["FileStorage:Provider"] = "local",
+            ["FileStorage:Local:BasePath"] = ValidStorageBasePath(),
+            ["FileStorage:VirusScanEnabled"] = "false"
         };
 
         foreach (var (key, value) in values)
@@ -283,6 +375,13 @@ public sealed class ProductionConfigurationValidatorTests
     private static string ValidSeedPassword()
     {
         return "UnitTest!SeedPassword2026";
+    }
+
+    private static string ValidStorageBasePath()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wecms-ph4-file-storage-validator");
+        Directory.CreateDirectory(path);
+        return path;
     }
 
     private static IHostEnvironment Environment(string environmentName)

@@ -33,6 +33,7 @@ public static class ProductionConfigurationValidator
         RequireAllowedOrigins(configuration);
         RequireForwardedHeaders(configuration);
         RequireSecureHeaders(configuration);
+        RequireFileStorage(configuration, environment);
         RequireSeedAdminPassword(configuration["Database:SeedAdminPassword"]);
     }
 
@@ -180,6 +181,72 @@ public static class ProductionConfigurationValidator
             throw new InvalidOperationException(
                 $"Database:SeedAdminPassword must be at least {MinimumSeedPasswordLength} characters and include uppercase, lowercase, digit, and symbol characters for Production.");
         }
+    }
+
+    private static void RequireFileStorage(IConfiguration configuration, IHostEnvironment environment)
+    {
+        var provider = configuration["FileStorage:Provider"];
+        RequireConfigured(provider, "FileStorage:Provider");
+
+        if (!string.Equals(provider, "local", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("FileStorage:Provider must be local until a production object storage adapter is implemented.");
+        }
+
+        var basePath = configuration["FileStorage:Local:BasePath"];
+        RequireConfigured(basePath, "FileStorage:Local:BasePath");
+
+        if (!Path.IsPathFullyQualified(basePath!))
+        {
+            throw new InvalidOperationException("FileStorage:Local:BasePath must be an absolute path in Production.");
+        }
+
+        var fullBasePath = Path.GetFullPath(basePath!);
+        if (!Directory.Exists(fullBasePath))
+        {
+            throw new InvalidOperationException("FileStorage:Local:BasePath must exist in Production.");
+        }
+
+        var webRootPath = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "wwwroot"));
+        if (IsSameOrChildPath(fullBasePath, webRootPath))
+        {
+            throw new InvalidOperationException("FileStorage:Local:BasePath must not be under the web root in Production.");
+        }
+
+        EnsureWritableDirectory(fullBasePath);
+
+        if (ReadBool(configuration, "FileStorage:VirusScanEnabled", defaultValue: false))
+        {
+            throw new InvalidOperationException("FileStorage:VirusScanEnabled requires a non-noop scanner implementation before Production startup.");
+        }
+    }
+
+    private static void EnsureWritableDirectory(string path)
+    {
+        var probePath = Path.Combine(path, $".wecms-write-probe-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllText(probePath, "ok");
+            File.Delete(probePath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("FileStorage:Local:BasePath must be writable in Production.", exception);
+        }
+    }
+
+    private static bool IsSameOrChildPath(string candidatePath, string parentPath)
+    {
+        var normalizedCandidate = EnsureTrailingSeparator(Path.GetFullPath(candidatePath));
+        var normalizedParent = EnsureTrailingSeparator(Path.GetFullPath(parentPath));
+        return normalizedCandidate.StartsWith(normalizedParent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string EnsureTrailingSeparator(string path)
+    {
+        return path.EndsWith(Path.DirectorySeparatorChar)
+            ? path
+            : path + Path.DirectorySeparatorChar;
     }
 
     private static bool IsStrongSeedPassword(string value)

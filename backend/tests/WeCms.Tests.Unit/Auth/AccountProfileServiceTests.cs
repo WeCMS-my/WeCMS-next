@@ -137,6 +137,25 @@ public sealed class AccountProfileServiceTests
     }
 
     [Fact]
+    public async Task UploadAvatarAsync_RejectsWhenFileScannerRejectsContent()
+    {
+        var repository = new FakeAccountProfileRepository();
+        var storage = new FakeFileStorage();
+        var service = CreateService(repository, storage: storage, scanner: new RejectingFileScanService());
+        var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D };
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.UploadAvatarAsync(
+            new AccountAvatarUploadRequest("avatar.png", "image/png", bytes.Length, ComputeSha256(bytes)),
+            CreateFormFile("avatar.png", "image/png", bytes),
+            Context(),
+            CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal(0, storage.StoreCalls);
+        Assert.Equal("file_upload_rejected", repository.SecurityEvents.Single());
+    }
+
+    [Fact]
     public async Task GetSecurityAsync_ReturnsAccountAndTwoFactorState()
     {
         var twoFactorRepository = new FakeUserTwoFactorRepository
@@ -160,6 +179,7 @@ public sealed class AccountProfileServiceTests
     private static AccountProfileService CreateService(
         FakeAccountProfileRepository? repository = null,
         FakeFileStorage? storage = null,
+        IFileScanService? scanner = null,
         FakeUnitOfWork? unitOfWork = null,
         FakeUserTwoFactorRepository? twoFactorRepository = null)
     {
@@ -168,6 +188,7 @@ public sealed class AccountProfileServiceTests
             twoFactorRepository ?? new FakeUserTwoFactorRepository(),
             new PasswordHasher(),
             storage ?? new FakeFileStorage(),
+            scanner ?? new CleanFileScanService(),
             new FakeObjectKeyGenerator(),
             new FakeFileUploadPolicyResolver(),
             unitOfWork ?? new FakeUnitOfWork());
@@ -331,6 +352,32 @@ public sealed class AccountProfileServiceTests
         {
             DeletedObjectKeys.Add(objectKey);
             return Task.CompletedTask;
+        }
+
+        public Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<FileStorageMetadata> GetMetadataAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileStorageMetadata(3, "image/png", DateTimeOffset.UnixEpoch));
+        }
+    }
+
+    private sealed class CleanFileScanService : IFileScanService
+    {
+        public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FileScanResult.CleanResult);
+        }
+    }
+
+    private sealed class RejectingFileScanService : IFileScanService
+    {
+        public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileScanResult(false, "unit-test-rejection"));
         }
     }
 

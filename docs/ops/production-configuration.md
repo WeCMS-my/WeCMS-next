@@ -53,12 +53,12 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Security:RateLimiting:AdminWrite` | Yes | Dev/Staging/Production | `PermitLimit=60, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
 | `Security:RateLimiting:FileUpload` | Yes | Dev/Staging/Production | `PermitLimit=10, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
 | `Security:RateLimiting:SecurityUnban` | Yes | Dev/Staging/Production | `PermitLimit=5, WindowMinutes=1` | Public | Yes | Existing rate limit registration validates positive integers | Security |
-| `FileStorage:Provider` | PH-4 | Staging/Production | `local` | Public | Development only | PH-4 owns provider validation | Backend/Ops |
-| `FileStorage:Local:BasePath` | PH-4 | Staging/Production | `/var/lib/wecms/files` | Sensitive path | No in Production after PH-4 | PH-4 owns fail-fast | Ops |
-| `FileStorage:PublicBaseUrl` | PH-4 | Staging/Production | `https://files.example.com` | Public deploy setting | No in Production after PH-4 | PH-4 owns fail-fast | Ops |
-| `FileStorage:MaxUploadBytes` | PH-4 | Dev/Staging/Production | `10485760` | Public | Yes | PH-4 owns fail-fast | Backend |
-| `FileStorage:AllowedMimeTypes` | PH-4 | Dev/Staging/Production | `image/png,image/jpeg` | Public | Yes | PH-4 owns fail-fast | Backend |
-| `FileStorage:VirusScanEnabled` | PH-4 | Staging/Production | `false` | Public | Yes | PH-4 owns scan-provider validation | Security |
+| `FileStorage:Provider` | Yes | Dev/Staging/Production | `local` | Public | Yes | Production rejects non-`local` until object storage adapter exists | Backend/Ops |
+| `FileStorage:Local:BasePath` | Yes in Production | Dev/Staging/Production | `/var/lib/wecms/files` | Sensitive path | Development default `storage/files` | Production rejects missing, relative, nonexistent, unwritable, or web-root paths | Ops |
+| `FileStorage:PublicBaseUrl` | Optional | Staging/Production | `https://files.example.com` | Public deploy setting | Empty allowed for local API-served downloads | Documented for future object storage providers | Ops |
+| `FileStorage:MaxUploadBytes` | Yes | Dev/Staging/Production | `10485760` | Public | Yes | Documents deploy cap; per-policy upload caps remain enforced | Backend |
+| `FileStorage:AllowedMimeTypes` | Yes | Dev/Staging/Production | `image/png,image/jpeg` | Public | Yes | Documents deploy MIME families; per-policy allowlists remain enforced | Backend |
+| `FileStorage:VirusScanEnabled` | Yes | Staging/Production | `false` | Public | Yes | Production rejects `true` while only `NoopFileScanService` exists | Security |
 | `Logging:LogLevel:Default` | Yes | Dev/Staging/Production | `Information` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Yes | Dev/Staging/Production | `Warning` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Database:SeedAdminPassword` | Yes in Production | Staging/Production | `__SET_BY_SECRET_MANAGER__` | Critical | Development only | Production rejects empty, placeholder, `Admin@123`, or weak value | Ops |
@@ -101,5 +101,5 @@ Production:
 ## Current Deviations Recorded In PH-0
 
 - Migration / seed runners are registered, but the current API host does not automatically execute them at startup. PH-0 corrects README wording; PH-2 owns the production migration execution strategy.
-- FileStorage still uses local storage implementation defaults. PH-4 owns production FileStorage configuration and provider validation.
+- FileStorage uses the local provider in PH-4. Object storage adapters are explicitly deferred by `docs/adr/production-file-storage-provider.md`.
 - PH-1 adds full CORS production policy, reverse proxy strategy, and CSP enforce rollout controls.
