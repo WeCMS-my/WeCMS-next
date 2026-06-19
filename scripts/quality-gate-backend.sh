@@ -110,6 +110,40 @@ unset WECMS_TEST_MYSQL_CONNECTION_STRING
 cd "$repo_root"
 
 openapi_path="artifacts/openapi/wecms-api-v1.json"
+frontend_dir="${repo_root}/frontend/soybean-admin"
+
+ensure_frontend_build_dependencies() {
+  local lockfile="${frontend_dir}/pnpm-lock.yaml"
+  local vue_tsc="${frontend_dir}/node_modules/.bin/vue-tsc"
+
+  if [[ ! -f "$lockfile" ]]; then
+    return 0
+  fi
+
+  if [[ -x "$vue_tsc" ]]; then
+    return 0
+  fi
+
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm --dir "$frontend_dir" install --frozen-lockfile
+    return
+  fi
+
+  if ! command -v corepack >/dev/null 2>&1; then
+    # During script-level tests, skip local frontend bootstrap to avoid introducing Node.js
+    # requirements into the checker harness.
+    if [[ -n "${QUALITY_GATE_TEST_DOTNET_LOG:-}" ]]; then
+      return 0
+    fi
+
+    printf 'quality-gate-backend: corepack is required for frontend build. Install Node.js first.\n' >&2
+    exit 1
+  fi
+
+  corepack pnpm@10.5.0 --dir "$frontend_dir" install --frozen-lockfile
+}
+
+ensure_frontend_build_dependencies
 
 run_dotnet_gate_command() {
   if [[ "$nuget_audit_mode" == "fallback" ]]; then
