@@ -158,6 +158,25 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_RejectsWhenFileScannerRejectsContentAndWritesSecurityEvent()
+    {
+        var repository = new FakeFileRepository();
+        var service = CreateService(repository, scanner: new RejectingFileScanService());
+        var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D };
+        var file = CreateFormFile("upload.pdf", "application/pdf", content);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() => service.CreateAsync(
+            new CreateFileRequest("upload.pdf", "application/pdf", content.Length, ComputeSha256(content)),
+            file,
+            Context(),
+            CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal("file_upload_rejected", repository.LastSecurityEvent?.EventType);
+    }
+
+
+    [Fact]
     public async Task CreateAsync_CleansUpUploadedFileAndLogsWarning_WhenCleanupFails()
     {
         var logger = new RecordingLogger();
@@ -328,6 +347,16 @@ public sealed class FileServiceTests
         {
             throw new NotSupportedException();
         }
+
+        public Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<FileStorageMetadata> GetMetadataAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class RecordingLogger : ILogger<FileService>
@@ -395,6 +424,32 @@ public sealed class FileServiceTests
         {
             return Task.FromResult<Stream>(new MemoryStream([0x25, 0x50, 0x44, 0x46, 0x2D]));
         }
+
+        public Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<FileStorageMetadata> GetMetadataAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileStorageMetadata(5, "application/pdf", DateTimeOffset.UnixEpoch));
+        }
+    }
+
+    private sealed class CleanFileScanService : IFileScanService
+    {
+        public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FileScanResult.CleanResult);
+        }
+    }
+
+    private sealed class RejectingFileScanService : IFileScanService
+    {
+        public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileScanResult(false, "unit-test-rejection"));
+        }
     }
 
     private sealed class FakeObjectKeyGenerator : IFileObjectKeyGenerator
@@ -405,11 +460,12 @@ public sealed class FileServiceTests
         }
     }
 
-    private static FileService CreateService(IFileRepository? repository = null, IFileStorage? storage = null, RecordingLogger? logger = null)
+    private static FileService CreateService(IFileRepository? repository = null, IFileStorage? storage = null, IFileScanService? scanner = null, RecordingLogger? logger = null)
     {
         return new FileService(
             repository ?? new FakeFileRepository(),
             storage ?? new FakeFileStorage(),
+            scanner ?? new CleanFileScanService(),
             new FakeObjectKeyGenerator(),
             new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]),
             logger ?? new RecordingLogger());

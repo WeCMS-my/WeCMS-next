@@ -35,7 +35,8 @@ var isMigrationCommand = DatabaseMigrationCommand.IsMigrationCommand(args);
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment);
 
 builder.Services.AddWeCmsPersistence(builder.Configuration, useMigrationConnectionString: isMigrationCommand);
-builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
+builder.Services.AddScoped<IFileStorage>(_ => new LocalFileStorage(ResolveLocalFileStorageBasePath(builder.Configuration, builder.Environment)));
+builder.Services.AddSingleton<IFileScanService, NoopFileScanService>();
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);
@@ -111,3 +112,11 @@ app.MapSecurityEventEndpoints();
 app.MapUserEndpoints();
 
 app.Run();
+
+static string ResolveLocalFileStorageBasePath(IConfiguration configuration, IWebHostEnvironment environment)
+{
+    var configured = configuration["FileStorage:Local:BasePath"];
+    return string.IsNullOrWhiteSpace(configured)
+        ? Path.Combine(environment.ContentRootPath, "storage", "files")
+        : configured;
+}

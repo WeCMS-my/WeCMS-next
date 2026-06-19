@@ -8,8 +8,18 @@ public sealed class LocalFileStorage : IFileStorage
     private readonly string _basePath;
 
     public LocalFileStorage()
+        : this(Path.Combine(AppContext.BaseDirectory, "storage", "files"))
     {
-        _basePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "storage", "files"));
+    }
+
+    public LocalFileStorage(string basePath)
+    {
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new InvalidOperationException("FileStorage:Local:BasePath must be configured.");
+        }
+
+        _basePath = Path.GetFullPath(basePath);
         Directory.CreateDirectory(_basePath);
     }
 
@@ -112,6 +122,38 @@ public sealed class LocalFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task<bool> ExistsAsync(string objectKey, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fullPath = FullPath(objectKey);
+        return Task.FromResult(File.Exists(fullPath));
+    }
+
+    public Task<FileStorageMetadata> GetMetadataAsync(string objectKey, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fullPath = FullPath(objectKey);
+        if (!File.Exists(fullPath))
+        {
+            throw new DomainException(ApiCodes.NotFound, "file was not found.");
+        }
+
+        var info = new FileInfo(fullPath);
+        return Task.FromResult(new FileStorageMetadata(info.Length, null, info.LastWriteTimeUtc));
+    }
+
+    private string FullPath(string objectKey)
+    {
+        var relativePath = ValidateObjectKey(objectKey);
+        var fullPath = Path.GetFullPath(Path.Combine(_basePath, relativePath));
+        if (!IsUnderBasePath(fullPath))
+        {
+            throw new DomainException(ApiCodes.ValidationError, "file object key is invalid.");
+        }
+
+        return fullPath;
+    }
+
     private static string ValidateObjectKey(string objectKey)
     {
         if (string.IsNullOrWhiteSpace(objectKey))
@@ -202,5 +244,14 @@ public sealed class LocalFileStorage : IFileStorage
     private static string ToHex(byte[] bytes)
     {
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+}
+
+public sealed class NoopFileScanService : IFileScanService
+{
+    public Task<FileScanResult> ScanAsync(Stream source, FileScanRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(FileScanResult.CleanResult);
     }
 }

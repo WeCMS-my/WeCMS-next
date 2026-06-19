@@ -9,6 +9,7 @@ public sealed class FileService : IFileService
     private const int MaxPageSize = 100;
     private readonly IFileRepository _repository;
     private readonly IFileStorage _storage;
+    private readonly IFileScanService _fileScanService;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
     private readonly IFileUploadPolicyResolver _policyResolver;
     private readonly ILogger<FileService> _logger;
@@ -16,12 +17,14 @@ public sealed class FileService : IFileService
     public FileService(
         IFileRepository repository,
         IFileStorage storage,
+        IFileScanService fileScanService,
         IFileObjectKeyGenerator objectKeyGenerator,
         IFileUploadPolicyResolver policyResolver,
         ILogger<FileService> logger)
     {
         _repository = repository;
         _storage = storage;
+        _fileScanService = fileScanService;
         _objectKeyGenerator = objectKeyGenerator;
         _policyResolver = policyResolver;
         _logger = logger;
@@ -65,6 +68,7 @@ public sealed class FileService : IFileService
 
             var fileExt = Path.GetExtension(originalName);
             await policy.ValidateContentAsync(file, requestMimeType, fileExt, cancellationToken);
+            await ScanAsync(file, originalName, requestMimeType, request.SizeBytes, policy.Code, cancellationToken);
 
             var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(context.Now, fileExt)}";
             FileStorageResult stored;
@@ -109,6 +113,19 @@ public sealed class FileService : IFileService
         {
             await SecurityEventAsync(context, "file_upload_rejected", "warning", $"File upload rejected: {exception.Message}", cancellationToken);
             throw;
+        }
+    }
+
+    private async Task ScanAsync(IFormFile file, string originalName, string mimeType, long sizeBytes, string policyCode, CancellationToken cancellationToken)
+    {
+        await using var scanStream = file.OpenReadStream();
+        var scanResult = await _fileScanService.ScanAsync(
+            scanStream,
+            new FileScanRequest(originalName, mimeType, sizeBytes, policyCode),
+            cancellationToken);
+        if (!scanResult.Clean)
+        {
+            throw Validation("file scan rejected uploaded content.");
         }
     }
 
