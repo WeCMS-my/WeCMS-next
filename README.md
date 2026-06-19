@@ -46,11 +46,12 @@ docker run -d --name wecms-mysql \
 ### 2. 初始化数据库
 
 ```bash
-# 无需执行额外脚本；后端启动时会自动执行 DbMigrationRunner 进行 schema/seed 初始化
+# 当前仓库通过 migration/seed runner 与 backend gate 验证 schema/seed。
+# 生产 migration 执行策略由 Production Hardening PH-2 单独固化。
 ```
 
-开发环境的 schema、基础权限和 `admin / Admin@123` 账号由后端启动时的 `DbMigrationRunner` 统一创建。
-不要在主初始化流程中手工执行 `database/seeds/*.sql`，避免绕过运行时密码 hash 生成。
+开发环境默认管理员为 `admin / Admin@123`，只允许用于本地初始化和测试。
+不要在生产环境直接执行 `database/seeds/*.sql`，避免绕过运行时密码 hash 生成和 `Database:SeedAdminPassword` 校验。
 
 ### 3. 运行后端
 
@@ -68,6 +69,9 @@ dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;
 ```
 
 也可复制 `backend/src/WeCms.Api/appsettings.Development.example.json` 为本地模板，并按需覆盖 `user-secrets` 或环境变量。
+`appsettings.Development.json` 中的 `pwd=__SET_BY_USER_SECRETS__` 是不可运行占位，必须通过 user-secrets、环境变量或 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供真实本地测试连接串。
+
+生产配置清单见 [`docs/ops/production-configuration.md`](docs/ops/production-configuration.md)。生产模板见 `backend/src/WeCms.Api/appsettings.Production.example.json`；该模板只说明结构，不能直接作为可运行生产配置。
 
 ### 4. 运行前端
 

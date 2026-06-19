@@ -145,7 +145,7 @@ run_gate() {
   fi
 }
 
-run_gate "" "$strict_output" 1
+run_gate "" "$strict_output" 1 "true" "true"
 assert_contains "$dotnet_log" "restore backend/WeCms.slnx"
 assert_not_contains "$dotnet_log" "-p:NuGetAudit=false"
 
@@ -166,6 +166,7 @@ assert_contains "$fallback_output" "check-cookie-auth-origin-protection"
 assert_contains "$fallback_output" "check-admingate-csrf-migration"
 assert_contains "$fallback_output" "check-thinkphp-feature-delta"
 assert_contains "$fallback_output" "check-foundation-freeze-baseline"
+assert_contains "$fallback_output" "check-production-config-baseline"
 assert_contains "$fallback_output" "quality-gate-backend: ok"
 
 run_gate "fallback" "$ci_fallback_output" 1 "true" "true"
