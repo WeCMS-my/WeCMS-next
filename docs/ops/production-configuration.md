@@ -70,8 +70,8 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 
 | Key | Required | Environment | Example | Secret level | Default allowed | Fail-fast behavior | Owner |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `VITE_API_BASE_URL` | Depends on deploy mode | Dev/Staging/Production | `https://api.example.com` | Public deploy setting | Empty allowed for same-origin | PH-6 owns production frontend config test | Frontend/Ops |
-| Build mode | Yes | Staging/Production | `production` | Public | No | PH-6 owns gate | Frontend |
+| `VITE_API_BASE_URL` | Depends on deploy mode | Dev/Staging/Production | `https://api.example.com` | Public deploy setting | Empty allowed for same-origin | Frontend gate rejects HTTP or localhost production examples | Frontend/Ops |
+| Build mode | Yes | Staging/Production | `production` | Public | No | Frontend gate runs production build and config checks | Frontend |
 | Route permission source | Yes | All | Backend `/api/v1/auth/me` menus and permissions | Public | No static override | Existing frontend gate checks route permission coverage | Frontend |
 
 ## Environment Behavior
