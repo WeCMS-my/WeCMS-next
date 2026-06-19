@@ -2,6 +2,7 @@ import { readTokenSet } from "@/utils/token";
 import { clearTokenSet, saveTokenSet } from "@/utils/token";
 import type { ApiResult, LoginResponse } from "./types/generated";
 
+// Empty API base keeps same-origin deployments behind the reverse proxy.
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 let refreshPromise: Promise<LoginResponse> | null = null;
 
@@ -51,7 +52,8 @@ async function sendJson<TData>(path: string, options: RequestOptions): Promise<A
   }
 
   if (!response.ok) {
-    throw result;
+    handleTerminalUnauthorized(response, options);
+    throw clientSafeErrorResult(response, result);
   }
 
   await handlePermissionVersionHeader(path, response);
@@ -81,7 +83,7 @@ async function refreshAccessToken(): Promise<LoginResponse> {
   if (!response.ok) {
     clearTokenSet();
     redirectToLogin();
-    throw result;
+    throw clientSafeErrorResult(response, result);
   }
 
   if (result.data.requiresTwoFactor || !result.data.user) {
@@ -103,6 +105,29 @@ function redirectToLogin(): void {
     const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
     window.location.assign(`/login?redirect=${redirect}`);
   }
+}
+
+function handleTerminalUnauthorized(response: Response, options: RequestOptions): void {
+  if (response.status === 401 && !options.skipAuth) {
+    clearTokenSet();
+    redirectToLogin();
+  }
+}
+
+function clientSafeErrorResult<TData>(response: Response, result: ApiResult<TData>): ApiResult<TData> {
+  if (response.status === 403) {
+    return { ...result, msg: "无权限访问。" };
+  }
+
+  if (response.status === 429) {
+    return { ...result, msg: "请求过于频繁，请稍后再试。" };
+  }
+
+  if (response.status >= 500) {
+    return { ...result, msg: "系统异常，请稍后再试。" };
+  }
+
+  return result;
 }
 
 async function sendBlob(path: string, options: RequestOptions): Promise<Blob> {
@@ -129,7 +154,8 @@ async function sendBlob(path: string, options: RequestOptions): Promise<Blob> {
 
   if (!response.ok) {
     const result = await readApiResult<unknown>(response);
-    throw result;
+    handleTerminalUnauthorized(response, options);
+    throw clientSafeErrorResult(response, result);
   }
 
   await handlePermissionVersionHeader(path, response);
