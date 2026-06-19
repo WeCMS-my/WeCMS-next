@@ -11,7 +11,7 @@ public sealed class SecureHeadersSourceTests
     }
 
     [Fact]
-    public async Task SecureHeadersMiddleware_EmitsBaseHeadersAndCspReportOnly()
+    public async Task SecureHeadersMiddleware_EmitsBaseHeadersAndConfigurableCsp()
     {
         var middlewarePath = RepoPath("backend", "src", "WeCms.Api", "Middleware", "SecureHeadersMiddleware.cs");
         Assert.True(File.Exists(middlewarePath), "SecureHeadersMiddleware.cs must exist.");
@@ -23,7 +23,9 @@ public sealed class SecureHeadersSourceTests
         Assert.Contains("Referrer-Policy", source, StringComparison.Ordinal);
         Assert.Contains("Permissions-Policy", source, StringComparison.Ordinal);
         Assert.Contains("Content-Security-Policy-Report-Only", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Content-Security-Policy\"", source, StringComparison.Ordinal);
+        Assert.Contains("Content-Security-Policy", source, StringComparison.Ordinal);
+        Assert.Contains("CspEnabled", source, StringComparison.Ordinal);
+        Assert.Contains("CspReportOnlyEnabled", source, StringComparison.Ordinal);
         Assert.Contains("Vite", source, StringComparison.Ordinal);
     }
 

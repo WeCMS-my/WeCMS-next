@@ -3,6 +3,7 @@ using WeCms.Api.Json;
 using WeCms.Api.Middleware;
 using WeCms.Api.RateLimiting;
 using WeCms.Api.Configuration;
+using WeCms.Api.Security;
 using WeCms.Modules.System.Auth;
 using WeCms.Modules.System.Departments;
 using WeCms.Modules.System.Dicts;
@@ -50,6 +51,8 @@ builder.Services.AddWeCmsSystemSecurity();
 builder.Services.AddWeCmsSystemSettings();
 builder.Services.AddWeCmsSystemTwoFactor(builder.Configuration);
 builder.Services.AddWeCmsSystemUsers();
+builder.Services.AddWeCmsForwardedHeaders(builder.Configuration);
+builder.Services.AddWeCmsCors(builder.Configuration);
 builder.Services.AddWeCmsRateLimiting(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -58,10 +61,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 
+app.UseWeCmsForwardedHeaders(builder.Configuration);
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<SecureHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<IpAccessControlMiddleware>();
+app.UseCors(WeCmsCorsPolicyNames.AdminApi);
 app.UseAuthentication();
 app.UseMiddleware<SecurityBanMiddleware>();
 app.UseRateLimiter();

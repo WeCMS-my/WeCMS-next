@@ -49,6 +49,9 @@ public sealed class AuthEndpointSourceTests
         Assert.Contains("Path = \"/\"", source, StringComparison.Ordinal);
         Assert.Contains("context.Response.Cookies.Append(RefreshCookieName", source, StringComparison.Ordinal);
         Assert.Contains("context.Response.Cookies.Delete(RefreshCookieName", source, StringComparison.Ordinal);
+        Assert.Contains("RefreshCookieOptionsFactory.CreateAppendOptions(session)", source, StringComparison.Ordinal);
+        Assert.Contains("RefreshCookieOptionsFactory.CreateDeleteOptions()", source, StringComparison.Ordinal);
+        Assert.Contains("CreateBaseOptions()", source, StringComparison.Ordinal);
     }
 
     [Fact]

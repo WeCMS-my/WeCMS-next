@@ -32,8 +32,13 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Security:AllowedOrigins` | Yes | Dev/Staging/Production | `https://admin.example.com` | Public deploy setting | No in Production | Production rejects empty, wildcard, localhost, or HTTP origins | Ops |
 | `Security:RequireOriginForCookieAuth` | Yes | Dev/Staging/Production | `true` | Public | No in Production | Existing Cookie auth validator rejects false outside Development | Backend |
 | `Security:AllowRefererFallbackForCookieAuth` | Yes | Dev/Staging/Production | `false` | Public | Yes | Recommended false in Production | Security |
-| `Security:SecureHeaders:CspReportOnlyEnabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | PH-1 owns CSP enforce rollout | Security |
+| `Security:ForwardedHeaders:Enabled` | Yes | Dev/Staging/Production | `true` | Public | No | Production trusts forwarded headers only when enabled | Ops |
+| `Security:ForwardedHeaders:KnownProxies` | Required when enabled | Staging/Production | `10.0.0.10` | Sensitive topology | No | Production rejects enabled forwarded headers without proxies or networks | Ops |
+| `Security:ForwardedHeaders:KnownNetworks` | Required when enabled | Staging/Production | `10.0.0.0/24` | Sensitive topology | No | Production rejects invalid CIDR networks | Ops |
+| `Security:SecureHeaders:CspEnabled` | Yes | Dev/Staging/Production | `false` | Public | Yes | Production requires CSP value when enabled | Security |
+| `Security:SecureHeaders:CspReportOnlyEnabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | Production requires CSP report-only value when enabled | Security |
 | `Security:SecureHeaders:PermissionsPolicy` | Yes | Dev/Staging/Production | `geolocation=(), microphone=(), camera=()` | Public | Yes | Middleware applies configured value | Security |
+| `Security:SecureHeaders:Csp` | Required when enforce enabled | Staging/Production | `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'` | Public | No | Production requires `object-src 'none'` and `frame-ancestors` | Security |
 | `Security:SecureHeaders:CspReportOnly` | Yes | Dev/Staging/Production | `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'` | Public | Yes | PH-1 tightens CSP checks | Security |
 | `Security:LoginFailure:Enabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | Existing Auth registration validates boolean | Security |
 | `Security:LoginFailure:WindowMinutes` | Yes | Dev/Staging/Production | `10` | Public | Yes | Existing Auth registration validates integer | Security |
@@ -84,10 +89,12 @@ Production:
 - Required keys must be present before startup.
 - Secrets must be injected outside git.
 - `Security:AllowedOrigins` must be HTTPS, explicit, and non-localhost.
+- `Security:ForwardedHeaders` must include known proxies or networks when enabled.
+- CSP report-only or enforce mode must be enabled and must include `object-src 'none'` plus `frame-ancestors`.
 - `Database:SeedAdminPassword` must be strong and must not equal `Admin@123`.
 
 ## Current Deviations Recorded In PH-0
 
 - Migration / seed runners are registered, but the current API host does not automatically execute them at startup. PH-0 corrects README wording; PH-2 owns the production migration execution strategy.
 - FileStorage still uses local storage implementation defaults. PH-4 owns production FileStorage configuration and provider validation.
-- `Security:AllowedOrigins` currently protects Cookie-authenticated endpoints. PH-1 owns full CORS production policy.
+- PH-1 adds full CORS production policy, reverse proxy strategy, and CSP enforce rollout controls.

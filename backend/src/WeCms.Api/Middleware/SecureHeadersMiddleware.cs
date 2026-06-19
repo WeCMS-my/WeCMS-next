@@ -6,6 +6,7 @@ public sealed class SecureHeadersMiddleware
     private const string FrameOptionsHeader = "X-Frame-Options";
     private const string ReferrerPolicyHeader = "Referrer-Policy";
     private const string PermissionsPolicyHeader = "Permissions-Policy";
+    private const string CspHeader = "Content-Security-Policy";
     private const string CspReportOnlyHeader = "Content-Security-Policy-Report-Only";
     private const string DefaultPermissionsPolicy = "geolocation=(), microphone=(), camera=()";
     private const string ProductionReportOnlyCsp = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
@@ -56,10 +57,26 @@ public sealed class SecureHeadersMiddleware
         SetIfMissing(headers, ReferrerPolicyHeader, "no-referrer");
         SetIfMissing(headers, PermissionsPolicyHeader, ReadString("PermissionsPolicy", DefaultPermissionsPolicy));
 
+        if (ReadBool("CspEnabled", defaultValue: false))
+        {
+            SetIfMissing(headers, CspHeader, ReadCsp());
+        }
+
         if (ReadBool("CspReportOnlyEnabled", defaultValue: true))
         {
             SetIfMissing(headers, CspReportOnlyHeader, ReadReportOnlyCsp());
         }
+    }
+
+    private string ReadCsp()
+    {
+        var configured = ReadString("Csp", string.Empty);
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.Trim();
+        }
+
+        return ProductionReportOnlyCsp;
     }
 
     private string ReadReportOnlyCsp()

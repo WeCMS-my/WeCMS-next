@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using System.Net;
 
 namespace WeCms.Api.Configuration;
 
@@ -30,6 +31,8 @@ public static class ProductionConfigurationValidator
         RequireSecret(configuration["Auth:AccessTokenSecret"], "Auth:AccessTokenSecret");
         RequireSecret(configuration["Security:TwoFactor:SecretProtectionKey"], "Security:TwoFactor:SecretProtectionKey");
         RequireAllowedOrigins(configuration);
+        RequireForwardedHeaders(configuration);
+        RequireSecureHeaders(configuration);
         RequireSeedAdminPassword(configuration["Database:SeedAdminPassword"]);
     }
 
@@ -76,6 +79,13 @@ public static class ProductionConfigurationValidator
                 throw new InvalidOperationException($"Security:AllowedOrigins contains invalid origin '{origin}'.");
             }
 
+            if ((!string.IsNullOrEmpty(uri.AbsolutePath) && uri.AbsolutePath != "/")
+                || !string.IsNullOrEmpty(uri.Query)
+                || !string.IsNullOrEmpty(uri.Fragment))
+            {
+                throw new InvalidOperationException("Security:AllowedOrigins must contain origins only, without path, query, or fragment.");
+            }
+
             if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("Security:AllowedOrigins must use HTTPS origins in Production.");
@@ -85,6 +95,74 @@ public static class ProductionConfigurationValidator
             {
                 throw new InvalidOperationException("Security:AllowedOrigins must not contain localhost origins in Production.");
             }
+        }
+    }
+
+    private static void RequireForwardedHeaders(IConfiguration configuration)
+    {
+        if (!ReadBool(configuration, "Security:ForwardedHeaders:Enabled", defaultValue: false))
+        {
+            return;
+        }
+
+        var proxies = ReadStringArray(configuration, "Security:ForwardedHeaders:KnownProxies");
+        var networks = ReadStringArray(configuration, "Security:ForwardedHeaders:KnownNetworks");
+
+        if (proxies.Length == 0 && networks.Length == 0)
+        {
+            throw new InvalidOperationException("Security:ForwardedHeaders requires KnownProxies or KnownNetworks when enabled in Production.");
+        }
+
+        foreach (var proxy in proxies)
+        {
+            if (!IPAddress.TryParse(proxy, out _))
+            {
+                throw new InvalidOperationException($"Security:ForwardedHeaders:KnownProxies contains invalid IP address '{proxy}'.");
+            }
+        }
+
+        foreach (var network in networks)
+        {
+            if (!IsValidCidr(network))
+            {
+                throw new InvalidOperationException($"Security:ForwardedHeaders:KnownNetworks contains invalid CIDR network '{network}'.");
+            }
+        }
+    }
+
+    private static void RequireSecureHeaders(IConfiguration configuration)
+    {
+        var cspEnabled = ReadBool(configuration, "Security:SecureHeaders:CspEnabled", defaultValue: false);
+        var cspReportOnlyEnabled = ReadBool(configuration, "Security:SecureHeaders:CspReportOnlyEnabled", defaultValue: true);
+
+        if (!cspEnabled && !cspReportOnlyEnabled)
+        {
+            throw new InvalidOperationException("At least one CSP mode must be enabled in Production.");
+        }
+
+        if (cspEnabled)
+        {
+            RequireCsp(configuration["Security:SecureHeaders:Csp"], "Security:SecureHeaders:Csp");
+        }
+
+        if (cspReportOnlyEnabled)
+        {
+            RequireCsp(configuration["Security:SecureHeaders:CspReportOnly"], "Security:SecureHeaders:CspReportOnly");
+        }
+    }
+
+    private static void RequireCsp(string? value, string key)
+    {
+        RequireConfigured(value, key);
+
+        if (!value!.Contains("object-src 'none'", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"{key} must include object-src 'none' in Production.");
+        }
+
+        if (!value.Contains("frame-ancestors", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"{key} must include frame-ancestors in Production.");
         }
     }
 
@@ -116,6 +194,45 @@ public static class ProductionConfigurationValidator
     private static bool ContainsPlaceholder(string value)
     {
         return PlaceholderValues.Any(placeholder => value.Contains(placeholder, StringComparison.Ordinal));
+    }
+
+    private static string[] ReadStringArray(IConfiguration configuration, string key)
+    {
+        return configuration.GetSection(key)
+            .Get<string[]>()?
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .ToArray() ?? [];
+    }
+
+    private static bool ReadBool(IConfiguration configuration, string key, bool defaultValue)
+    {
+        var value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        if (bool.TryParse(value, out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException($"{key} must be true or false.");
+    }
+
+    private static bool IsValidCidr(string value)
+    {
+        var parts = value.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2
+            || !IPAddress.TryParse(parts[0], out var address)
+            || !int.TryParse(parts[1], out var prefixLength))
+        {
+            return false;
+        }
+
+        var maxPrefixLength = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128;
+        return prefixLength >= 0 && prefixLength <= maxPrefixLength;
     }
 
     private static bool IsLocalhost(string host)

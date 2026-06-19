@@ -169,10 +169,104 @@ public sealed class ProductionConfigurationValidatorTests
         Assert.Equal("Security:AllowedOrigins must not contain localhost origins in Production.", exception.Message);
     }
 
+    [Fact]
+    public void Validate_ProductionRejectsOriginWithPath()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com/app",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:AllowedOrigins must contain origins only, without path, query, or fragment.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsForwardedHeadersEnabledWithoutKnownProxy()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Security:ForwardedHeaders:Enabled"] = "true",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:ForwardedHeaders requires KnownProxies or KnownNetworks when enabled in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsInvalidKnownProxy()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Security:ForwardedHeaders:Enabled"] = "true",
+                ["Security:ForwardedHeaders:KnownProxies:0"] = "not-an-ip",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:ForwardedHeaders:KnownProxies contains invalid IP address 'not-an-ip'.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsCspMissingObjectSrcNone()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; frame-ancestors 'none'",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:SecureHeaders:CspReportOnly must include object-src 'none' in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionAllowsForwardedHeadersWithKnownNetwork()
+    {
+        ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Default"] = ValidConnectionString(),
+            ["Auth:AccessTokenSecret"] = ValidSecret(),
+            ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+            ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+            ["Security:ForwardedHeaders:Enabled"] = "true",
+            ["Security:ForwardedHeaders:KnownNetworks:0"] = "10.0.0.0/24",
+            ["Database:SeedAdminPassword"] = ValidSeedPassword()
+        }), Environment("Production"));
+    }
+
     private static IConfiguration Configuration(IReadOnlyDictionary<string, string?> values)
     {
+        var merged = new Dictionary<string, string?>
+        {
+            ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
+            ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        };
+
+        foreach (var (key, value) in values)
+        {
+            merged[key] = value;
+        }
+
         return new ConfigurationBuilder()
-            .AddInMemoryCollection(values)
+            .AddInMemoryCollection(merged)
             .Build();
     }
 
