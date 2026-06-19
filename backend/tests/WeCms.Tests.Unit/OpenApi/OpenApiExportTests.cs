@@ -24,10 +24,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var root = document.RootElement;
             var paths = root.GetProperty("paths");
             var schemas = root.GetProperty("components").GetProperty("schemas");
@@ -85,10 +85,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-coverage-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var root = document.RootElement;
             var contractOperationsList = CollectRegisteredEndpointMetadata().ToList();
             var openApiOperations = CollectOpenApiOperations(root.GetProperty("paths"));
@@ -111,10 +111,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-source-coverage-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var paths = document.RootElement.GetProperty("paths");
             var contractOperations = CollectOpenApiOperations(paths);
 
@@ -148,10 +148,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-requestbody-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var paths = document.RootElement.GetProperty("paths");
             var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
 
@@ -189,10 +189,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-file-policy-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var properties = document.RootElement
                 .GetProperty("components")
                 .GetProperty("schemas")
@@ -217,10 +217,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-bodyless-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var paths = document.RootElement.GetProperty("paths");
             var bodylessOperations = new (string Path, string Method)[]
             {
@@ -261,10 +261,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-query-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var paths = document.RootElement.GetProperty("paths");
             var expected = new Dictionary<string, string[]>
             {
@@ -305,10 +305,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-auth-meta-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var metadata = CollectOpenApiEndpointMetadata(document.RootElement.GetProperty("paths"));
 
             Assert.True(metadata.TryGetValue(("/api/v1/auth/login", "post"), out var login));
@@ -355,10 +355,10 @@ public sealed partial class OpenApiExportTests
         var outputPath = Path.Combine(Path.GetTempPath(), $"wecms-openapi-env-safe-{Guid.NewGuid():N}.json");
         try
         {
-            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath]);
+            var handled = await OpenApiExtensions.ExportOpenApiAsync(["--export-openapi", outputPath], TestContext.Current.CancellationToken);
 
             Assert.True(handled);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
             var root = document.RootElement;
             Assert.Equal("3.1.0", root.GetProperty("openapi").GetString());
             Assert.True(root.GetProperty("paths").GetProperty("/api/v1/system/db-check").EnumerateObject().Any());
@@ -561,7 +561,7 @@ public sealed partial class OpenApiExportTests
     [Fact]
     public async Task ExportOpenApiAsync_ReturnsFalseWhenArgumentIsMissing()
     {
-        var handled = await OpenApiExtensions.ExportOpenApiAsync([]);
+        var handled = await OpenApiExtensions.ExportOpenApiAsync([], TestContext.Current.CancellationToken);
 
         Assert.False(handled);
     }

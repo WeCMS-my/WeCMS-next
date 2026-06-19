@@ -13,7 +13,7 @@ public sealed class SeedRunnerTests
         try
         {
             await Assert.ThrowsAsync<InvalidOperationException>(
-                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", null)));
+                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", null), TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -30,7 +30,7 @@ public sealed class SeedRunnerTests
         try
         {
             await Assert.ThrowsAsync<InvalidOperationException>(
-                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", "Admin@123")));
+                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", "Admin@123"), TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -47,7 +47,7 @@ public sealed class SeedRunnerTests
         try
         {
             await Assert.ThrowsAsync<InvalidOperationException>(
-                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", "password123")));
+                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Production", "password123"), TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -59,13 +59,13 @@ public sealed class SeedRunnerTests
     public async Task SeedAsync_ThrowsWhenSeedFileContainsUnresolvedPlaceholder()
     {
         var seedsDirectory = Directory.CreateTempSubdirectory("wecms-seeds-");
-        await File.WriteAllTextAsync(Path.Combine(seedsDirectory.FullName, "000001_bad.sql"), "SELECT '{{MISSING_VALUE}}';");
+        await File.WriteAllTextAsync(Path.Combine(seedsDirectory.FullName, "000001_bad.sql"), "SELECT '{{MISSING_VALUE}}';", TestContext.Current.CancellationToken);
         var runner = new SeedRunner(null!);
 
         try
         {
             await Assert.ThrowsAsync<InvalidOperationException>(
-                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Development", null)));
+                () => runner.SeedAsync(seedsDirectory.FullName, new SeedRunnerOptions("Development", null), TestContext.Current.CancellationToken));
         }
         finally
         {

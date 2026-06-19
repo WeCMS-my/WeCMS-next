@@ -11,7 +11,7 @@ public sealed class MenuApiScanTests
             "src",
             "WeCms.Modules.System",
             "Menus",
-            "MenuEndpoints.cs"));
+            "MenuEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/menus\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -38,9 +38,10 @@ public sealed class MenuApiScanTests
     [Fact]
     public async Task Program_RegistersMenuEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemMenus();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapMenuEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

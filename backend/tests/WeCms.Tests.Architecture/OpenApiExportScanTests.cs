@@ -10,7 +10,7 @@ public sealed class OpenApiExportScanTests
             "backend",
             "src",
             "WeCms.Api",
-            "Program.cs"));
+            "Program.cs"), TestContext.Current.CancellationToken);
 
         var exportIndex = source.IndexOf("OpenApiExtensions.ExportOpenApiAsync(args)", StringComparison.Ordinal);
         var builderIndex = source.IndexOf("WebApplication.CreateSlimBuilder(args)", StringComparison.Ordinal);
@@ -28,7 +28,7 @@ public sealed class OpenApiExportScanTests
             "src",
             "WeCms.Api",
             "Extensions",
-            "OpenApiExtensions.cs"));
+            "OpenApiExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("app.Run()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Newtonsoft", source, StringComparison.Ordinal);
@@ -44,7 +44,7 @@ public sealed class OpenApiExportScanTests
             "src",
             "WeCms.Api",
             "Extensions",
-            "OpenApiExtensions.cs"));
+            "OpenApiExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("AddWeCmsPersistence", source, StringComparison.Ordinal);
         Assert.DoesNotContain("AddWeCmsSystemAuth", source, StringComparison.Ordinal);
@@ -56,3 +56,4 @@ public sealed class OpenApiExportScanTests
         Assert.DoesNotContain("Auth:AccessTokenSecret", source, StringComparison.Ordinal);
     }
 }
+

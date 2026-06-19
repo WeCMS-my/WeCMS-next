@@ -63,7 +63,7 @@ public sealed class ClamAvFileScanServiceTests
 
         public async Task<byte[]> ReceivedContentAsync()
         {
-            return await _receivedContentTask.WaitAsync(TimeSpan.FromSeconds(5));
+            return await _receivedContentTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         }
 
         public ValueTask DisposeAsync()

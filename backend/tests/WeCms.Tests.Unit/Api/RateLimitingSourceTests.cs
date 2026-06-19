@@ -5,7 +5,7 @@ public sealed class RateLimitingSourceTests
     [Fact]
     public async Task Program_RegistersAndUsesRateLimiterAfterSecurityBan()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsRateLimiting(builder.Configuration);", source, StringComparison.Ordinal);
         Assert.Contains("app.UseRateLimiter();", source, StringComparison.Ordinal);
@@ -20,7 +20,7 @@ public sealed class RateLimitingSourceTests
     [Fact]
     public async Task AuthEndpoints_BindRequiredAuthRateLimitPolicies()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"));
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains($".RequireRateLimiting(RateLimitPolicyNames.AuthLogin)", source, StringComparison.Ordinal);
         Assert.Contains($".RequireRateLimiting(RateLimitPolicyNames.AuthRefresh)", source, StringComparison.Ordinal);
@@ -30,10 +30,10 @@ public sealed class RateLimitingSourceTests
     [Fact]
     public async Task HighRiskSystemEndpoints_BindSpecificRateLimitPolicies()
     {
-        var filesSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"));
-        var securitySource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Security", "SecurityEndpoints.cs"));
-        var userSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Users", "UserEndpoints.cs"));
-        var menuSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Menus", "MenuEndpoints.cs"));
+        var filesSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"), TestContext.Current.CancellationToken);
+        var securitySource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Security", "SecurityEndpoints.cs"), TestContext.Current.CancellationToken);
+        var userSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Users", "UserEndpoints.cs"), TestContext.Current.CancellationToken);
+        var menuSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Menus", "MenuEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.FileUpload)", filesSource, StringComparison.Ordinal);
         Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.SecurityUnban)", securitySource, StringComparison.Ordinal);

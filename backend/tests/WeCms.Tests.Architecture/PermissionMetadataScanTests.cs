@@ -11,7 +11,7 @@ public sealed class PermissionMetadataScanTests
             "src",
             "WeCms.Modules.System",
             "Permissions",
-            "PermissionEndpointExtensions.cs"));
+            "PermissionEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGet(\"/api/v1/system/secure-ping\"", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -27,7 +27,7 @@ public sealed class PermissionMetadataScanTests
             "src",
             "WeCms.Modules.System",
             "Permissions",
-            "SystemPermissions.cs"));
+            "SystemPermissions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("public const string SecurePing = \"sys:system:secure-ping\";", source, StringComparison.Ordinal);
     }
@@ -41,7 +41,7 @@ public sealed class PermissionMetadataScanTests
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGet(\"/api/v1/system/ping\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/version\"", source, StringComparison.Ordinal);
@@ -61,14 +61,14 @@ public sealed class PermissionMetadataScanTests
             "src",
             "WeCms.Modules.System",
             "Permissions",
-            "PermissionEndpointExtensions.cs"));
+            "PermissionEndpointExtensions.cs"), TestContext.Current.CancellationToken);
         var systemSource = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
             "backend",
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGet(\"/api/v1/system/secure-ping\"", permissionSource, StringComparison.Ordinal);
         Assert.Contains(".RequirePermission(SystemPermissions.SecurePing)", permissionSource, StringComparison.Ordinal);
@@ -90,3 +90,4 @@ public sealed class PermissionMetadataScanTests
         return count;
     }
 }
+

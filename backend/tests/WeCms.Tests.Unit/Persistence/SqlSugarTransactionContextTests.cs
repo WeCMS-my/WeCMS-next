@@ -23,7 +23,7 @@ public sealed class SqlSugarTransactionContextTests
             () => throw new InvalidOperationException("commit failed"),
             () => rollbackCount++);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.CommitAsync(TestContext.Current.CancellationToken));
         await transaction.DisposeAsync();
 
         Assert.Equal(0, rollbackCount);
@@ -41,7 +41,7 @@ public sealed class SqlSugarTransactionContextTests
                 throw new InvalidOperationException("rollback failed");
             });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.RollbackAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => transaction.RollbackAsync(TestContext.Current.CancellationToken));
         await transaction.DisposeAsync();
 
         Assert.Equal(1, rollbackCount);

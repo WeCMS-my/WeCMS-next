@@ -11,7 +11,7 @@ public sealed class RoleApiScanTests
             "src",
             "WeCms.Modules.System",
             "Roles",
-            "RoleEndpoints.cs"));
+            "RoleEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/roles\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -38,9 +38,10 @@ public sealed class RoleApiScanTests
     [Fact]
     public async Task Program_RegistersRoleEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemRoles();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapRoleEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

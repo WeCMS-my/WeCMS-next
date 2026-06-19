@@ -11,7 +11,7 @@ public sealed class UserApiScanTests
             "src",
             "WeCms.Modules.System",
             "Users",
-            "UserEndpoints.cs"));
+            "UserEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/users\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -42,9 +42,10 @@ public sealed class UserApiScanTests
     [Fact]
     public async Task Program_RegistersUserEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemUsers();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapUserEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

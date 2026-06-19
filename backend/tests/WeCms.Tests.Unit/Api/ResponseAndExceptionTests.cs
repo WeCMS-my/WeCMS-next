@@ -19,7 +19,7 @@ public sealed class ResponseAndExceptionTests
         var middleware = new RequestIdMiddleware(_ => Task.CompletedTask);
 
         await middleware.InvokeAsync(context);
-        await context.Response.StartAsync();
+        await context.Response.StartAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("trace-from-client", context.TraceIdentifier);
         Assert.Equal("trace-from-client", context.Response.Headers["X-Trace-Id"]);
