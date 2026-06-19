@@ -423,7 +423,7 @@ POST   /api/v1/system/users/{id}/reset-2fa
 ```text
 GET    /api/v1/account/profile
 PUT    /api/v1/account/profile
-POST   /api/v1/account/password/change
+PUT    /api/v1/account/password
 POST   /api/v1/account/avatar
 GET    /api/v1/account/security
 ```
@@ -1870,7 +1870,7 @@ H3-010 CMS 二期启动前冻结基础系统
 ### H1-012：个人中心 profile/password/avatar
 
 - **任务目标**：补齐登录用户自服务能力，包括个人资料、修改密码和头像上传。
-- **具体工作**：实现 `GET /api/v1/account/profile`、`PUT /api/v1/account/profile`、`POST /api/v1/account/password/change`、`POST /api/v1/account/avatar`、`GET /api/v1/account/security`；前端新增 `/account/profile` 和 `/account/security`；资料更新只允许修改显示名、邮箱、手机号等允许字段；修改密码必须提交 oldPassword；头像上传走 AvatarUploadPolicy。
+- **具体工作**：实现 `GET /api/v1/account/profile`、`PUT /api/v1/account/profile`、`PUT /api/v1/account/password`、`POST /api/v1/account/avatar`、`GET /api/v1/account/security`；前端新增 `/account/profile` 和 `/account/security`；资料更新只允许修改显示名、邮箱、手机号等允许字段；修改密码必须提交 oldPassword；头像上传走 AvatarUploadPolicy。
 - **安全要求**：修改密码成功后吊销 refresh token family 或至少要求重新登录，策略需文档化；头像只允许安全图片 MIME/扩展名，随机文件名，可考虑重编码；修改密码、头像、安全设置写 audit log 和 security event。
 - **测试要求**：未登录 401、获取 profile、更新 profile、oldPassword 错误、密码策略失败、修改成功 token 处理、非法头像、超大头像、合法头像、前端表单。
 - **验收标准**：用户无需管理员即可维护自己的基础资料和安全资料；不会绕过文件上传策略。
@@ -2151,3 +2151,4 @@ PR-13 final-acceptance-gate
 ```
 
 其中 PR-02、PR-03、PR-04、PR-05、PR-07、PR-08 是进入 CMS 二期前最值得优先完成的安全基础能力。
+

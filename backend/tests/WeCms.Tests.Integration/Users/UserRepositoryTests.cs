@@ -52,7 +52,13 @@ public sealed class UserRepositoryTests : PerTestDatabaseResetBase
         using var db = new SqlSugarClientFactory(connectionString).Create();
         await PrepareDatabaseWithSeedsAsync(db);
 
-        var postId = Scalar<long>(db, "SELECT id FROM sys_post ORDER BY id LIMIT 1");
+        var firstPostIdObj = db.Ado.GetScalar("SELECT id FROM sys_post ORDER BY id LIMIT 1");
+        var firstPostId = firstPostIdObj is not null && firstPostIdObj is not DBNull
+            ? Convert.ToInt64(firstPostIdObj, System.Globalization.CultureInfo.InvariantCulture)
+            : 0;
+        var postId = firstPostId > 0
+            ? firstPostId
+            : InsertPostAndGetId(db, "test_post_exist_filters");
         Assert.True(postId > 0);
 
         db.Ado.ExecuteCommand(
@@ -64,6 +70,29 @@ public sealed class UserRepositoryTests : PerTestDatabaseResetBase
         var existing = await repository.ExistingPostIdsAsync([postId], CancellationToken.None);
 
         Assert.Empty(existing);
+    }
+
+    private static long InsertPostAndGetId(ISqlSugarClient db, string code)
+    {
+        var now = DateTime.UtcNow;
+        var uniqueCode = $"{code}_{Guid.NewGuid():N}";
+        db.Ado.ExecuteCommand(
+            """
+            INSERT INTO sys_post(code, name, sort_order, status, created_at, updated_at)
+            VALUES (@code, @name, 0, 'enabled', @now, @now)
+            """,
+            new SugarParameter("@code", uniqueCode),
+            new SugarParameter("@name", uniqueCode),
+            new SugarParameter("@now", now));
+
+        var postId = db.Ado.GetScalar("SELECT id FROM sys_post WHERE code = @code LIMIT 1",
+            new SugarParameter("@code", uniqueCode));
+        if (postId is null or DBNull)
+        {
+            throw new InvalidOperationException("InsertPostAndGetId: failed to read newly inserted post id.");
+        }
+
+        return Convert.ToInt64(postId, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)
