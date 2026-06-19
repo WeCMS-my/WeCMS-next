@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using SqlSugar;
+using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Infrastructure.Files;
 using WeCms.Modules.System.Files;
 using WeCms.Modules.System.Auth;
@@ -41,7 +42,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
                 new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(),
                 new DeterministicObjectKeyGenerator(),
-                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);
@@ -114,7 +115,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
                 new FileRepository(db, new SecurityEventClassifier()),
                 new LocalFileStorage(),
                 new DeterministicObjectKeyGenerator(),
-                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);

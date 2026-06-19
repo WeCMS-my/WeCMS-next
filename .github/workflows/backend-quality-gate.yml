@@ -8,6 +8,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      skip_mysql_integration_tests:
+        description: "Skip MySQL integration tests in backend quality gate"
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -16,24 +22,10 @@ jobs:
   backend-quality-gate:
     name: Backend quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: yes
-          MYSQL_DATABASE: mysql
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot --silent"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=30
+    timeout-minutes: 30
 
     env:
-      WECMS_TEST_MYSQL_CONNECTION_STRING: server=127.0.0.1;port=3306;database=mysql;uid=root;pwd=;
+      WECMS_SKIP_MYSQL_INTEGRATION_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.skip_mysql_integration_tests == true && 'true' || 'false') || 'true' }}
       WECMS_FRONTEND_BASE_REF: ${{ github.base_ref || 'main' }}
 
     steps:

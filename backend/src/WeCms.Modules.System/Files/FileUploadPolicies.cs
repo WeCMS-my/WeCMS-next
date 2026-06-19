@@ -9,7 +9,7 @@ public interface IFileUploadPolicy
     IReadOnlySet<string> AllowedExtensions { get; }
     IReadOnlySet<string> AllowedMimeTypes { get; }
     long MaxSizeBytes { get; }
-    bool RequireImageDecode { get; }
+    bool RequireImageSignatureValidation { get; }
     bool ReencodeImage { get; }
     bool AllowPreview { get; }
     string StorageScope { get; }
@@ -70,7 +70,7 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
         string[] allowedExtensions,
         string[] allowedMimeTypes,
         long maxSizeBytes,
-        bool requireImageDecode,
+        bool requireImageSignatureValidation,
         bool reencodeImage,
         bool allowPreview,
         string storageScope)
@@ -79,7 +79,7 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
         AllowedExtensions = allowedExtensions.ToHashSet(StringComparer.OrdinalIgnoreCase);
         AllowedMimeTypes = allowedMimeTypes.ToHashSet(StringComparer.OrdinalIgnoreCase);
         MaxSizeBytes = maxSizeBytes;
-        RequireImageDecode = requireImageDecode;
+        RequireImageSignatureValidation = requireImageSignatureValidation;
         ReencodeImage = reencodeImage;
         AllowPreview = allowPreview;
         StorageScope = storageScope;
@@ -89,7 +89,7 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
     public IReadOnlySet<string> AllowedExtensions { get; }
     public IReadOnlySet<string> AllowedMimeTypes { get; }
     public long MaxSizeBytes { get; }
-    public bool RequireImageDecode { get; }
+    public bool RequireImageSignatureValidation { get; }
     public bool ReencodeImage { get; }
     public bool AllowPreview { get; }
     public string StorageScope { get; }
@@ -116,7 +116,7 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
             throw Validation("file extension is not allowed for the selected upload policy.");
         }
 
-        if (RequireImageDecode)
+        if (RequireImageSignatureValidation)
         {
             await ValidateImageStructureAsync(file, declaredMimeType, cancellationToken);
         }

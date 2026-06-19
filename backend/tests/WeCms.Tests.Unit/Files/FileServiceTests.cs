@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Http;
 using WeCms.Modules.System.Files;
 using WeCms.Shared;
@@ -156,6 +158,30 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_CleansUpUploadedFileAndLogsWarning_WhenCleanupFails()
+    {
+        var logger = new RecordingLogger();
+        var storage = new FailingFileStorage();
+        var service = CreateService(storage: storage, logger: logger);
+
+        var content = Encoding.UTF8.GetBytes("upload content");
+        var file = CreateFormFile("upload.pdf", "application/pdf", content);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(
+                new CreateFileRequest("upload.pdf", "application/pdf", content.Length, ComputeSha256(content)),
+                file,
+                Context(),
+                CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Single(logger.WarningMessages);
+        Assert.Contains("Failed to cleanup file after upload failure", logger.WarningMessages[0], StringComparison.Ordinal);
+        Assert.True(storage.DeleteAttempted);
+        Assert.NotNull(storage.ThrownException);
+    }
+
+    [Fact]
     public async Task GetAsync_DoesNotExposeObjectKey()
     {
         var service = CreateService();
@@ -270,6 +296,68 @@ public sealed class FileServiceTests
         public Task RecordSecurityEventAsync(FileSecurityEventRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
+    private sealed class FailingFileStorage : IFileStorage
+    {
+        public bool DeleteAttempted { get; private set; }
+        public Exception? ThrownException { get; private set; }
+
+        public Task<FileStorageResult> StoreAsync(Stream source, string objectKey, string fileExt, long maxSizeBytes, CancellationToken cancellationToken)
+        {
+            var bytes = new byte[source.Length == 0 ? 1 : source.Length];
+            return Task.FromResult(new FileStorageResult(bytes.Length + 1, "0000", fileExt switch
+            {
+                ".pdf" => "application/pdf",
+                ".txt" => "text/plain",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream"
+            }));
+        }
+
+        public Task DeleteAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            DeleteAttempted = true;
+            var exception = new IOException("delete unavailable");
+            ThrownException = exception;
+            return Task.FromException(exception);
+        }
+
+        public Task<Stream> OpenReadAsync(string objectKey, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class RecordingLogger : ILogger<FileService>
+    {
+        public List<string> WarningMessages { get; } = new();
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                WarningMessages.Add(formatter(state, exception));
+            }
+        }
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull
+        {
+            return NullScope.Instance;
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose()
+            {
+            }
+        }
+    }
+
     private sealed class FakeFileStorage : IFileStorage
     {
         public async Task<FileStorageResult> StoreAsync(Stream source, string objectKey, string fileExt, long maxSizeBytes, CancellationToken cancellationToken)
@@ -317,13 +405,14 @@ public sealed class FileServiceTests
         }
     }
 
-    private static FileService CreateService(IFileRepository? repository = null)
+    private static FileService CreateService(IFileRepository? repository = null, IFileStorage? storage = null, RecordingLogger? logger = null)
     {
         return new FileService(
             repository ?? new FakeFileRepository(),
-            new FakeFileStorage(),
+            storage ?? new FakeFileStorage(),
             new FakeObjectKeyGenerator(),
-            new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]));
+            new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]),
+            logger ?? new RecordingLogger());
     }
 
     private static string ComputeSha256(byte[] bytes)

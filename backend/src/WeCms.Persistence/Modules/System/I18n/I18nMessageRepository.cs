@@ -108,20 +108,32 @@ public sealed class I18nMessageRepository : II18nMessageRepository
 
     public async Task<long> CreateAsync(I18nMessageCreateRecord record, CancellationToken cancellationToken)
     {
-        var id = Convert.ToInt64(await _db.Ado.GetScalarAsync("""
+        await ExpectOneAsync("""
             INSERT INTO sys_i18n_message (locale, module, message_key, message_value, remark, status, created_at, updated_at, deleted_at)
             VALUES (@locale, @module, @messageKey, @messageValue, @remark, @status, @createdAt, @createdAt, NULL);
-            SELECT LAST_INSERT_ID();
             """,
+            cancellationToken,
             new SugarParameter("@locale", record.Locale),
             new SugarParameter("@module", record.Module),
             new SugarParameter("@messageKey", record.MessageKey),
             new SugarParameter("@messageValue", record.MessageValue),
             new SugarParameter("@remark", record.Remark),
             new SugarParameter("@status", record.Status),
-            new SugarParameter("@createdAt", record.Now.UtcDateTime)), global::System.Globalization.CultureInfo.InvariantCulture);
+            new SugarParameter("@createdAt", record.Now.UtcDateTime));
 
-        return id;
+        return Convert.ToInt64(
+            await _db.Ado.GetScalarAsync(
+                """
+                SELECT id
+                FROM sys_i18n_message
+                WHERE locale = @locale AND module = @module AND message_key = @messageKey
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                new SugarParameter("@locale", record.Locale),
+                new SugarParameter("@module", record.Module),
+                new SugarParameter("@messageKey", record.MessageKey)),
+            global::System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public async Task UpdateAsync(I18nMessageUpdateRecord record, CancellationToken cancellationToken)
@@ -185,7 +197,7 @@ public sealed class I18nMessageRepository : II18nMessageRepository
     public async Task RecordAuditAsync(I18nAuditRecord record, CancellationToken cancellationToken)
     {
         var insertedRows = await _db.Ado.ExecuteCommandAsync("""
-            INSERT INTO sys_audit_log (user_id, username, module, resource, action, target_id, request_method, request_path, ip, user_agent, trace_id, result, detail, created_at)
+            INSERT INTO sys_audit_log (user_id, username, module, resource, action, target_id, request_method, request_path, ip_address, user_agent, trace_id, result, detail, created_at)
             VALUES (@userId, @username, 'system', @resource, @action, @targetId, 'POST', @requestPath, @ip, @userAgent, @traceId, @result, @detail, @createdAt)
             """,
             new SugarParameter("@userId", record.ActorUserId),
@@ -204,6 +216,16 @@ public sealed class I18nMessageRepository : II18nMessageRepository
         if (insertedRows != 1)
         {
             throw new InvalidOperationException($"Expected to insert one audit log row, inserted {insertedRows}.");
+        }
+    }
+
+    private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var rows = await _db.Ado.ExecuteCommandAsync(sql, parameters);
+        if (rows != 1)
+        {
+            throw new InvalidOperationException($"Expected to affect one row, affected {rows}.");
         }
     }
 
@@ -241,4 +263,3 @@ public sealed class I18nMessageRepository : II18nMessageRepository
         return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc));
     }
 }
-

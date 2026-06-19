@@ -137,11 +137,12 @@ public sealed class RoleRepository : IRoleRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _db.Ado.ExecuteCommandAsync(
+        await ExpectOneAsync(
             """
             INSERT INTO sys_role (code, name, status, is_builtin, is_locked, created_at, updated_at, deleted_at)
             VALUES (@code, @name, 'enabled', FALSE, FALSE, @createdAt, @updatedAt, NULL)
             """,
+            cancellationToken,
             new SugarParameter("@code", record.Code),
             new SugarParameter("@name", record.Name),
             new SugarParameter("@createdAt", record.Now.UtcDateTime),
@@ -262,7 +263,9 @@ public sealed class RoleRepository : IRoleRepository
 
         var parameters = ids.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
         var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
-        var rows = await _db.Ado.SqlQueryAsync<long>($"SELECT id FROM sys_permission WHERE id IN ({placeholders})", parameters);
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            $"SELECT id FROM sys_permission WHERE id IN ({placeholders}) AND deleted_at IS NULL",
+            parameters);
 
         return rows.ToHashSet();
     }
@@ -277,7 +280,9 @@ public sealed class RoleRepository : IRoleRepository
 
         var parameters = ids.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
         var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
-        var rows = await _db.Ado.SqlQueryAsync<long>($"SELECT id FROM sys_menu WHERE id IN ({placeholders})", parameters);
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            $"SELECT id FROM sys_menu WHERE id IN ({placeholders}) AND deleted_at IS NULL",
+            parameters);
 
         return rows.ToHashSet();
     }

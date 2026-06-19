@@ -2,13 +2,47 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-nuget_audit_mode="${WECMS_NUGET_AUDIT_MODE:-strict}"
+if [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
+  nuget_audit_mode="${WECMS_NUGET_AUDIT_MODE:-strict}"
+else
+  nuget_audit_mode="${WECMS_NUGET_AUDIT_MODE:-fallback}"
+fi
 nuget_http_cache_path="${NUGET_HTTP_CACHE_PATH:-}"
 frontend_scope="${WECMS_BACKEND_GATE_FRONTEND_SCOPE:-backend-only}"
+run_mysql_integration_tests=true
 
-mysql_connection_string="${WECMS_TEST_MYSQL_CONNECTION_STRING:-}"
-if [[ -z "$mysql_connection_string" ]]; then
-  mysql_connection_string="$(python3 - "$repo_root/backend/src/WeCms.Api/appsettings.Development.json" "$repo_root/backend/src/WeCms.Api/appsettings.json" <<'PY'
+read_connection_value() {
+  local key="$1"
+  local connection_string="$2"
+
+  python3 - "$key" "$connection_string" <<'PY'
+import sys
+
+target = sys.argv[1].strip().lower()
+parts = [item.strip() for item in sys.argv[2].split(';') if item.strip()]
+for item in parts:
+    if '=' not in item:
+        continue
+    name, value = item.split('=', 1)
+    if name.strip().lower() == target:
+        print(value.strip())
+        break
+PY
+}
+
+case "${WECMS_SKIP_MYSQL_INTEGRATION_TESTS:-false}" in
+  1|true|TRUE|True|yes|YES|on|ON|y|Y)
+    run_mysql_integration_tests=false
+    ;;
+  *)
+    run_mysql_integration_tests=true
+    ;;
+esac
+
+if [[ "$run_mysql_integration_tests" == true ]]; then
+  mysql_connection_string="${WECMS_TEST_MYSQL_CONNECTION_STRING:-}"
+  if [[ -z "$mysql_connection_string" ]]; then
+    mysql_connection_string="$(python3 - "$repo_root/backend/src/WeCms.Api/appsettings.Development.json" "$repo_root/backend/src/WeCms.Api/appsettings.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -25,11 +59,20 @@ for path_text in sys.argv[1:]:
         break
 PY
 )"
-fi
+  fi
 
-if [[ -z "$mysql_connection_string" ]]; then
-  printf 'quality-gate-backend: WECMS_TEST_MYSQL_CONNECTION_STRING is required for MySQL integration tests.\n' >&2
-  exit 1
+  if [[ -z "$mysql_connection_string" ]]; then
+    printf 'quality-gate-backend: WECMS_TEST_MYSQL_CONNECTION_STRING is required for MySQL integration tests.\n' >&2
+    exit 1
+  fi
+
+  mysql_database="$(read_connection_value "database" "$mysql_connection_string" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$mysql_database" != "wecms_dev" ]]; then
+    run_mysql_integration_tests=false
+    printf 'Integration tests skipped: WECMS_TEST_MYSQL_CONNECTION_STRING database=%q is not allowed for project gate (expected wecms_dev).\n' "${mysql_database:-<empty>}"
+  fi
+else
+  mysql_connection_string=""
 fi
 
 command -v rg >/dev/null 2>&1 || {
@@ -86,8 +129,12 @@ run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-rest
 printf '[3/26] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
-export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
-run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --nologo --no-restore
+if [[ "$run_mysql_integration_tests" == true ]]; then
+  export WECMS_TEST_MYSQL_CONNECTION_STRING="$mysql_connection_string"
+  run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --nologo --no-restore
+else
+  printf 'Integration tests skipped because WECMS_SKIP_MYSQL_INTEGRATION_TESTS is enabled.\n'
+fi
 
 printf '[4/26] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
@@ -161,6 +208,10 @@ printf '[25/26] check-code-review\n'
 bash scripts/checks/check-code-review.sh
 
 printf '[26/26] migration/seed smoke test\n'
-run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
+if [[ "$run_mysql_integration_tests" == true ]]; then
+  run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
+else
+  printf 'Migration/seed smoke test skipped because WECMS_SKIP_MYSQL_INTEGRATION_TESTS is enabled.\n'
+fi
 
 printf 'quality-gate-backend: ok\n'

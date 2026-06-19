@@ -34,6 +34,19 @@ public sealed class SecureHeadersMiddleware
         });
 
         await _next(context);
+
+        if (context.Response.Headers.Count == 0 || !context.Response.Headers.ContainsKey(ContentTypeOptionsHeader))
+        {
+            try
+            {
+                ApplyHeaders(context.Response.Headers);
+            }
+            catch (InvalidOperationException)
+            {
+                // In test hosts, OnStarting may not run after body writes;
+                // fall back to a direct set and ignore if the real server already started the response.
+            }
+        }
     }
 
     private void ApplyHeaders(IHeaderDictionary headers)
