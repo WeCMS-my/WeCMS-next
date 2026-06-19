@@ -77,7 +77,13 @@ public sealed class FileStorageConfigurationIntegrationTests
 
     private static IConfiguration BuildConfiguration(IReadOnlyDictionary<string, string?> values)
     {
-        return new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var merged = new Dictionary<string, string?>(values)
+        {
+            ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
+            ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+        };
+
+        return new ConfigurationBuilder().AddInMemoryCollection(merged).Build();
     }
 
     private static IWebHostEnvironment ProductionEnvironment()
