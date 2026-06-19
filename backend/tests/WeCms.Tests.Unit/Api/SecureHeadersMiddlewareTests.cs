@@ -65,6 +65,55 @@ public sealed class SecureHeadersMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_CanEmitEnforcedCsp()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:SecureHeaders:CspEnabled"] = "true",
+                ["Security:SecureHeaders:Csp"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+                ["Security:SecureHeaders:CspReportOnlyEnabled"] = "false"
+            })
+            .Build();
+        var middleware = new SecureHeadersMiddleware(
+            httpContext => httpContext.Response.WriteAsync("ok"),
+            configuration,
+            new FakeHostEnvironment("Production"));
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Contains("object-src 'none'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
+        Assert.False(context.Response.Headers.ContainsKey("Content-Security-Policy-Report-Only"));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CanEmitBothEnforcedAndReportOnlyCsp()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:SecureHeaders:CspEnabled"] = "true",
+                ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
+                ["Security:SecureHeaders:Csp"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+                ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; report-uri /csp-report"
+            })
+            .Build();
+        var middleware = new SecureHeadersMiddleware(
+            httpContext => httpContext.Response.WriteAsync("ok"),
+            configuration,
+            new FakeHostEnvironment("Production"));
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Contains("frame-ancestors 'none'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
+        Assert.Contains("report-uri /csp-report", context.Response.Headers["Content-Security-Policy-Report-Only"].ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task InvokeAsync_UsesDevelopmentVitePolicy()
     {
         var context = new DefaultHttpContext();

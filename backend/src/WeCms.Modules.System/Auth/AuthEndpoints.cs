@@ -141,26 +141,39 @@ public static class AuthEndpoints
             throw new DomainException(ApiCodes.Unauthorized, "Refresh token was not issued.");
         }
 
-        context.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Path = "/",
-            Expires = session.RefreshTokenExpiresAt,
-            MaxAge = session.RefreshTokenMaxAge
-        });
+        context.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, RefreshCookieOptionsFactory.CreateAppendOptions(session));
     }
 
     private static void DeleteRefreshTokenCookie(HttpContext context)
     {
-        context.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+        context.Response.Cookies.Delete(RefreshCookieName, RefreshCookieOptionsFactory.CreateDeleteOptions());
+    }
+
+    private static class RefreshCookieOptionsFactory
+    {
+        public static CookieOptions CreateAppendOptions(AuthSessionResult session)
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Path = "/"
-        });
+            var options = CreateBaseOptions();
+            options.Expires = session.RefreshTokenExpiresAt;
+            options.MaxAge = session.RefreshTokenMaxAge;
+            return options;
+        }
+
+        public static CookieOptions CreateDeleteOptions()
+        {
+            return CreateBaseOptions();
+        }
+
+        private static CookieOptions CreateBaseOptions()
+        {
+            return new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/"
+            };
+        }
     }
 
     private static AuthRequestContext CreateRequestContext(HttpContext context)

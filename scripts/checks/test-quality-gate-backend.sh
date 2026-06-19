@@ -167,6 +167,7 @@ assert_contains "$fallback_output" "check-admingate-csrf-migration"
 assert_contains "$fallback_output" "check-thinkphp-feature-delta"
 assert_contains "$fallback_output" "check-foundation-freeze-baseline"
 assert_contains "$fallback_output" "check-production-config-baseline"
+assert_contains "$fallback_output" "check-security-baseline"
 assert_contains "$fallback_output" "quality-gate-backend: ok"
 
 run_gate "fallback" "$ci_fallback_output" 1 "true" "true"
