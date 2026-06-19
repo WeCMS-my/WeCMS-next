@@ -58,7 +58,12 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `FileStorage:PublicBaseUrl` | Optional | Staging/Production | `https://files.example.com` | Public deploy setting | Empty allowed for local API-served downloads | Documented for future object storage providers | Ops |
 | `FileStorage:MaxUploadBytes` | Yes | Dev/Staging/Production | `10485760` | Public | Yes | Documents deploy cap; per-policy upload caps remain enforced | Backend |
 | `FileStorage:AllowedMimeTypes` | Yes | Dev/Staging/Production | `image/png,image/jpeg` | Public | Yes | Documents deploy MIME families; per-policy allowlists remain enforced | Backend |
-| `FileStorage:VirusScanEnabled` | Yes | Staging/Production | `false` | Public | Yes | Production rejects `true` while only `NoopFileScanService` exists | Security |
+| `FileStorage:VirusScanEnabled` | Yes | Staging/Production | `false` | Public | Yes | Production requires `FileStorage:VirusScan:Provider=clamav-tcp` when `true` | Security |
+| `FileStorage:VirusScan:Provider` | Required when scan enabled | Staging/Production | `clamav-tcp` | Public | `none` only when scan disabled | Production rejects missing or unsupported providers when scanning is enabled | Security |
+| `FileStorage:VirusScan:Host` | Required when scan enabled | Staging/Production | `scanner.internal` | Internal deploy setting | No when scan enabled | Production rejects empty host when scanning is enabled | Ops/Security |
+| `FileStorage:VirusScan:Port` | No | Staging/Production | `3310` | Public | Yes, defaults to `3310` | Production rejects values outside 1-65535 | Ops/Security |
+| `FileStorage:VirusScan:TimeoutSeconds` | No | Staging/Production | `10` | Public | Yes, defaults to `10` | Production rejects values outside 1-300 | Ops/Security |
+| `FileStorage:VirusScan:ChunkSizeBytes` | No | Staging/Production | `8192` | Public | Yes, defaults to `8192` | Production rejects values outside 1024-1048576 | Ops/Security |
 | `Logging:LogLevel:Default` | Yes | Dev/Staging/Production | `Information` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Yes | Dev/Staging/Production | `Warning` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Database:SeedAdminPassword` | Yes in Production | Staging/Production | `__SET_BY_SECRET_MANAGER__` | Critical | Development only | Production rejects empty, placeholder, `Admin@123`, or weak value | Ops |
