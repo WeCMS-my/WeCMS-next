@@ -150,12 +150,12 @@ public sealed class UserRepository : IUserRepository
 
     public Task<IReadOnlySet<long>> ExistingRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken)
     {
-        return ExistingIdsAsync("sys_role", roleIds, cancellationToken);
+        return ExistingActiveRoleIdsAsync(roleIds, cancellationToken);
     }
 
     public Task<IReadOnlySet<long>> ExistingPostIdsAsync(IReadOnlyList<long> postIds, CancellationToken cancellationToken)
     {
-        return ExistingIdsAsync("sys_post", postIds, cancellationToken);
+        return ExistingActivePostIdsAsync(postIds, cancellationToken);
     }
 
     public async Task<long> CreateAsync(UserCreateRecord record, CancellationToken cancellationToken)
@@ -442,7 +442,7 @@ public sealed class UserRepository : IUserRepository
         return Convert.ToInt32(await _db.Ado.GetScalarAsync(sql, parameters), global::System.Globalization.CultureInfo.InvariantCulture) > 0;
     }
 
-    private async Task<IReadOnlySet<long>> ExistingIdsAsync(string table, IReadOnlyList<long> ids, CancellationToken cancellationToken)
+    private async Task<IReadOnlySet<long>> ExistingActiveRoleIdsAsync(IReadOnlyList<long> ids, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (ids.Count == 0)
@@ -452,7 +452,36 @@ public sealed class UserRepository : IUserRepository
 
         var parameters = ids.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
         var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
-        var rows = await _db.Ado.SqlQueryAsync<long>($"SELECT id FROM {table} WHERE id IN ({placeholders})", parameters);
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            $"""
+            SELECT id
+            FROM sys_role
+            WHERE id IN ({placeholders})
+              AND deleted_at IS NULL
+            """,
+            parameters);
+
+        return rows.ToHashSet();
+    }
+
+    private async Task<IReadOnlySet<long>> ExistingActivePostIdsAsync(IReadOnlyList<long> ids, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ids.Count == 0)
+        {
+            return new HashSet<long>();
+        }
+
+        var parameters = ids.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
+        var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            $"""
+            SELECT id
+            FROM sys_post
+            WHERE id IN ({placeholders})
+              AND deleted_at IS NULL
+            """,
+            parameters);
 
         return rows.ToHashSet();
     }
