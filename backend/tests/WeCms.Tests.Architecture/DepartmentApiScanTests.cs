@@ -5,7 +5,7 @@ public sealed class DepartmentApiScanTests
     [Fact]
     public async Task DepartmentEndpoints_AreExplicitlyRegisteredWithPermissions()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Departments", "DepartmentEndpoints.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Departments", "DepartmentEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/depts\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -30,9 +30,10 @@ public sealed class DepartmentApiScanTests
     [Fact]
     public async Task Program_RegistersDepartmentEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemDepartments();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapDepartmentEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

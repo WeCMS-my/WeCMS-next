@@ -10,7 +10,7 @@ public sealed class AccessTokenAuthenticationHandlerSourceTests
             "src",
             "WeCms.Modules.System",
             "Auth",
-            "AccessTokenAuthenticationHandler.cs"));
+            "AccessTokenAuthenticationHandler.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("protected override Task HandleChallengeAsync", source, StringComparison.Ordinal);
         Assert.Contains("protected override Task HandleForbiddenAsync", source, StringComparison.Ordinal);

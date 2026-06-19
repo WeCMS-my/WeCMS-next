@@ -69,11 +69,11 @@ internal static class IntegrationTestDatabase
         var validationFailure = GetTestConnectionValidationFailure(connectionString);
         Assert.True(string.IsNullOrWhiteSpace(validationFailure), validationFailure ?? "Integration test database connection is not allowed.");
 
-        await ResetLock.WaitAsync();
+        await ResetLock.WaitAsync(TestContext.Current.CancellationToken);
         try
         {
             await using var connection = new MySqlConnection(connectionString);
-            await connection.OpenAsync();
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
             await ResetDatabaseAsync(connection);
         }
         finally
@@ -84,11 +84,11 @@ internal static class IntegrationTestDatabase
 
     public static async Task ResetDatabaseAsync(ISqlSugarClient db)
     {
-        await ResetLock.WaitAsync();
+        await ResetLock.WaitAsync(TestContext.Current.CancellationToken);
         try
         {
             await using var connection = new MySqlConnection(db.Ado.Connection.ConnectionString);
-            await connection.OpenAsync();
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
             await ResetDatabaseAsync(connection);
         }
         finally
@@ -111,8 +111,8 @@ internal static class IntegrationTestDatabase
                 ORDER BY TABLE_NAME
                 """;
 
-            await using var reader = await tablesCommand.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            await using var reader = await tablesCommand.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+            while (await reader.ReadAsync(TestContext.Current.CancellationToken))
             {
                 if (!reader.IsDBNull(0))
                 {
@@ -128,7 +128,7 @@ internal static class IntegrationTestDatabase
 
         await using var disableCommand = connection.CreateCommand();
         disableCommand.CommandText = "SET SESSION FOREIGN_KEY_CHECKS = 0";
-        await disableCommand.ExecuteNonQueryAsync();
+        await disableCommand.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -136,14 +136,14 @@ internal static class IntegrationTestDatabase
             {
                 await using var dropCommand = connection.CreateCommand();
                 dropCommand.CommandText = $"DROP TABLE IF EXISTS {QuoteIdentifier(table)}";
-                await dropCommand.ExecuteNonQueryAsync();
+                await dropCommand.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             }
         }
         finally
         {
             await using var enableCommand = connection.CreateCommand();
             enableCommand.CommandText = "SET SESSION FOREIGN_KEY_CHECKS = 1";
-            await enableCommand.ExecuteNonQueryAsync();
+            await enableCommand.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
     }
 

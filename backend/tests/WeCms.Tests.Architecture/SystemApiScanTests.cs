@@ -10,7 +10,7 @@ public sealed class SystemApiScanTests
             "backend",
             "src",
             "WeCms.Api",
-            "Program.cs"));
+            "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("WebApplication.CreateSlimBuilder(args)", source, StringComparison.Ordinal);
         Assert.Contains("app.MapSystemEndpoints();", source, StringComparison.Ordinal);
@@ -26,7 +26,7 @@ public sealed class SystemApiScanTests
             "src",
             "WeCms.Api",
             "Json",
-            "WeCmsJsonSerializerContext.cs"));
+            "WeCmsJsonSerializerContext.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("ApiResult<SystemLiveResponse>", source, StringComparison.Ordinal);
         Assert.Contains("ApiResult<SystemReadyResponse>", source, StringComparison.Ordinal);
@@ -45,21 +45,21 @@ public sealed class SystemApiScanTests
             "src",
             "WeCms.Modules.System",
             "Auth",
-            "AuthEndpoints.cs"));
+            "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
         var systemSource = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
             "backend",
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
         var permissionSource = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
             "backend",
             "src",
             "WeCms.Modules.System",
             "Permissions",
-            "PermissionEndpointExtensions.cs"));
+            "PermissionEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         var declarations = CollectSystemAuthEndpointDeclarations(authSource)
             .Concat(CollectSystemAuthEndpointDeclarations(systemSource))
@@ -140,3 +140,4 @@ public sealed class SystemApiScanTests
 
     private sealed record SystemAuthEndpointDeclaration(string Path, string Method, bool IsAuthenticationIntentExplicit);
 }
+

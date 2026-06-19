@@ -5,7 +5,7 @@ public sealed class DictApiScanTests
     [Fact]
     public async Task DictEndpoints_AreExplicitlyRegisteredWithPermissions()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Dicts", "DictEndpoints.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Dicts", "DictEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -39,9 +39,10 @@ public sealed class DictApiScanTests
     [Fact]
     public async Task Program_RegistersDictEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemDicts();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapDictEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

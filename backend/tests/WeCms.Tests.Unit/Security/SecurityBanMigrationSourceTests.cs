@@ -5,7 +5,7 @@ public sealed class SecurityBanMigrationSourceTests
     [Fact]
     public async Task H1SecurityBanMigration_CreatesSecurityBanTable()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("database", "migrations", "000013_h1_security_ban.sql"));
+        var source = await File.ReadAllTextAsync(RepoPath("database", "migrations", "000013_h1_security_ban.sql"), TestContext.Current.CancellationToken);
 
         Assert.Contains("CREATE TABLE sys_security_ban", source, StringComparison.Ordinal);
         Assert.Contains("ban_type VARCHAR(32) NOT NULL", source, StringComparison.Ordinal);

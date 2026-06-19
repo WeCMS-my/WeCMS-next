@@ -5,7 +5,7 @@ public sealed class SecurityPipelineSourceTests
     [Fact]
     public async Task Program_RegistersForwardedHeadersHstsAndCorsInSecurityOrder()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsForwardedHeaders(builder.Configuration);", source, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddWeCmsCors(builder.Configuration);", source, StringComparison.Ordinal);
@@ -34,7 +34,7 @@ public sealed class SecurityPipelineSourceTests
     [Fact]
     public async Task CorsPolicy_UsesExplicitOriginsWithCredentials()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "WeCmsCorsExtensions.cs"));
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "WeCmsCorsExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("Security:AllowedOrigins", source, StringComparison.Ordinal);
         Assert.Contains(".WithOrigins(origins)", source, StringComparison.Ordinal);
@@ -45,7 +45,7 @@ public sealed class SecurityPipelineSourceTests
     [Fact]
     public async Task ForwardedHeaders_RequiresExplicitEnableAndKnownProxyConfiguration()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "WeCmsForwardedHeadersExtensions.cs"));
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "WeCmsForwardedHeadersExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("Security:ForwardedHeaders", source, StringComparison.Ordinal);
         Assert.Contains("XForwardedFor", source, StringComparison.Ordinal);

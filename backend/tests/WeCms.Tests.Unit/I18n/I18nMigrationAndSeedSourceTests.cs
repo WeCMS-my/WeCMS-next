@@ -5,7 +5,7 @@ public sealed class I18nMigrationAndSeedSourceTests
     [Fact]
     public async Task H2I18nMigration_CreatesMessageTableWithUniqueLocaleMessageKey()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "database", "migrations", "000018_h2_i18n_message.sql"));
+        var source = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "database", "migrations", "000018_h2_i18n_message.sql"), TestContext.Current.CancellationToken);
 
         Assert.Contains("CREATE TABLE sys_i18n_message", source, StringComparison.Ordinal);
         Assert.Contains("locale", source, StringComparison.Ordinal);
@@ -18,7 +18,7 @@ public sealed class I18nMigrationAndSeedSourceTests
     [Fact]
     public async Task H2I18nPermissionSeed_ContainsManagementAndAccountPermissions()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "database", "seeds", "000006_seed_h2_i18n_permissions.sql"));
+        var source = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "database", "seeds", "000006_seed_h2_i18n_permissions.sql"), TestContext.Current.CancellationToken);
 
         foreach (var permission in new[]
         {

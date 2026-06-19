@@ -10,7 +10,7 @@ public sealed class SystemEndpointSourceTests
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGet(\"/health/live\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/health/ready\"", source, StringComparison.Ordinal);
@@ -31,7 +31,7 @@ public sealed class SystemEndpointSourceTests
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         var dependenciesStart = source.IndexOf("MapGet(\"/health/dependencies\"", StringComparison.Ordinal);
         var nextRoute = source.IndexOf("MapGet(\"/api/v1/system/ping\"", dependenciesStart, StringComparison.Ordinal);
@@ -51,7 +51,7 @@ public sealed class SystemEndpointSourceTests
             "src",
             "WeCms.Modules.System",
             "System",
-            "SystemEndpointExtensions.cs"));
+            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         var liveStart = source.IndexOf("MapGet(\"/health/live\"", StringComparison.Ordinal);
         var readyStart = source.IndexOf("MapGet(\"/health/ready\"", StringComparison.Ordinal);

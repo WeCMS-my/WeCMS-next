@@ -11,7 +11,7 @@ public sealed class PermissionApiScanTests
             "src",
             "WeCms.Modules.System",
             "Permissions",
-            "PermissionManagementEndpoints.cs"));
+            "PermissionManagementEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/permissions\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -36,9 +36,10 @@ public sealed class PermissionApiScanTests
     [Fact]
     public async Task Program_RegistersPermissionManagementEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemPermissions();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapPermissionManagementEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

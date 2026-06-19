@@ -5,7 +5,7 @@ public sealed class SecureHeadersSourceTests
     [Fact]
     public async Task Program_RegistersSecureHeadersMiddleware()
     {
-        var program = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"));
+        var program = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("UseMiddleware<SecureHeadersMiddleware>", program, StringComparison.Ordinal);
     }
@@ -16,7 +16,7 @@ public sealed class SecureHeadersSourceTests
         var middlewarePath = RepoPath("backend", "src", "WeCms.Api", "Middleware", "SecureHeadersMiddleware.cs");
         Assert.True(File.Exists(middlewarePath), "SecureHeadersMiddleware.cs must exist.");
 
-        var source = await File.ReadAllTextAsync(middlewarePath);
+        var source = await File.ReadAllTextAsync(middlewarePath, TestContext.Current.CancellationToken);
 
         Assert.Contains("X-Content-Type-Options", source, StringComparison.Ordinal);
         Assert.Contains("X-Frame-Options", source, StringComparison.Ordinal);

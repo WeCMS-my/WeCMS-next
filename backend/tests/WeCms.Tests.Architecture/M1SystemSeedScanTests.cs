@@ -128,6 +128,7 @@ public sealed class M1SystemSeedScanTests
 
     private static Task<string> ReadSeedAsync(string fileName)
     {
-        return File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "database", "seeds", fileName));
+        return File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "database", "seeds", fileName), TestContext.Current.CancellationToken);
     }
 }
+

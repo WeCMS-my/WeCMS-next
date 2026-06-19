@@ -180,7 +180,7 @@ public sealed class PermissionEndpointFilterTests
         var typedResult = Assert.IsAssignableFrom<IResult>(result);
         await typedResult.ExecuteAsync(httpContext);
         httpContext.Response.Body.Position = 0;
-        using var document = await JsonDocument.ParseAsync(httpContext.Response.Body);
+        using var document = await JsonDocument.ParseAsync(httpContext.Response.Body, default, TestContext.Current.CancellationToken);
         var message = document.RootElement.GetProperty("msg").GetString();
 
         return (httpContext.Response.StatusCode, message);

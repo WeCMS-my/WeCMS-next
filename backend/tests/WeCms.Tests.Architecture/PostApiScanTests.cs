@@ -5,7 +5,7 @@ public sealed class PostApiScanTests
     [Fact]
     public async Task PostEndpoints_AreExplicitlyRegisteredWithPermissions()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Posts", "PostEndpoints.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Posts", "PostEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system/posts\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -28,9 +28,10 @@ public sealed class PostApiScanTests
     [Fact]
     public async Task Program_RegistersPostEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"));
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("builder.Services.AddWeCmsSystemPosts();", source, StringComparison.Ordinal);
         Assert.Contains("app.MapPostEndpoints();", source, StringComparison.Ordinal);
     }
 }
+

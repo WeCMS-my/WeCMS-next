@@ -111,7 +111,7 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             return Task.Run(async () =>
             {
                 startSignal.Release();
-                await executeSignal.WaitAsync();
+                await executeSignal.WaitAsync(TestContext.Current.CancellationToken);
                 try
                 {
                     await service.AssignRolesAsync(targetId, new AssignUserRolesRequest([]), UserContext(actorId), CancellationToken.None);
@@ -133,8 +133,8 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             var first = TryRemoveLockedRoleAsync(firstService, fixture.PrimaryUserId, fixture.PrimaryUserId);
             var second = TryRemoveLockedRoleAsync(secondService, fixture.SecondaryUserId, fixture.SecondaryUserId);
 
-            await startSignal.WaitAsync();
-            await startSignal.WaitAsync();
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
             executeSignal.Release(2);
 
             var outcomes = await Task.WhenAll(first, second);
@@ -180,7 +180,7 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             return Task.Run(async () =>
             {
                 startSignal.Release();
-                await executeSignal.WaitAsync();
+                await executeSignal.WaitAsync(TestContext.Current.CancellationToken);
                 try
                 {
                     await service.DeleteAsync(targetId, UserContext(actorId), CancellationToken.None);
@@ -202,8 +202,8 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             var first = TryDeleteAsync(firstService, fixture.PrimaryUserId, fixture.SecondaryUserId);
             var second = TryDeleteAsync(secondService, fixture.SecondaryUserId, fixture.PrimaryUserId);
 
-            await startSignal.WaitAsync();
-            await startSignal.WaitAsync();
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
             executeSignal.Release(2);
 
             var outcomes = await Task.WhenAll(first, second);
@@ -249,7 +249,7 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             return Task.Run(async () =>
             {
                 startSignal.Release();
-                await executeSignal.WaitAsync();
+                await executeSignal.WaitAsync(TestContext.Current.CancellationToken);
                 try
                 {
                     await service.DisableAsync(targetId, UserContext(actorId), CancellationToken.None);
@@ -271,8 +271,8 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             var first = TryDisableAsync(firstService, fixture.PrimaryUserId, fixture.SecondaryUserId);
             var second = TryDisableAsync(secondService, fixture.SecondaryUserId, fixture.PrimaryUserId);
 
-            await startSignal.WaitAsync();
-            await startSignal.WaitAsync();
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
+            await startSignal.WaitAsync(TestContext.Current.CancellationToken);
             executeSignal.Release(2);
 
             var outcomes = await Task.WhenAll(first, second);
