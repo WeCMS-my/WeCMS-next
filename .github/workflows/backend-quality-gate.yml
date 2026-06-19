@@ -23,9 +23,25 @@ jobs:
     name: Backend quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: wecms_dev
+          MYSQL_USER: wecms_dev
+          MYSQL_PASSWORD: wecms_dev
+          MYSQL_ROOT_PASSWORD: wecms_root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     env:
-      WECMS_SKIP_MYSQL_INTEGRATION_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.skip_mysql_integration_tests == true && 'true' || 'false') || 'true' }}
+      WECMS_SKIP_MYSQL_INTEGRATION_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.skip_mysql_integration_tests == true && 'true' || 'false') || 'false' }}
+      WECMS_TEST_MYSQL_CONNECTION_STRING: "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;"
       WECMS_FRONTEND_BASE_REF: ${{ github.base_ref || 'main' }}
 
     steps:

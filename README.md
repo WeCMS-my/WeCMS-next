@@ -34,13 +34,19 @@
 ### 1. 启动 MySQL
 
 ```bash
-docker compose up -d mysql
+docker run -d --name wecms-mysql \
+  -p 3306:3306 \
+  -e MYSQL_DATABASE=wecms_dev \
+  -e MYSQL_USER=wecms_dev \
+  -e MYSQL_PASSWORD=wecms_dev \
+  -e MYSQL_ROOT_PASSWORD=wecms_root \
+  mysql:8.0
 ```
 
 ### 2. 初始化数据库
 
 ```bash
-bash scripts/db/reset-dev-db.sh
+# 无需执行额外脚本；后端启动时会自动执行 DbMigrationRunner 进行 schema/seed 初始化
 ```
 
 开发环境的 schema、基础权限和 `admin / Admin@123` 账号由后端启动时的 `DbMigrationRunner` 统一创建。
@@ -82,7 +88,9 @@ curl http://localhost:5261/api/v1/system/db-check
 验证初始化后的默认管理员可登录：
 
 ```bash
-bash scripts/smoke-admin-login.sh
+curl -X POST http://localhost:5261/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin@123"}'
 ```
 
 ## 质量门禁
@@ -90,10 +98,11 @@ bash scripts/smoke-admin-login.sh
 ### Backend gate
 
 ```bash
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
 bash scripts/quality-gate-backend.sh
 ```
 
-`quality-gate-backend.sh` 是当前 backend 质量门禁入口。
+`quality-gate-backend.sh` 是当前 backend 质量门禁入口。它不会读取项目 `user-secrets`，请优先通过 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供可连接的测试库，或在命令行直接覆盖该变量。
 
 默认运行 strict 模式。
 如遇 NuGet 漏洞索引/缓存权限噪音，可在本地显式设置 `WECMS_NUGET_AUDIT_MODE=fallback` 做诊断；该模式会输出 warning，并且禁止在 CI / GitHub Actions 中使用。
@@ -112,6 +121,64 @@ CI（`backend-quality-gate.yml`）直接运行默认 strict gate。
 8. locked role seed / no SQL in modules 检查
 9. generated test artifact / code-review 静态规则检查
 10. migration / seed smoke test
+
+### 本地完整 MySQL Integration（非 skip）
+
+集成测试中包含 host 白名单校验。默认只允许 `192.168.101.199`，本地跑本机 MySQL 时请显式放行当前连接主机。
+
+```bash
+# 启动本地 MySQL（若已有可用实例可跳过这步）
+docker run -d --name wecms-mysql \
+  -p 3306:3306 \
+  -e MYSQL_DATABASE=wecms_dev \
+  -e MYSQL_USER=wecms_dev \
+  -e MYSQL_PASSWORD=wecms_dev \
+  -e MYSQL_ROOT_PASSWORD=wecms_root \
+  mysql:8.0
+
+# 非 skip 全量运行（含 migration/seed smoke test）
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;"
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1"
+WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
+```
+
+如需纯一行执行版本：
+
+```bash
+docker rm -f wecms-mysql 2>/dev/null || true; \
+docker run -d --name wecms-mysql -p 3306:3306 \
+  -e MYSQL_DATABASE=wecms_dev -e MYSQL_USER=wecms_dev -e MYSQL_PASSWORD=wecms_dev -e MYSQL_ROOT_PASSWORD=wecms_root mysql:8.0 && \
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;" && \
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1" && \
+WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
+```
+
+如有固定的主机白名单要求，可使用参数化模板（仅改变量）重复使用：
+
+```bash
+export MYSQL_HOST="127.0.0.1"  # 或你的 host，例如 192.168.101.199
+export MYSQL_PORT="3306"
+export MYSQL_DATABASE="wecms_dev"
+export MYSQL_USER="wecms_dev"
+export MYSQL_PASSWORD="wecms_dev"
+export MYSQL_ROOT_PASSWORD="wecms_root"
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;"
+
+docker rm -f wecms-mysql 2>/dev/null || true; \
+docker run -d --name wecms-mysql -p ${MYSQL_PORT}:3306 \
+  -e MYSQL_DATABASE=${MYSQL_DATABASE} -e MYSQL_USER=${MYSQL_USER} -e MYSQL_PASSWORD=${MYSQL_PASSWORD} -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} mysql:8.0 && \
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS=${WECMS_TEST_MYSQL_ALLOWED_HOSTS} && \
+WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
+```
+
+如果你的测试库主机是 `192.168.101.199`，可只改为：
+
+```bash
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="192.168.101.199"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=192.168.101.199;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
+WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
+```
 
 ### Frontend gate
 

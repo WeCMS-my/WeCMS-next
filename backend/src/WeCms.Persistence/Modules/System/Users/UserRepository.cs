@@ -278,11 +278,15 @@ public sealed class UserRepository : IUserRepository
         cancellationToken.ThrowIfCancellationRequested();
         await EnsureActiveUserExistsAsync(id, cancellationToken);
 
-        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_role WHERE user_id = @id", new SugarParameter("@id", id));
+        await ExecuteOptionalAsync(
+            "DELETE FROM sys_user_role WHERE user_id = @id",
+            cancellationToken,
+            new SugarParameter("@id", id));
         foreach (var roleId in roleIds)
         {
-            await _db.Ado.ExecuteCommandAsync(
+            await ExpectOneAsync(
                 "INSERT INTO sys_user_role (user_id, role_id, created_at) VALUES (@id, @roleId, @createdAt)",
+                cancellationToken,
                 new SugarParameter("@id", id),
                 new SugarParameter("@roleId", roleId),
                 new SugarParameter("@createdAt", now.UtcDateTime));
@@ -295,11 +299,15 @@ public sealed class UserRepository : IUserRepository
         cancellationToken.ThrowIfCancellationRequested();
         await EnsureActiveUserExistsAsync(id, cancellationToken);
 
-        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_user_post WHERE user_id = @id", new SugarParameter("@id", id));
+        await ExecuteOptionalAsync(
+            "DELETE FROM sys_user_post WHERE user_id = @id",
+            cancellationToken,
+            new SugarParameter("@id", id));
         foreach (var postId in postIds)
         {
-            await _db.Ado.ExecuteCommandAsync(
+            await ExpectOneAsync(
                 "INSERT INTO sys_user_post (user_id, post_id, created_at) VALUES (@id, @postId, @createdAt)",
+                cancellationToken,
                 new SugarParameter("@id", id),
                 new SugarParameter("@postId", postId),
                 new SugarParameter("@createdAt", now.UtcDateTime));
@@ -407,6 +415,16 @@ public sealed class UserRepository : IUserRepository
             new SugarParameter("@message", record.Message),
             new SugarParameter("@traceId", classification.TraceId),
             new SugarParameter("@createdAt", record.CreatedAt.UtcDateTime));
+    }
+
+    private async Task ExecuteOptionalAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var rows = await _db.Ado.ExecuteCommandAsync(sql, parameters);
+        if (rows < 0)
+        {
+            throw new InvalidOperationException($"Expected non-negative affected rows, got {rows}.");
+        }
     }
 
     private async Task<bool> ExistsAsync(string column, string value, long? exceptUserId, CancellationToken cancellationToken)
