@@ -100,6 +100,7 @@ curl -X POST http://localhost:5261/api/v1/auth/login \
 
 ```bash
 export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1"
 bash scripts/quality-gate-backend.sh
 ```
 
@@ -110,6 +111,7 @@ CI 默认为 strict 模式；本地默认为 fallback 模式，适合在本地�
 `WECMS_NUGET_AUDIT_MODE=fallback` 会输出 warning，并且禁止在 CI / GitHub Actions 中使用。  
 
 CI（`backend-quality-gate.yml`）运行 strict gate。
+其中 MySQL 集成测试的主机白名单也已在 workflow 环境变量中写死为 `127.0.0.1`，与上述连接串一致，避免本地与 CI 的集成测试主机校验不一致。
 
 当前 backend quality gate 以 JIT + Persistence 边界治理、系统管理 API 权限码、OpenAPI、seed 和迁移烟测为准。当前重点覆盖以下检查面：
 
