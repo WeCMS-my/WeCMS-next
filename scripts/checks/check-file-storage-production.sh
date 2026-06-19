@@ -18,7 +18,9 @@ required_files = [
     "docs/adr/production-file-storage-provider.md",
     "backend/src/WeCms.Shared/FileStorage.cs",
     "backend/src/WeCms.Infrastructure/Files/LocalFileStorage.cs",
+    "backend/src/WeCms.Infrastructure/Files/ClamAvFileScanService.cs",
     "backend/tests/WeCms.Tests.Unit/Files/LocalFileStorageTests.cs",
+    "backend/tests/WeCms.Tests.Unit/Files/ClamAvFileScanServiceTests.cs",
 ]
 
 for relative in required_files:
@@ -41,8 +43,15 @@ for token in ["LocalFileStorage(string basePath)", "Path.GetFullPath(basePath)",
 if "Microsoft.Extensions" in local_storage:
     violations.append("LocalFileStorage must not add Microsoft.Extensions dependencies to Infrastructure")
 
+clamav = read("backend/src/WeCms.Infrastructure/Files/ClamAvFileScanService.cs")
+for token in ["ClamAvFileScanService", "ClamAvFileScanOptions", "zINSTREAM", "WriteStreamChunksAsync", " FOUND", "FileScanResult.CleanResult"]:
+    if token not in clamav:
+        violations.append(f"ClamAV scanner missing {token}")
+if "Microsoft.Extensions" in clamav:
+    violations.append("ClamAvFileScanService must not add Microsoft.Extensions dependencies to Infrastructure")
+
 program = read("backend/src/WeCms.Api/Program.cs")
-for token in ["new LocalFileStorage(ResolveLocalFileStorageBasePath", "IFileScanService", "NoopFileScanService", "FileStorage:Local:BasePath", "storage\", \"files"]:
+for token in ["new LocalFileStorage(ResolveLocalFileStorageBasePath", "IFileScanService", "NoopFileScanService", "ClamAvFileScanService", "FileStorage:VirusScan:Provider", "FileStorage:Local:BasePath", "storage\", \"files"]:
     if token not in program:
         violations.append(f"Program.cs missing FileStorage registration token {token}")
 
@@ -56,7 +65,9 @@ for token in [
     "EnsureWritableDirectory",
     "wwwroot",
     "FileStorage:VirusScanEnabled",
-    "requires a non-noop scanner",
+    "FileStorage:VirusScan:Provider",
+    "FileStorage:VirusScan:Host",
+    "clamav-tcp",
 ]:
     if token not in validator:
         violations.append(f"ProductionConfigurationValidator missing {token}")
@@ -73,6 +84,7 @@ for token in ["IFileScanService", "ScanAvatarAsync", "FileScanRequest", "Avatar 
 
 tests = (
     read("backend/tests/WeCms.Tests.Unit/Files/LocalFileStorageTests.cs")
+    + read("backend/tests/WeCms.Tests.Unit/Files/ClamAvFileScanServiceTests.cs")
     + read("backend/tests/WeCms.Tests.Unit/Files/FileServiceTests.cs")
     + read("backend/tests/WeCms.Tests.Unit/Auth/AccountProfileServiceTests.cs")
     + read("backend/tests/WeCms.Tests.Unit/Configuration/ProductionConfigurationValidatorTests.cs")
@@ -84,12 +96,15 @@ for token in [
     "UploadAvatarAsync_RejectsWhenFileScannerRejectsContent",
     "Validate_ProductionRejectsMissingFileStorageBasePath",
     "Validate_ProductionRejectsVirusScanEnabledWithNoopScanner",
+    "Validate_ProductionAllowsVirusScanEnabledWithClamAvProvider",
+    "ScanAsync_ReturnsClean_WhenClamAvReportsOk",
+    "ScanAsync_ReturnsRejected_WhenClamAvReportsFound",
 ]:
     if token not in tests:
         violations.append(f"PH-4 tests missing {token}")
 
 production_template = read("backend/src/WeCms.Api/appsettings.Production.example.json")
-for token in ['"FileStorage"', '"Provider": "local"', '"BasePath": "__SET_BY_ENV__"', '"VirusScanEnabled": false']:
+for token in ['"FileStorage"', '"Provider": "local"', '"BasePath": "__SET_BY_ENV__"', '"VirusScanEnabled": false', '"Provider": "clamav-tcp"', '"Host": "scanner.internal"']:
     if token not in production_template:
         violations.append(f"production template missing {token}")
 
@@ -98,7 +113,7 @@ docs = (
     + read("docs/adr/production-file-storage-provider.md")
     + read("docs/ops/production-configuration.md")
 )
-for token in ["local", "s3-compatible", "NoopFileScanService", "VirusScanEnabled", "path traversal", "web root"]:
+for token in ["local", "s3-compatible", "NoopFileScanService", "ClamAvFileScanService", "clamav-tcp", "VirusScanEnabled", "path traversal", "web root"]:
     if token not in docs:
         violations.append(f"PH-4 docs missing {token}")
 

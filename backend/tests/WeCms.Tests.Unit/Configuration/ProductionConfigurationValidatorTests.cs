@@ -176,7 +176,66 @@ public sealed class ProductionConfigurationValidatorTests
                 ["Database:SeedAdminPassword"] = ValidSeedPassword()
             }), Environment("Production")));
 
-        Assert.Equal("FileStorage:VirusScanEnabled requires a non-noop scanner implementation before Production startup.", exception.Message);
+        Assert.Equal("FileStorage:VirusScan:Provider must be clamav-tcp when virus scanning is enabled in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionAllowsVirusScanEnabledWithClamAvProvider()
+    {
+        ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Default"] = ValidConnectionString(),
+            ["Auth:AccessTokenSecret"] = ValidSecret(),
+            ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+            ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+            ["FileStorage:VirusScanEnabled"] = "true",
+            ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+            ["FileStorage:VirusScan:Host"] = "scanner.internal",
+            ["FileStorage:VirusScan:Port"] = "3310",
+            ["FileStorage:VirusScan:TimeoutSeconds"] = "5",
+            ["Database:SeedAdminPassword"] = ValidSeedPassword()
+        }), Environment("Production"));
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsVirusScanEnabledWithClamAvProviderMissingHost()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:VirusScanEnabled"] = "true",
+                ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                ["FileStorage:VirusScan:Port"] = "3310",
+                ["FileStorage:VirusScan:TimeoutSeconds"] = "5",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:VirusScan:Host must be configured when virus scanning is enabled in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsVirusScanEnabledWithClamAvProviderPlaceholderHost()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:VirusScanEnabled"] = "true",
+                ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                ["FileStorage:VirusScan:Host"] = "__SET_BY_ENV__",
+                ["FileStorage:VirusScan:Port"] = "3310",
+                ["FileStorage:VirusScan:TimeoutSeconds"] = "5",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:VirusScan:Host must be configured when virus scanning is enabled in Production.", exception.Message);
     }
 
     [Fact]

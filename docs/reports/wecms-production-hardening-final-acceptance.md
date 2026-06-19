@@ -37,14 +37,16 @@ Generated date: 2026-06-19
 - Release checklist: `docs/runbooks/release-checklist.md`
 - Rollback runbook: `docs/runbooks/rollback.md`
 - Incident response: `docs/runbooks/incident-response.md`
+- Production deployment record: `docs/runbooks/production-deployment-record.md`
+
+## Release Execution Evidence
+
+Real production deployment, tag creation, DNS/proxy changes, secret-manager provisioning, backup execution, migration execution, health checks, and admin smoke checks are release-time operations. They are recorded in `docs/runbooks/production-deployment-record.md` during the real deployment and are not pre-filled by this hardening branch.
 
 ## Known Residual Risks
 
-| Risk | Severity | Owner | Follow-up |
-| --- | --- | --- | --- |
-| Real production deployment, tag creation, DNS/proxy changes, and secret-manager setup are not executed by this hardening branch. | P3 | Release owner | Execute during real deployment using PH-5 runbooks. |
-| `FileStorage:VirusScanEnabled=true` requires a future real scanner implementation. | P3 | Security/Ops | Add scanner adapter before enabling virus scanning in Production. |
+No known repository-scope P0/P1/P2/P3 residual risks remain. ClamAV TCP scanner support is implemented for `FileStorage:VirusScan:Provider=clamav-tcp`; production deployment evidence is tracked separately as release execution evidence.
 
 ## Final Decision
 
-APPROVE for entering production deployment preparation or CMS phase-two planning, subject to human release approval, production secret provisioning, backup verification, and deployment runbook execution.
+APPROVE for entering production deployment preparation or CMS phase-two planning, subject to human release approval, production secret provisioning, backup verification, completed production deployment record, and deployment runbook execution.

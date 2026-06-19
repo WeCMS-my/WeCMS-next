@@ -35,6 +35,7 @@ Use one copy of this checklist per release. Do not record secrets, passwords, to
 - [ ] Reverse proxy, TLS, CORS, CSP, and secure headers reviewed against `docs/ops/security-baseline.md`.
 - [ ] File storage base path or provider configuration reviewed against `docs/ops/file-storage-production.md`.
 - [ ] Rollback target confirmed using `docs/runbooks/rollback.md`.
+- [ ] Production deployment record prepared using `docs/runbooks/production-deployment-record.md`.
 
 ## Release Steps
 
@@ -59,3 +60,4 @@ Use one copy of this checklist per release. Do not record secrets, passwords, to
 - [ ] Record final deployed commit SHA and tag.
 - [ ] Record gate results and smoke test outcome.
 - [ ] Record any residual risk with owner and follow-up date.
+- [ ] Complete `docs/runbooks/production-deployment-record.md` for the release archive.

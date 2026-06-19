@@ -36,7 +36,7 @@ ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environ
 
 builder.Services.AddWeCmsPersistence(builder.Configuration, useMigrationConnectionString: isMigrationCommand);
 builder.Services.AddScoped<IFileStorage>(_ => new LocalFileStorage(ResolveLocalFileStorageBasePath(builder.Configuration, builder.Environment)));
-builder.Services.AddSingleton<IFileScanService, NoopFileScanService>();
+builder.Services.AddSingleton<IFileScanService>(_ => CreateFileScanService(builder.Configuration));
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);
@@ -119,4 +119,24 @@ static string ResolveLocalFileStorageBasePath(IConfiguration configuration, IWeb
     return string.IsNullOrWhiteSpace(configured)
         ? Path.Combine(environment.ContentRootPath, "storage", "files")
         : configured;
+}
+
+static IFileScanService CreateFileScanService(IConfiguration configuration)
+{
+    if (!configuration.GetValue("FileStorage:VirusScanEnabled", false))
+    {
+        return new NoopFileScanService();
+    }
+
+    var provider = configuration["FileStorage:VirusScan:Provider"];
+    if (!string.Equals(provider, "clamav-tcp", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("FileStorage:VirusScan:Provider must be clamav-tcp when virus scanning is enabled.");
+    }
+
+    var host = configuration["FileStorage:VirusScan:Host"];
+    var port = configuration.GetValue("FileStorage:VirusScan:Port", ClamAvFileScanOptions.DefaultPort);
+    var timeoutSeconds = configuration.GetValue("FileStorage:VirusScan:TimeoutSeconds", ClamAvFileScanOptions.DefaultTimeoutSeconds);
+    var chunkSizeBytes = configuration.GetValue("FileStorage:VirusScan:ChunkSizeBytes", ClamAvFileScanOptions.DefaultChunkSizeBytes);
+    return new ClamAvFileScanService(new ClamAvFileScanOptions(host ?? string.Empty, port, timeoutSeconds, chunkSizeBytes));
 }

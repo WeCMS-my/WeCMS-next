@@ -215,10 +215,30 @@ public static class ProductionConfigurationValidator
 
         EnsureWritableDirectory(fullBasePath);
 
-        if (ReadBool(configuration, "FileStorage:VirusScanEnabled", defaultValue: false))
+        RequireVirusScan(configuration);
+    }
+
+    private static void RequireVirusScan(IConfiguration configuration)
+    {
+        if (!ReadBool(configuration, "FileStorage:VirusScanEnabled", defaultValue: false))
         {
-            throw new InvalidOperationException("FileStorage:VirusScanEnabled requires a non-noop scanner implementation before Production startup.");
+            return;
         }
+
+        var provider = configuration["FileStorage:VirusScan:Provider"];
+        if (!string.Equals(provider, "clamav-tcp", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("FileStorage:VirusScan:Provider must be clamav-tcp when virus scanning is enabled in Production.");
+        }
+
+        var host = configuration["FileStorage:VirusScan:Host"];
+        if (string.IsNullOrWhiteSpace(host) || ContainsPlaceholder(host))
+        {
+            throw new InvalidOperationException("FileStorage:VirusScan:Host must be configured when virus scanning is enabled in Production.");
+        }
+        _ = ReadInt(configuration, "FileStorage:VirusScan:Port", 3310, 1, 65535);
+        _ = ReadInt(configuration, "FileStorage:VirusScan:TimeoutSeconds", 10, 1, 300);
+        _ = ReadInt(configuration, "FileStorage:VirusScan:ChunkSizeBytes", 8192, 1024, 1024 * 1024);
     }
 
     private static void EnsureWritableDirectory(string path)
@@ -286,6 +306,22 @@ public static class ProductionConfigurationValidator
         }
 
         throw new InvalidOperationException($"{key} must be true or false.");
+    }
+
+    private static int ReadInt(IConfiguration configuration, string key, int defaultValue, int minValue, int maxValue)
+    {
+        var value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        if (int.TryParse(value, out var parsed) && parsed >= minValue && parsed <= maxValue)
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException($"{key} must be an integer between {minValue} and {maxValue}.");
     }
 
     private static bool IsValidCidr(string value)

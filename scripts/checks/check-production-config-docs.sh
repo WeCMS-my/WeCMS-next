@@ -21,6 +21,7 @@ required_files = [
     "docs/ops/frontend-production.md",
     "docs/runbooks/database-backup-restore.md",
     "docs/runbooks/release-checklist.md",
+    "docs/runbooks/production-deployment-record.md",
     "docs/runbooks/rollback.md",
     "docs/runbooks/incident-response.md",
     "docs/reports/wecms-production-hardening-final-acceptance.md",
@@ -41,6 +42,7 @@ for token in [
     "Security:TwoFactor:SecretProtectionKey",
     "Security:AllowedOrigins",
     "FileStorage:Provider",
+    "FileStorage:VirusScan:Provider",
     "VITE_API_BASE_URL",
     "Database:SeedAdminPassword",
 ]:
@@ -48,7 +50,7 @@ for token in [
         violations.append(f"production configuration docs missing {token}")
 
 acceptance = read("docs/reports/wecms-production-hardening-final-acceptance.md")
-for token in ["PH-0", "PH-1", "PH-2", "PH-3", "PH-4", "PH-5", "PH-6", "PH-7", "Production readiness gate", "Final Decision"]:
+for token in ["PH-0", "PH-1", "PH-2", "PH-3", "PH-4", "PH-5", "PH-6", "PH-7", "Production readiness gate", "Production deployment record", "Final Decision"]:
     if token not in acceptance:
         violations.append(f"final acceptance report missing {token}")
 

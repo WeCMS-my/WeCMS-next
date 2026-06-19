@@ -48,6 +48,11 @@ else:
             violations.append("Database:SeedAdminPassword must be __SET_BY_SECRET_MANAGER__")
         if data.get("FileStorage", {}).get("Local", {}).get("BasePath") != "__SET_BY_ENV__":
             violations.append("FileStorage:Local:BasePath must be __SET_BY_ENV__")
+        scanner = data.get("FileStorage", {}).get("VirusScan", {})
+        if scanner.get("Provider") != "clamav-tcp":
+            violations.append("FileStorage:VirusScan:Provider must document clamav-tcp")
+        if scanner.get("Host") != "scanner.internal":
+            violations.append("FileStorage:VirusScan:Host must use safe scanner.internal placeholder")
 
 if not frontend_env_path.is_file():
     violations.append("missing frontend production env example")
