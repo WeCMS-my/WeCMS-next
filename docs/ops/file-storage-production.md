@@ -39,6 +39,12 @@ Development may use `storage/files`. Production must use an operator-created abs
 ## Operations Checklist
 
 - Create `FileStorage:Local:BasePath` before deployment.
+  - Example:
+    ```bash
+    sudo mkdir -p /var/lib/wecms/files
+    sudo chown -R wecms:wecms /var/lib/wecms/files
+    sudo chmod 0755 /var/lib/wecms/files
+    ```
 - Ensure the API process user can write to the directory.
 - Verify the path is not inside `wwwroot`.
 - Back up this directory together with the database when local storage is used.

@@ -15,6 +15,7 @@ This record is completed during a real production release. It is not pre-filled 
 - Reverse proxy / TLS deployed:
 - DNS target confirmed:
 - `appsettings` / environment variables reviewed against `docs/ops/production-configuration.md`:
+- File storage base path directory ownership and write-permission verified:
 - File storage path or provider verified:
 - Virus scanner provider verified when `FileStorage:VirusScanEnabled=true`:
 
