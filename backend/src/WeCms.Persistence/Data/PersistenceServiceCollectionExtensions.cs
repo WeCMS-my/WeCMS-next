@@ -40,18 +40,26 @@ public static class PersistenceServiceCollectionExtensions
 {
     public static IServiceCollection AddWeCmsPersistence(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool useMigrationConnectionString = false)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var connectionString = configuration.GetConnectionString("Default");
+        var connectionString = useMigrationConnectionString
+            ? configuration.GetConnectionString("Migration") ?? configuration.GetConnectionString("Default")
+            : configuration.GetConnectionString("Default");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new PersistenceConfigurationException("ConnectionStrings:Default is required for WeCMS persistence.");
         }
 
-        services.AddScoped<ISqlSugarClientFactory>(_ => new SqlSugarClientFactory(connectionString));
+        var databaseOptions = DatabaseOptions.FromConfiguration(configuration);
+
+        services.AddSingleton(databaseOptions);
+        services.AddScoped<ISqlSugarClientFactory>(sp => new SqlSugarClientFactory(
+            connectionString,
+            sp.GetRequiredService<DatabaseOptions>()));
         services.AddScoped<ISqlSugarClient>(sp => sp.GetRequiredService<ISqlSugarClientFactory>().Create());
         services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
         services.AddScoped<IAuthRepository, AuthRepository>();

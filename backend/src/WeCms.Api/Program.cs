@@ -30,10 +30,11 @@ if (await OpenApiExtensions.ExportOpenApiAsync(args))
 }
 
 var builder = WebApplication.CreateSlimBuilder(args);
+var isMigrationCommand = DatabaseMigrationCommand.IsMigrationCommand(args);
 
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment);
 
-builder.Services.AddWeCmsPersistence(builder.Configuration);
+builder.Services.AddWeCmsPersistence(builder.Configuration, useMigrationConnectionString: isMigrationCommand);
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
@@ -60,6 +61,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 var app = builder.Build();
+
+if (isMigrationCommand)
+{
+    await DatabaseMigrationCommand.RunAsync(app);
+    return;
+}
+
+if (DatabaseStartupMigrationOptions.ShouldRunMigrationsOnStartup(builder.Configuration, app.Environment))
+{
+    await DatabaseMigrationCommand.RunAsync(app);
+}
 
 app.UseWeCmsForwardedHeaders(builder.Configuration);
 if (!app.Environment.IsDevelopment())
