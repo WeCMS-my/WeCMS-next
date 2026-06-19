@@ -100,18 +100,17 @@ curl -X POST http://localhost:5261/api/v1/auth/login \
 
 ```bash
 export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1"
 bash scripts/quality-gate-backend.sh
 ```
 
-`quality-gate-backend.sh` 是当前 backend 质量门禁入口。它不会读取项目 `user-secrets`，请优先通过 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供可连接的测试库，或在命令行直接覆盖该变量。
+`quality-gate-backend.sh` 是当前 backend 质量门禁入口。它不会读取项目 `user-secrets`。当门禁执行到 MySQL 集成测试时，测试代码会额外读取 `WECMS_TEST_MYSQL_ALLOWED_HOSTS` 做 host 白名单校验；请优先通过 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供可连接的测试库，或在命令行直接覆盖该变量。
 
 CI 默认为 strict 模式；本地默认为 fallback 模式，适合在本地避免 NuGet 漏洞索引或缓存权限噪音。  
 如需本地强制 strict，可显式设置 `WECMS_NUGET_AUDIT_MODE=strict`；  
 `WECMS_NUGET_AUDIT_MODE=fallback` 会输出 warning，并且禁止在 CI / GitHub Actions 中使用。  
 
 CI（`backend-quality-gate.yml`）运行 strict gate。
-其中 MySQL 集成测试的主机白名单也已在 workflow 环境变量中写死为 `127.0.0.1`，与上述连接串一致，避免本地与 CI 的集成测试主机校验不一致。
+CI 会显式设置 `WECMS_TEST_MYSQL_ALLOWED_HOSTS=127.0.0.1`；本地未设置该变量时，测试默认白名单为 `192.168.101.199`。
 
 当前 backend quality gate 以 JIT + Persistence 边界治理、系统管理 API 权限码、OpenAPI、seed 和迁移烟测为准。当前重点覆盖以下检查面：
 
@@ -130,7 +129,20 @@ CI（`backend-quality-gate.yml`）运行 strict gate。
 
 集成测试中包含 host 白名单校验。默认只允许 `192.168.101.199`，本地跑本机 MySQL 时请显式放行当前连接主机。
 
+你可以只改一个变量模板快速复用（连接串与白名单变量同时更新）：
+
 ```bash
+# 示例 1：默认本机连接时允许本地 MySQL
+export MYSQL_HOST="127.0.0.1"
+export MYSQL_PORT="3306"
+export MYSQL_DATABASE="wecms_dev"
+export MYSQL_USER="wecms_dev"
+export MYSQL_PASSWORD="wecms_dev"
+export MYSQL_ROOT_PASSWORD="wecms_root"
+
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}"
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;"
+
 # 启动本地 MySQL（若已有可用实例可跳过这步）
 docker run -d --name wecms-mysql \
   -p 3306:3306 \
@@ -141,8 +153,6 @@ docker run -d --name wecms-mysql \
   mysql:8.0
 
 # 非 skip 全量运行（含 migration/seed smoke test）
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;"
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1"
 WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
 ```
 
@@ -152,12 +162,13 @@ WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
 docker rm -f wecms-mysql 2>/dev/null || true; \
 docker run -d --name wecms-mysql -p 3306:3306 \
   -e MYSQL_DATABASE=wecms_dev -e MYSQL_USER=wecms_dev -e MYSQL_PASSWORD=wecms_dev -e MYSQL_ROOT_PASSWORD=wecms_root mysql:8.0 && \
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;" && \
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS="127.0.0.1" && \
+export MYSQL_HOST="127.0.0.1" && \
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}" && \
+export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=3306;database=wecms_dev;uid=wecms_dev;pwd=wecms_dev;charset=utf8mb4;SslMode=None;" && \
 WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
 ```
 
-如有固定的主机白名单要求，可使用参数化模板（仅改变量）重复使用：
+如有固定的主机白名单要求，可改为参数化模板：
 
 ```bash
 export MYSQL_HOST="127.0.0.1"  # 或你的 host，例如 192.168.101.199
@@ -166,22 +177,19 @@ export MYSQL_DATABASE="wecms_dev"
 export MYSQL_USER="wecms_dev"
 export MYSQL_PASSWORD="wecms_dev"
 export MYSQL_ROOT_PASSWORD="wecms_root"
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS="${MYSQL_HOST}"
 export WECMS_TEST_MYSQL_CONNECTION_STRING="server=${MYSQL_HOST};port=${MYSQL_PORT};database=${MYSQL_DATABASE};uid=${MYSQL_USER};pwd=${MYSQL_PASSWORD};charset=utf8mb4;SslMode=None;"
 
 docker rm -f wecms-mysql 2>/dev/null || true; \
 docker run -d --name wecms-mysql -p ${MYSQL_PORT}:3306 \
   -e MYSQL_DATABASE=${MYSQL_DATABASE} -e MYSQL_USER=${MYSQL_USER} -e MYSQL_PASSWORD=${MYSQL_PASSWORD} -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} mysql:8.0 && \
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS=${WECMS_TEST_MYSQL_ALLOWED_HOSTS} && \
+export WECMS_TEST_MYSQL_ALLOWED_HOSTS=${MYSQL_HOST} && \
 WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
 ```
 
-如果你的测试库主机是 `192.168.101.199`，可只改为：
+如果你的测试库主机是 `192.168.101.199`，可复用上方模板，仅改一行：
 
 ```bash
-export WECMS_TEST_MYSQL_ALLOWED_HOSTS="192.168.101.199"
-export WECMS_TEST_MYSQL_CONNECTION_STRING="server=192.168.101.199;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;"
-WECMS_SKIP_MYSQL_INTEGRATION_TESTS=false bash scripts/quality-gate-backend.sh
+export MYSQL_HOST="192.168.101.199"
 ```
 
 ### Frontend gate
