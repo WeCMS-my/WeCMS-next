@@ -17,6 +17,7 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | Key | Required | Environment | Example | Secret level | Default allowed | Fail-fast behavior | Owner |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ConnectionStrings:Default` | Yes | Dev/Staging/Production | `__SET_BY_ENV__` | High | No in Production | Production rejects empty or placeholder | Ops |
+| `ConnectionStrings:Migration` | Recommended | Staging/Production | `__SET_BY_SECRET_MANAGER__` | High | Fallback to Default | Used by `--migrate` when configured | Ops |
 | `Auth:AccessTokenSecret` | Yes | Dev/Staging/Production | `__SET_BY_ENV__` | Critical | No | Production rejects empty, placeholder, or length < 32 | Backend |
 | `Auth:Issuer` | Yes | Dev/Staging/Production | `wecms-production` | Public | Yes | Falls back in lower env; production template must declare | Backend |
 | `Auth:AccessTokenMinutes` | Yes | Dev/Staging/Production | `15` | Public | Yes | Existing Auth registration validates integer | Backend |
@@ -61,6 +62,8 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Logging:LogLevel:Default` | Yes | Dev/Staging/Production | `Information` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Yes | Dev/Staging/Production | `Warning` | Public | Yes | ASP.NET configuration applies default | Ops |
 | `Database:SeedAdminPassword` | Yes in Production | Staging/Production | `__SET_BY_SECRET_MANAGER__` | Critical | Development only | Production rejects empty, placeholder, `Admin@123`, or weak value | Ops |
+| `Database:RunMigrationsOnStartup` | Yes | Dev/Staging/Production | `false` | Public | Yes | Production default is false; `--migrate` is the production entry | Backend/Ops |
+| `Database:CommandTimeoutSeconds` | Yes | Dev/Staging/Production | `30` | Public | Yes | Persistence rejects values outside 1-300 | Backend/Ops |
 
 ## Frontend Configuration
 
@@ -92,6 +95,7 @@ Production:
 - `Security:ForwardedHeaders` must include known proxies or networks when enabled.
 - CSP report-only or enforce mode must be enabled and must include `object-src 'none'` plus `frame-ancestors`.
 - `Database:SeedAdminPassword` must be strong and must not equal `Admin@123`.
+- Runtime must not auto-run migrations in Production. Use the `--migrate` command with a migration account.
 
 ## Current Deviations Recorded In PH-0
 

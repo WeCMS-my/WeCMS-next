@@ -12,7 +12,7 @@ internal static class IntegrationTestDatabase
 {
     private const string EnvVarName = "WECMS_TEST_MYSQL_CONNECTION_STRING";
     private const string AllowedHostsEnvVar = "WECMS_TEST_MYSQL_ALLOWED_HOSTS";
-    private const string AllowedHost = "192.168.101.199";
+    private const string AllowedHost = "127.0.0.1";
     private const string AllowedDatabase = "wecms_dev";
     private static readonly SemaphoreSlim ResetLock = new(1, 1);
 

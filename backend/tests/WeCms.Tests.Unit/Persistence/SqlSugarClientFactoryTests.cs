@@ -22,4 +22,16 @@ public sealed class SqlSugarClientFactoryTests
 
         Assert.NotNull(client);
     }
+
+    [Fact]
+    public void Create_AppliesConfiguredCommandTimeout()
+    {
+        var factory = new SqlSugarClientFactory(
+            "server=localhost;port=3306;database=wecms;uid=root;pwd=example;",
+            new DatabaseOptions(45));
+
+        using var client = factory.Create();
+
+        Assert.Equal(45, client.Ado.CommandTimeOut);
+    }
 }
