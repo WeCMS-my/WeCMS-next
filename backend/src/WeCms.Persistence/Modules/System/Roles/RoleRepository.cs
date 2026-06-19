@@ -203,11 +203,15 @@ public sealed class RoleRepository : IRoleRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_permission WHERE role_id = @id", new SugarParameter("@id", id));
+        await ExecuteOptionalAsync(
+            "DELETE FROM sys_role_permission WHERE role_id = @id",
+            cancellationToken,
+            new SugarParameter("@id", id));
         foreach (var permissionId in permissionIds)
         {
-            await _db.Ado.ExecuteCommandAsync(
+            await ExpectOneAsync(
                 "INSERT INTO sys_role_permission (role_id, permission_id, created_at) VALUES (@id, @permissionId, @createdAt)",
+                cancellationToken,
                 new SugarParameter("@id", id),
                 new SugarParameter("@permissionId", permissionId),
                 new SugarParameter("@createdAt", now.UtcDateTime));
@@ -219,11 +223,15 @@ public sealed class RoleRepository : IRoleRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _db.Ado.ExecuteCommandAsync("DELETE FROM sys_role_menu WHERE role_id = @id", new SugarParameter("@id", id));
+        await ExecuteOptionalAsync(
+            "DELETE FROM sys_role_menu WHERE role_id = @id",
+            cancellationToken,
+            new SugarParameter("@id", id));
         foreach (var menuId in menuIds)
         {
-            await _db.Ado.ExecuteCommandAsync(
+            await ExpectOneAsync(
                 "INSERT INTO sys_role_menu (role_id, menu_id, created_at) VALUES (@id, @menuId, @createdAt)",
+                cancellationToken,
                 new SugarParameter("@id", id),
                 new SugarParameter("@menuId", menuId),
                 new SugarParameter("@createdAt", now.UtcDateTime));
@@ -251,6 +259,16 @@ public sealed class RoleRepository : IRoleRepository
             new SugarParameter("@result", record.Result),
             new SugarParameter("@detail", record.Detail),
             new SugarParameter("@createdAt", record.Now.UtcDateTime));
+    }
+
+    private async Task ExecuteOptionalAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var rows = await _db.Ado.ExecuteCommandAsync(sql, parameters);
+        if (rows < 0)
+        {
+            throw new InvalidOperationException($"Expected non-negative affected rows, got {rows}.");
+        }
     }
 
     private async Task<IReadOnlySet<long>> ExistingPermissionIdsInternalAsync(IReadOnlyList<long> ids, CancellationToken cancellationToken)
