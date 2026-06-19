@@ -134,6 +134,22 @@ export interface SystemLiveResponse {
 export interface SystemReadyResponse {
   status: string;
   database: boolean;
+  migrations: boolean;
+  criticalConfiguration: boolean;
+}
+
+export interface SystemDependencyStatus {
+  status: string;
+  available: boolean;
+  latencyMs: number | null;
+  failureCode: string | null;
+}
+
+export interface SystemDependenciesResponse {
+  status: string;
+  database: SystemDependencyStatus;
+  migrations: SystemDependencyStatus;
+  criticalConfiguration: SystemDependencyStatus;
 }
 
 export interface SystemPingResponse {
@@ -1604,6 +1620,11 @@ export interface ApiOperations {
   "/api/v1/system/version": {
     get: {
       response: ApiResult<SystemVersionResponse>;
+    };
+  };
+  "/health/dependencies": {
+    get: {
+      response: ApiResult<SystemDependenciesResponse>;
     };
   };
   "/health/live": {

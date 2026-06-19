@@ -1,3 +1,5 @@
+using WeCms.Modules.System.Security;
+
 namespace WeCms.Modules.System.Auth;
 
 public interface IAuthSecurityEventWriter
@@ -16,13 +18,15 @@ public interface IAuthSecurityEventWriter
 public sealed class AuthSecurityEventWriter : IAuthSecurityEventWriter
 {
     private readonly IAuthRepository _repository;
+    private readonly ISecurityAlertService _alertService;
 
-    public AuthSecurityEventWriter(IAuthRepository repository)
+    public AuthSecurityEventWriter(IAuthRepository repository, ISecurityAlertService alertService)
     {
         _repository = repository;
+        _alertService = alertService;
     }
 
-    public Task RecordAsync(
+    public async Task RecordAsync(
         string eventType,
         long? userId,
         string? username,
@@ -32,16 +36,24 @@ public sealed class AuthSecurityEventWriter : IAuthSecurityEventWriter
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        return _repository.RecordSecurityEventAsync(
-            new SecurityEventRecord(
-                eventType,
-                userId,
-                username,
-                requestContext.Ip,
-                severity,
-                message,
-                now,
-                requestContext.TraceId),
+        var securityEvent = new SecurityEventRecord(
+            eventType,
+            userId,
+            username,
+            requestContext.Ip,
+            severity,
+            message,
+            now,
+            requestContext.TraceId);
+
+        await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId ?? requestContext.TraceId,
+                now),
             cancellationToken);
     }
 }

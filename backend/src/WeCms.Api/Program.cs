@@ -80,6 +80,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<RequestIdMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<SecureHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<IpAccessControlMiddleware>();

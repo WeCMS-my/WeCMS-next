@@ -1,5 +1,6 @@
 using WeCms.Shared;
 using WeCms.Shared.Data;
+using WeCms.Modules.System.Security;
 using WeCms.Modules.System.TwoFactor;
 
 namespace WeCms.Modules.System.Auth;
@@ -51,6 +52,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuthClock _clock;
     private readonly TwoFactorChallengeOptions _challengeOptions;
+    private readonly ISecurityAlertService _alertService;
 
     public AuthTwoFactorChallengeService(
         IAuthRepository repository,
@@ -62,7 +64,8 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         ILoginFailureLimiter loginFailureLimiter,
         IUnitOfWork unitOfWork,
         IAuthClock clock,
-        TwoFactorChallengeOptions challengeOptions)
+        TwoFactorChallengeOptions challengeOptions,
+        ISecurityAlertService alertService)
     {
         _repository = repository;
         _twoFactorRepository = twoFactorRepository;
@@ -74,6 +77,7 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         _unitOfWork = unitOfWork;
         _clock = clock;
         _challengeOptions = challengeOptions;
+        _alertService = alertService;
     }
 
     public async Task<bool> RequiresTwoFactorAsync(long userId, CancellationToken cancellationToken)
@@ -266,16 +270,24 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         await _repository.RecordFailedLoginAsync(
             new FailedLoginRecord(user.Username, requestContext.Ip, requestContext.UserAgent, "two_factor_failed", now),
             cancellationToken);
-        await _repository.RecordSecurityEventAsync(
-            new SecurityEventRecord(
-                isReplay ? "auth.2fa_replay" : "auth.two_factor_failed",
-                user.Id,
-                user.Username,
-                requestContext.Ip,
-                isReplay || attempts >= _challengeOptions.MaxFailedAttempts ? "critical" : "warning",
-                isReplay ? "Two-factor TOTP replay detected." : "Two-factor verification failed.",
-                now,
-                requestContext.TraceId),
+        var securityEvent = new SecurityEventRecord(
+            isReplay ? "auth.2fa_replay" : "auth.two_factor_failed",
+            user.Id,
+            user.Username,
+            requestContext.Ip,
+            isReplay || attempts >= _challengeOptions.MaxFailedAttempts ? "critical" : "warning",
+            isReplay ? "Two-factor TOTP replay detected." : "Two-factor verification failed.",
+            now,
+            requestContext.TraceId);
+
+        await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId ?? requestContext.TraceId,
+                now),
             cancellationToken);
         await RecordAuditLogAsync(
             user.Id,
@@ -294,16 +306,24 @@ public sealed class AuthTwoFactorChallengeService : IAuthTwoFactorChallengeServi
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        await _repository.RecordSecurityEventAsync(
-            new SecurityEventRecord(
-                "auth.two_factor_challenge_rejected",
-                userId,
-                null,
-                requestContext.Ip,
-                "warning",
-                "Two-factor challenge rejected.",
-                now,
-                requestContext.TraceId),
+        var securityEvent = new SecurityEventRecord(
+            "auth.two_factor_challenge_rejected",
+            userId,
+            null,
+            requestContext.Ip,
+            "warning",
+            "Two-factor challenge rejected.",
+            now,
+            requestContext.TraceId);
+
+        await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            SecurityAlertRecord.FromSecurityEvent(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Message,
+                securityEvent.TraceId ?? requestContext.TraceId,
+                now),
             cancellationToken);
     }
 

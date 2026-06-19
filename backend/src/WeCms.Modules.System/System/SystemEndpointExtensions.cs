@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Mvc;
+using WeCms.Modules.System.Permissions;
 using WeCms.Shared;
 
 namespace WeCms.Modules.System.System;
@@ -20,6 +22,11 @@ public static class SystemEndpointExtensions
         endpoints.MapGet("/health/ready", CheckReadyAsync)
             .WithMetadata(new OpenApiResponseMetadata(typeof(SystemReadyResponse)))
             .AllowAnonymous();
+
+        endpoints.MapGet("/health/dependencies", CheckDependenciesAsync)
+            .WithMetadata(new OpenApiResponseMetadata(typeof(SystemDependenciesResponse)))
+            .RequireAuthorization()
+            .RequirePermission(SystemPermissions.SecurePing);
 
         endpoints.MapGet("/api/v1/system/ping", () =>
                 Results.Ok(ApiResult<SystemPingResponse>.Ok(new SystemPingResponse("ok"))))
@@ -41,10 +48,12 @@ public static class SystemEndpointExtensions
     private static async Task<IResult> CheckReadyAsync(
         HttpContext context,
         [FromServices] ISystemDatabaseProbe databaseProbe,
+        [FromServices] ISystemMigrationProbe migrationProbe,
+        [FromServices] IWebHostEnvironment environment,
         CancellationToken cancellationToken)
     {
-        var result = await databaseProbe.CheckAsync(cancellationToken);
-        if (!result.Available)
+        var database = await databaseProbe.CheckAsync(cancellationToken);
+        if (!database.Available)
         {
             return Results.Json(
                 ApiResult<SystemReadyResponse>.Error(
@@ -54,7 +63,42 @@ public static class SystemEndpointExtensions
                 statusCode: ApiCodes.ToHttpStatus(ApiCodes.ServiceUnavailable));
         }
 
-        return Results.Ok(ApiResult<SystemReadyResponse>.Ok(new SystemReadyResponse("ready", Database: true)));
+        var migrations = await migrationProbe.CheckAsync(cancellationToken);
+        if (!migrations.Available)
+        {
+            return Results.Json(
+                ApiResult<SystemReadyResponse>.Error(
+                    ApiCodes.ServiceUnavailable,
+                    "Database migrations are unavailable.",
+                    context.TraceIdentifier),
+                statusCode: ApiCodes.ToHttpStatus(ApiCodes.ServiceUnavailable));
+        }
+
+        return Results.Ok(ApiResult<SystemReadyResponse>.Ok(new SystemReadyResponse("ready", Database: true, Migrations: true, CriticalConfiguration: IsCriticalConfigurationLoaded(environment))));
+    }
+
+    private static async Task<IResult> CheckDependenciesAsync(
+        [FromServices] ISystemDatabaseProbe databaseProbe,
+        [FromServices] ISystemMigrationProbe migrationProbe,
+        [FromServices] IWebHostEnvironment environment,
+        CancellationToken cancellationToken)
+    {
+        var database = await databaseProbe.CheckAsync(cancellationToken);
+        var migrations = await migrationProbe.CheckAsync(cancellationToken);
+        var criticalConfigurationLoaded = IsCriticalConfigurationLoaded(environment);
+        var status = database.Available && migrations.Available && criticalConfigurationLoaded
+            ? "ready"
+            : "degraded";
+
+        return Results.Ok(ApiResult<SystemDependenciesResponse>.Ok(new SystemDependenciesResponse(
+            status,
+            ToDependencyStatus(database),
+            ToDependencyStatus(migrations),
+            new SystemDependencyStatus(
+                criticalConfigurationLoaded ? "ok" : "unavailable",
+                criticalConfigurationLoaded,
+                null,
+                criticalConfigurationLoaded ? null : "critical_configuration_unavailable"))));
     }
 
     private static async Task<IResult> CheckDatabaseAsync(
@@ -74,6 +118,29 @@ public static class SystemEndpointExtensions
         }
 
         return Results.Ok(ApiResult<SystemDbCheckResponse>.Ok(new SystemDbCheckResponse("ok", Database: true)));
+    }
+
+    private static SystemDependencyStatus ToDependencyStatus(SystemDatabaseProbeResult result)
+    {
+        return new SystemDependencyStatus(
+            result.Available ? "ok" : "unavailable",
+            result.Available,
+            result.LatencyMs,
+            result.FailureCode);
+    }
+
+    private static SystemDependencyStatus ToDependencyStatus(SystemMigrationProbeResult result)
+    {
+        return new SystemDependencyStatus(
+            result.Available ? "ok" : "unavailable",
+            result.Available,
+            result.LatencyMs,
+            result.FailureCode);
+    }
+
+    private static bool IsCriticalConfigurationLoaded(IWebHostEnvironment environment)
+    {
+        return !string.IsNullOrWhiteSpace(environment.EnvironmentName);
     }
 
     private static string Version()

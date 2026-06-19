@@ -8,6 +8,8 @@ public static class SystemSecurityServiceCollectionExtensions
     {
         services.AddScoped<ISecurityBanService, SecurityBanService>();
         services.AddScoped<IRateLimitSecurityEventService, RateLimitSecurityEventService>();
+        services.AddScoped<ISecurityAlertService, SecurityAlertService>();
+        services.AddScoped<ISecurityAlertSink, LoggingSecurityAlertSink>();
         return services;
     }
 }

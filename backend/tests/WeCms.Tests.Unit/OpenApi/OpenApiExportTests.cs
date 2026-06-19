@@ -46,6 +46,10 @@ public sealed partial class OpenApiExportTests
 
             Assert.True(paths.TryGetProperty("/health/live", out _));
             Assert.True(paths.TryGetProperty("/health/ready", out _));
+            Assert.True(paths.TryGetProperty("/health/dependencies", out var dependenciesPath));
+            var healthDependencies = dependenciesPath.GetProperty("get");
+            Assert.True(healthDependencies.TryGetProperty("security", out _));
+            Assert.Equal("sys:system:secure-ping", healthDependencies.GetProperty("x-wecms-permission").GetString());
             Assert.True(paths.TryGetProperty("/api/v1/system/db-check", out _));
 
             var securePing = paths.GetProperty("/api/v1/system/secure-ping").GetProperty("get");

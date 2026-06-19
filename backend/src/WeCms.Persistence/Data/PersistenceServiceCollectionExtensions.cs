@@ -83,6 +83,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IUserTwoFactorRepository, UserTwoFactorRepository>();
         services.AddScoped<ISystemDatabaseProbe, SystemDatabaseProbe>();
+        services.AddScoped<ISystemMigrationProbe, SystemMigrationProbe>();
         services.AddScoped<IDbMigrationRunner, DbMigrationRunner>();
         services.AddScoped<ISeedRunner, SeedRunner>();
 

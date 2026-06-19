@@ -47,7 +47,9 @@ public sealed class PermissionMetadataScanTests
         Assert.Contains("MapGet(\"/api/v1/system/version\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/db-check\"", source, StringComparison.Ordinal);
         Assert.Contains(".AllowAnonymous()", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RequirePermission(", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/health/dependencies\"", source, StringComparison.Ordinal);
+        Assert.Contains(".RequirePermission(SystemPermissions.SecurePing)", source, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(source, "RequirePermission("));
     }
 
     [Fact]
@@ -70,6 +72,21 @@ public sealed class PermissionMetadataScanTests
 
         Assert.Contains("MapGet(\"/api/v1/system/secure-ping\"", permissionSource, StringComparison.Ordinal);
         Assert.Contains(".RequirePermission(SystemPermissions.SecurePing)", permissionSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("RequirePermission(", systemSource, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/health/dependencies\"", systemSource, StringComparison.Ordinal);
+        Assert.Contains(".RequirePermission(SystemPermissions.SecurePing)", systemSource, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(systemSource, "RequirePermission("));
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 }

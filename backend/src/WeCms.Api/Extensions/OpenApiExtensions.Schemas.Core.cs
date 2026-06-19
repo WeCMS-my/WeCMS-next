@@ -204,11 +204,37 @@ public static partial class OpenApiExtensions
             ["SystemReadyResponse"] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("status", "database"),
+                ["required"] = Required("status", "database", "migrations", "criticalConfiguration"),
                 ["properties"] = new JsonObject
                 {
                     ["status"] = StringSchema(),
-                    ["database"] = BooleanSchema()
+                    ["database"] = BooleanSchema(),
+                    ["migrations"] = BooleanSchema(),
+                    ["criticalConfiguration"] = BooleanSchema()
+                }
+            },
+            ["SystemDependencyStatus"] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("status", "available", "latencyMs", "failureCode"),
+                ["properties"] = new JsonObject
+                {
+                    ["status"] = StringSchema(),
+                    ["available"] = BooleanSchema(),
+                    ["latencyMs"] = new JsonObject { ["type"] = new JsonArray("integer", "null"), ["format"] = "int64" },
+                    ["failureCode"] = NullableStringSchema()
+                }
+            },
+            ["SystemDependenciesResponse"] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("status", "database", "migrations", "criticalConfiguration"),
+                ["properties"] = new JsonObject
+                {
+                    ["status"] = StringSchema(),
+                    ["database"] = SchemaRef(nameof(SystemDependencyStatus)),
+                    ["migrations"] = SchemaRef(nameof(SystemDependencyStatus)),
+                    ["criticalConfiguration"] = SchemaRef(nameof(SystemDependencyStatus))
                 }
             },
             ["SystemPingResponse"] = ObjectSchema(("status", "string")),

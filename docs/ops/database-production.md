@@ -38,6 +38,8 @@ Adjust pool size for the deployment's CPU, MySQL capacity, and expected concurre
 
 Invalid values fail fast during persistence registration.
 
+`Database:LatestRequiredMigration` must match the latest reviewed migration version in `database/migrations`. Readiness checks require that version to exist in `sys_schema_migration`.
+
 ## Migration Strategy
 
 Production startup must not run migrations automatically.
@@ -66,4 +68,4 @@ The command runs `database/migrations` and `database/seeds`. Outside Development
 
 ## Pending Migrations
 
-Current PH-2 scope provides an independent migration entry and documents startup policy. PH-3 readiness health will own dependency health semantics for pending migrations.
+PH-3 readiness health reports migration dependency unavailable when `Database:LatestRequiredMigration` is missing from `sys_schema_migration`. This prevents a database with only the migration table or only early migrations from reporting ready.

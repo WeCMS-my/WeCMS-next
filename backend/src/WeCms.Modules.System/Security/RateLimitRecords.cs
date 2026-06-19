@@ -60,10 +60,12 @@ public interface IRateLimitSecurityEventRepository
 public sealed class RateLimitSecurityEventService : IRateLimitSecurityEventService
 {
     private readonly IRateLimitSecurityEventRepository _repository;
+    private readonly ISecurityAlertService _alertService;
 
-    public RateLimitSecurityEventService(IRateLimitSecurityEventRepository repository)
+    public RateLimitSecurityEventService(IRateLimitSecurityEventRepository repository, ISecurityAlertService alertService)
     {
         _repository = repository;
+        _alertService = alertService;
     }
 
     public async Task RecordHitAsync(RateLimitHitRecord record, CancellationToken cancellationToken)
@@ -80,20 +82,29 @@ public sealed class RateLimitSecurityEventService : IRateLimitSecurityEventServi
         var traceId = NormalizeRequired(record.TraceId, "traceId", 64);
         var message = $"Rate limit hit for {record.Policy} on {method} {path}.";
 
-        await _repository.RecordHitAsync(
-            new RateLimitSecurityEventRecord(
-                "rate_limit_hit",
-                record.Policy,
-                method,
-                path,
-                record.UserId,
-                NormalizeOptional(record.Username, 64),
-                ip,
-                "warning",
-                "rate-limit",
-                message,
-                traceId,
-                record.CreatedAt),
+        var securityEvent = new RateLimitSecurityEventRecord(
+            "rate_limit_hit",
+            record.Policy,
+            method,
+            path,
+            record.UserId,
+            NormalizeOptional(record.Username, 64),
+            ip,
+            "warning",
+            "rate-limit",
+            message,
+            traceId,
+            record.CreatedAt);
+
+        await _repository.RecordHitAsync(securityEvent, cancellationToken);
+        await _alertService.PublishIfRequiredAsync(
+            new SecurityAlertRecord(
+                securityEvent.EventType,
+                securityEvent.Severity,
+                securityEvent.Source,
+                securityEvent.Message,
+                securityEvent.TraceId,
+                securityEvent.CreatedAt),
             cancellationToken);
     }
 

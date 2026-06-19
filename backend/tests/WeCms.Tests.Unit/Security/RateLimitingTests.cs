@@ -14,7 +14,8 @@ public sealed class RateLimitingTests
     public async Task RateLimitSecurityEventService_RecordHitAsync_NormalizesAndPersistsEvent()
     {
         var repository = new FakeRateLimitSecurityEventRepository();
-        var service = new RateLimitSecurityEventService(repository);
+        var alertService = new FakeSecurityAlertService();
+        var service = new RateLimitSecurityEventService(repository, alertService);
 
         await service.RecordHitAsync(
             new RateLimitHitRecord(
@@ -38,12 +39,13 @@ public sealed class RateLimitingTests
         Assert.Equal("/api/v1/auth/login", repository.Record.Path);
         Assert.Equal("192.168.1.10", repository.Record.Ip);
         Assert.Equal("trace-rate", repository.Record.TraceId);
+        Assert.Equal(1, alertService.Count);
     }
 
     [Fact]
     public async Task RateLimitSecurityEventService_RecordHitAsync_RejectsUnknownPolicy()
     {
-        var service = new RateLimitSecurityEventService(new FakeRateLimitSecurityEventRepository());
+        var service = new RateLimitSecurityEventService(new FakeRateLimitSecurityEventRepository(), new FakeSecurityAlertService());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.RecordHitAsync(
@@ -131,6 +133,17 @@ public sealed class RateLimitingTests
         public Task RecordHitAsync(RateLimitSecurityEventRecord record, CancellationToken cancellationToken)
         {
             Record = record;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    {
+        public int Count { get; private set; }
+
+        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            Count++;
             return Task.CompletedTask;
         }
     }

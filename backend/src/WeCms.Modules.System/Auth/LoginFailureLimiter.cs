@@ -8,15 +8,18 @@ public sealed class LoginFailureLimiter : ILoginFailureLimiter
     private const string IpScope = "ip";
     private readonly ILoginFailureCounterRepository _repository;
     private readonly ISecurityBanService _securityBanService;
+    private readonly ISecurityAlertService _alertService;
     private readonly LoginFailurePolicyOptions _options;
 
     public LoginFailureLimiter(
         ILoginFailureCounterRepository repository,
         ISecurityBanService securityBanService,
+        ISecurityAlertService alertService,
         LoginFailurePolicyOptions options)
     {
         _repository = repository;
         _securityBanService = securityBanService;
+        _alertService = alertService;
         _options = options;
     }
 
@@ -54,16 +57,24 @@ public sealed class LoginFailureLimiter : ILoginFailureLimiter
 
         if (shouldBlock)
         {
-            await _repository.RecordSecurityEventAsync(
-                new SecurityEventRecord(
-                    "auth.login_rate_limited",
-                    context.UserId,
-                    username,
-                    ip,
-                    shouldBan ? "critical" : "warning",
-                    "Login failure threshold reached.",
-                    context.Now,
-                    context.TraceId),
+            var securityEvent = new SecurityEventRecord(
+                "auth.login_rate_limited",
+                context.UserId,
+                username,
+                ip,
+                shouldBan ? "critical" : "warning",
+                "Login failure threshold reached.",
+                context.Now,
+                context.TraceId);
+
+            await _repository.RecordSecurityEventAsync(securityEvent, cancellationToken);
+            await _alertService.PublishIfRequiredAsync(
+                SecurityAlertRecord.FromSecurityEvent(
+                    securityEvent.EventType,
+                    securityEvent.Severity,
+                    securityEvent.Message,
+                    securityEvent.TraceId ?? context.TraceId,
+                    context.Now),
                 cancellationToken);
         }
 

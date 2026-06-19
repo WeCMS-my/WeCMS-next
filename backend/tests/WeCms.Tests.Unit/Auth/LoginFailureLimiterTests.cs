@@ -62,6 +62,7 @@ public sealed class LoginFailureLimiterTests
         return new LoginFailureLimiter(
             repository,
             securityBanService,
+            new FakeSecurityAlertService(),
             new LoginFailurePolicyOptions(
                 Enabled: true,
                 Window: TimeSpan.FromMinutes(10),
@@ -134,5 +135,13 @@ public sealed class LoginFailureLimiterTests
         public Task<BatchUnbanSecurityBansResponse> BatchUnbanAsync(BatchUnbanSecurityBansRequest request, SecurityBanRequestContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SecurityBanRecord?> FindActiveAsync(string banType, string target, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<SecurityBanRecord?>(null);
         public Task RecordHitAsync(SecurityBanRecord ban, SecurityBanHitContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    {
+        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 }
