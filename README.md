@@ -63,6 +63,7 @@ dotnet run --project backend/src/WeCms.Api --launch-profile http
 ```bash
 dotnet user-secrets init --project backend/src/WeCms.Api/WeCms.Api.csproj
 dotnet user-secrets set "Auth:AccessTokenSecret" "your-local-dev-secret-at-least-32-chars" --project backend/src/WeCms.Api/WeCms.Api.csproj
+dotnet user-secrets set "Security:TwoFactor:SecretProtectionKey" "your-local-2fa-secret-key-at-least-32-chars" --project backend/src/WeCms.Api/WeCms.Api.csproj
 dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;database=wecms_dev;uid=wecms_dev;pwd=your-dev-password;charset=utf8mb4;SslMode=None;" --project backend/src/WeCms.Api/WeCms.Api.csproj
 ```
 
@@ -104,10 +105,11 @@ bash scripts/quality-gate-backend.sh
 
 `quality-gate-backend.sh` 是当前 backend 质量门禁入口。它不会读取项目 `user-secrets`，请优先通过 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供可连接的测试库，或在命令行直接覆盖该变量。
 
-默认运行 strict 模式。
-如遇 NuGet 漏洞索引/缓存权限噪音，可在本地显式设置 `WECMS_NUGET_AUDIT_MODE=fallback` 做诊断；该模式会输出 warning，并且禁止在 CI / GitHub Actions 中使用。
+CI 默认为 strict 模式；本地默认为 fallback 模式，适合在本地避免 NuGet 漏洞索引或缓存权限噪音。  
+如需本地强制 strict，可显式设置 `WECMS_NUGET_AUDIT_MODE=strict`；  
+`WECMS_NUGET_AUDIT_MODE=fallback` 会输出 warning，并且禁止在 CI / GitHub Actions 中使用。  
 
-CI（`backend-quality-gate.yml`）直接运行默认 strict gate。
+CI（`backend-quality-gate.yml`）运行 strict gate。
 
 当前 backend quality gate 以 JIT + Persistence 边界治理、系统管理 API 权限码、OpenAPI、seed 和迁移烟测为准。当前重点覆盖以下检查面：
 
