@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Sockets;
 using WeCms.Api.Extensions;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
@@ -32,6 +34,7 @@ if (await OpenApiExtensions.ExportOpenApiAsync(args))
 }
 
 var builder = WebApplication.CreateSlimBuilder(args);
+builder.WebHost.UseKestrelHttpsConfiguration();
 var isMigrationCommand = DatabaseMigrationCommand.IsMigrationCommand(args);
 
 ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environment);
@@ -76,6 +79,8 @@ if (DatabaseStartupMigrationOptions.ShouldRunMigrationsOnStartup(builder.Configu
     await DatabaseMigrationCommand.RunAsync(app);
 }
 
+StartFrontendDevServer(app, isMigrationCommand);
+
 app.UseWeCmsForwardedHeaders(builder.Configuration);
 if (!app.Environment.IsDevelopment())
 {
@@ -114,6 +119,79 @@ app.MapUserEndpoints();
 
 app.Run();
 
+static void StartFrontendDevServer(WebApplication app, bool isMigrationCommand)
+{
+    if (isMigrationCommand || !app.Environment.IsDevelopment() || IsTcpPortOpen("127.0.0.1", 5173))
+    {
+        return;
+    }
+
+    var frontendRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "frontend", "soybean-admin"));
+    if (!File.Exists(Path.Combine(frontendRoot, "package.json")))
+    {
+        return;
+    }
+
+    var isWindows = OperatingSystem.IsWindows();
+    var process = new Process
+    {
+        StartInfo = new ProcessStartInfo
+        {
+            FileName = isWindows ? "cmd.exe" : "corepack",
+            WorkingDirectory = frontendRoot,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        },
+        EnableRaisingEvents = true
+    };
+    if (isWindows)
+    {
+        process.StartInfo.ArgumentList.Add("/c");
+        process.StartInfo.ArgumentList.Add("corepack");
+    }
+
+    process.StartInfo.ArgumentList.Add("pnpm@10.5.0");
+    process.StartInfo.ArgumentList.Add("exec");
+    process.StartInfo.ArgumentList.Add("vite");
+    process.StartInfo.ArgumentList.Add("--host");
+    process.StartInfo.ArgumentList.Add("127.0.0.1");
+    process.StartInfo.ArgumentList.Add("--port");
+    process.StartInfo.ArgumentList.Add("5173");
+    process.StartInfo.ArgumentList.Add("--strictPort");
+
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("FrontendDevServer");
+    if (!process.Start())
+    {
+        return;
+    }
+
+    app.Lifetime.ApplicationStopping.Register(() =>
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    });
+}
+
+static bool IsTcpPortOpen(string host, int port)
+{
+    try
+    {
+        using var client = new TcpClient();
+        return client.ConnectAsync(host, port).Wait(TimeSpan.FromMilliseconds(500));
+    }
+    catch (SocketException)
+    {
+        return false;
+    }
+}
 static IFileScanService CreateFileScanService(IConfiguration configuration)
 {
     if (!configuration.GetValue("FileStorage:VirusScanEnabled", false))

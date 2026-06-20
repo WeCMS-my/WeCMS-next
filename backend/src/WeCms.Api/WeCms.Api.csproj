@@ -17,7 +17,7 @@
     <UserSecretsId>472e01c3-c8e6-4bfb-a1a4-f563d1f8de46</UserSecretsId>
     <SpaRoot>..\..\..\frontend\soybean-admin</SpaRoot>
     <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
-    <SpaProxyLaunchCommand>corepack pnpm@10.5.0 --dir "$(SpaRoot)" dev -- --host 127.0.0.1 --port 5173 --strictPort</SpaProxyLaunchCommand>
+    <SpaProxyLaunchCommand>corepack pnpm@10.5.0 dev -- --host 127.0.0.1 --port 5173 --strictPort</SpaProxyLaunchCommand>
   </PropertyGroup>
 
   <Target Name="BuildFrontendForApi" BeforeTargets="CoreBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(SkipFrontendBuild)' != 'true' and Exists('$(SpaRoot)\package.json')">
