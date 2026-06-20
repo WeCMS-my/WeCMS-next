@@ -197,11 +197,12 @@ WeCms.Shared
 7. 禁止运行时 Endpoint 自动扫描。
 8. 允许 Autofac / DynamicProxy，但 AOP 只能拦截 Application Service 接口。
 9. 禁止业务运行时 code generation；DynamicProxy 仅限 ADR 批准的 Application Service AOP 场景。
-10. 禁止在核心业务路径使用 Newtonsoft.Json。
-11. 所有请求/响应 DTO 必须纳入 `System.Text.Json` Source Generator。
-12. 所有 Endpoint 必须显式注册。
-13. 除 `AllowAnonymous` 接口外，所有业务 Endpoint 必须绑定权限码或内部访问策略。
-14. 新增 NuGet 包必须说明运行时兼容性、License、维护状态和替代方案。
+10. 允许 Swagger / Scalar / MiniProfiler 作为 OpenAPI、交互式文档与本地诊断基础设施；不得借这些组件引入 Controller、运行时 Endpoint 扫描或动态契约生成。
+11. 禁止在核心业务路径使用 Newtonsoft.Json。
+12. 所有请求/响应 DTO 必须纳入 `System.Text.Json` Source Generator。
+13. 所有 Endpoint 必须显式注册。
+14. 除 `AllowAnonymous` 接口外，所有业务 Endpoint 必须绑定权限码或内部访问策略。
+15. 新增 NuGet 包必须说明运行时兼容性、License、维护状态和替代方案。
 
 ---
 

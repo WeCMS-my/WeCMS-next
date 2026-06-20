@@ -49,7 +49,6 @@ assert_refs() {
 }
 
 api_refs=(WeCms.Infrastructure WeCms.Shared)
-project_exists WeCms.Modules.Cms && api_refs+=(WeCms.Modules.Cms)
 project_exists WeCms.Modules.System && api_refs+=(WeCms.Modules.System)
 project_exists WeCms.Persistence && api_refs+=(WeCms.Persistence)
 for project in \
@@ -69,7 +68,7 @@ assert_refs WeCms.Api "${api_refs[@]}"
 assert_refs WeCms.Infrastructure WeCms.Shared
 assert_refs WeCms.Modules.Cms WeCms.Shared
 assert_refs WeCms.Modules.System WeCms.Shared
-assert_refs WeCms.Persistence WeCms.Modules.Cms WeCms.Modules.System WeCms.Shared
+assert_refs WeCms.Persistence WeCms.Modules.System WeCms.Shared
 assert_refs WeCms.Data.SqlSugar WeCms.Shared
 assert_refs WeCms.Caching WeCms.Shared
 assert_refs WeCms.EventBus WeCms.Shared

@@ -72,10 +72,29 @@ public sealed partial class DiBoundaryTests
         Assert.True(violations.Length == 0, $"Endpoint filters must use constructor injection instead of RequestServices lookup:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
     }
 
+    [Fact]
+    public void BusinessRuntimeCode_DoesNotUseServiceLocator()
+    {
+        var violations = Directory.EnumerateFiles(TestPaths.SourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(file => IsBusinessProject(file))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !Path.GetFileName(file).EndsWith("ServiceCollectionExtensions.cs", StringComparison.Ordinal))
+            .SelectMany(file => ServiceLocatorPatterns()
+                .Where(pattern => pattern.Regex.IsMatch(File.ReadAllText(file)))
+                .Select(pattern => $"{Path.GetRelativePath(TestPaths.RepoRoot, file)} matches {pattern.Description}"))
+            .ToArray();
+
+        Assert.True(violations.Length == 0, $"Business runtime code must use constructor injection instead of service locator APIs:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
+    }
+
     private static bool IsBusinessProject(string file)
     {
-        return file.Contains($"{Path.DirectorySeparatorChar}WeCms.Modules.System{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-            || file.Contains($"{Path.DirectorySeparatorChar}WeCms.Modules.Cms{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+        var relative = Path.GetRelativePath(TestPaths.SourceRoot, file);
+        var projectName = relative.Split(Path.DirectorySeparatorChar)[0];
+
+        return projectName.StartsWith("WeCms.Modules.", StringComparison.Ordinal)
+            && !projectName.EndsWith(".SqlSugar", StringComparison.Ordinal);
     }
 
     private static bool IsAllowedGuidGeneratorFile(string file)
@@ -121,4 +140,31 @@ public sealed partial class DiBoundaryTests
 
     [GeneratedRegex(@"[(,]\s*(?:[A-Za-z_][\w.]*\.)?(?!I[A-Z])\w*Repository\s+\w+", RegexOptions.CultureInvariant)]
     private static partial Regex ConcreteRepositoryConstructorParameterPattern();
+
+    private static (Regex Regex, string Description)[] ServiceLocatorPatterns()
+    {
+        return
+        [
+            (GetRequiredServicePattern(), "GetRequiredService"),
+            (GetServicePattern(), "GetService"),
+            (RequestServicesPattern(), "RequestServices"),
+            (BuildServiceProviderPattern(), "BuildServiceProvider"),
+            (IServiceProviderFieldPattern(), "IServiceProvider field")
+        ];
+    }
+
+    [GeneratedRegex(@"\.GetRequiredService\s*<", RegexOptions.CultureInvariant)]
+    private static partial Regex GetRequiredServicePattern();
+
+    [GeneratedRegex(@"\.GetService\s*<", RegexOptions.CultureInvariant)]
+    private static partial Regex GetServicePattern();
+
+    [GeneratedRegex(@"\bRequestServices\b", RegexOptions.CultureInvariant)]
+    private static partial Regex RequestServicesPattern();
+
+    [GeneratedRegex(@"\.BuildServiceProvider\s*\(", RegexOptions.CultureInvariant)]
+    private static partial Regex BuildServiceProviderPattern();
+
+    [GeneratedRegex(@"\bIServiceProvider\s+[_a-zA-Z]", RegexOptions.CultureInvariant)]
+    private static partial Regex IServiceProviderFieldPattern();
 }

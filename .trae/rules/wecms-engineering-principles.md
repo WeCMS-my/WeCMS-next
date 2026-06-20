@@ -25,6 +25,7 @@
 - 禁止运行时 Endpoint 扫描
 - 允许 Autofac / DynamicProxy，但 AOP 只能拦截 Application Service 接口
 - 禁止业务运行时 code generation；DynamicProxy 仅限 ADR 批准的 Application Service AOP 场景
+- 允许 Swagger / Scalar / MiniProfiler 作为 OpenAPI、交互式文档与本地诊断基础设施；不得借这些组件引入 Controller、运行时 Endpoint 扫描或动态契约生成
 - 禁止业务路径使用 `dynamic`
 - 禁止 `SELECT *`
 - 禁止拼接用户输入 SQL

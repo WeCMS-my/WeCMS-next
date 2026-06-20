@@ -16,6 +16,7 @@ public sealed class GovernanceRulesArchitectureTests
         Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
         Assert.Contains("无生产环境，允许重置数据库 baseline", source, StringComparison.Ordinal);
         Assert.Contains("CMS 模块暂不实现", source, StringComparison.Ordinal);
+        Assert.Contains("允许 Swagger / Scalar / MiniProfiler", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -30,6 +31,7 @@ public sealed class GovernanceRulesArchitectureTests
         Assert.Contains("新增 Endpoint 无权限或审计 metadata", source, StringComparison.Ordinal);
         Assert.Contains("SqlAudit 未脱敏", source, StringComparison.Ordinal);
         Assert.Contains("重构必须先有架构测试保护", source, StringComparison.Ordinal);
+        Assert.Contains("Swagger / Scalar / MiniProfiler", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,6 +46,7 @@ public sealed class GovernanceRulesArchitectureTests
         Assert.Contains("WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Modules.System 最终删除", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains("允许 Swagger / Scalar / MiniProfiler", source, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)
