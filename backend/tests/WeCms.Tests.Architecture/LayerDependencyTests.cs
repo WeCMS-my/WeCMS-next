@@ -113,6 +113,27 @@ public sealed class LayerDependencyTests
         }
     }
 
+    [Fact]
+    public void SqlSugarAdapterProjects_DoNotReferenceOtherSqlSugarAdapterProjects()
+    {
+        var sqlSugarAdapterProjects = ProductionProjects()
+            .Where(project => project.Name.StartsWith("WeCms.Modules.", StringComparison.Ordinal))
+            .Where(project => project.Name.EndsWith(".SqlSugar", StringComparison.Ordinal));
+
+        foreach (var project in sqlSugarAdapterProjects)
+        {
+            var otherAdapterReferences = ProjectReferences(project.Path)
+                .Where(reference => reference != project.Name)
+                .Where(reference => reference.StartsWith("WeCms.Modules.", StringComparison.Ordinal))
+                .Where(reference => reference.EndsWith(".SqlSugar", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.True(
+                otherAdapterReferences.Length == 0,
+                $"{project.Name} references other SqlSugar adapter projects: {string.Join(", ", otherAdapterReferences)}");
+        }
+    }
+
     private static IEnumerable<(string Name, string Path)> ProductionProjects()
     {
         return Directory.EnumerateFiles(TestPaths.SourceRoot, "*.csproj", SearchOption.AllDirectories)
