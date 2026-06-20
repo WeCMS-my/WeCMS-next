@@ -18,7 +18,6 @@ public sealed class LayerDependencyTests
                 "WeCms.Modules.AccessControl.SqlSugar",
                 "WeCms.Modules.Audit",
                 "WeCms.Modules.Audit.SqlSugar",
-                "WeCms.Modules.Cms",
                 "WeCms.Modules.Configuration",
                 "WeCms.Modules.Configuration.SqlSugar",
                 "WeCms.Modules.FileCenter",
@@ -56,7 +55,7 @@ public sealed class LayerDependencyTests
             ["WeCms.Modules.Security"] = ["WeCms.Shared"],
             ["WeCms.Modules.Security.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Security", "WeCms.Shared"],
             ["WeCms.Modules.System"] = ["WeCms.Shared"],
-            ["WeCms.Persistence"] = ["WeCms.Modules.Cms", "WeCms.Modules.System", "WeCms.Shared"],
+            ["WeCms.Persistence"] = ["WeCms.Modules.System", "WeCms.Shared"],
             ["WeCms.Shared"] = []
         };
 

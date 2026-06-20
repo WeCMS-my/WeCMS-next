@@ -11,7 +11,6 @@
     <ProjectReference Include="..\WeCms.Modules.AccessControl.SqlSugar\WeCms.Modules.AccessControl.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Audit\WeCms.Modules.Audit.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Audit.SqlSugar\WeCms.Modules.Audit.SqlSugar.csproj" />
-    <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Configuration\WeCms.Modules.Configuration.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Configuration.SqlSugar\WeCms.Modules.Configuration.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.Modules.FileCenter\WeCms.Modules.FileCenter.csproj" />

@@ -99,6 +99,7 @@ M1-BE 额外阻断项：
 [ ] 是否仅在 ADR 批准范围内使用 Autofac / DynamicProxy
 [ ] AOP 是否只拦截 Application Service 接口
 [ ] Repository 是否没有被 AOP 拦截
+[ ] Swagger / Scalar / MiniProfiler 是否仅作为 OpenAPI、交互式文档与本地诊断基础设施使用
 [ ] 是否没有业务运行时 code generation
 [ ] 是否没有在核心业务路径使用 Newtonsoft.Json
 [ ] 新增 NuGet 包是否说明运行时兼容性、License、维护状态、替代方案

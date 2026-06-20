@@ -4,6 +4,8 @@ namespace WeCms.Tests.Architecture;
 
 public sealed partial class PersistenceBoundaryTests
 {
+    private const string FinalDataPlatformFlag = "WECMS_ARCHITECTURE_FINAL_SQLSUGAR_PLATFORM";
+
     private static readonly string[] ForbiddenDatabaseTokens =
     [
         "SqlSugarCore",
@@ -20,7 +22,7 @@ public sealed partial class PersistenceBoundaryTests
     public void OnlyPersistenceProject_CanReferenceSqlSugarOrMySql()
     {
         var violations = ProductionFiles()
-            .Where(file => !IsUnderProject(file, "WeCms.Persistence"))
+            .Where(file => !IsAllowedDatabaseProject(file))
             .SelectMany(file => ForbiddenDatabaseTokens
                 .Where(token => File.ReadAllText(file).Contains(token, StringComparison.Ordinal))
                 .Select(token => $"{RelativePath(file)} contains {token}"))
@@ -33,7 +35,7 @@ public sealed partial class PersistenceBoundaryTests
     public void Modules_DoNotContainSqlText()
     {
         var violations = ProductionFiles()
-            .Where(file => IsUnderProject(file, "WeCms.Modules.System") || IsUnderProject(file, "WeCms.Modules.Cms"))
+            .Where(IsUnderBusinessModuleProject)
             .Where(file => SqlKeywordPattern().IsMatch(File.ReadAllText(file)))
             .Select(RelativePath)
             .ToArray();
@@ -120,6 +122,41 @@ public sealed partial class PersistenceBoundaryTests
         var projectRoot = Path.Combine(TestPaths.SourceRoot, projectName);
 
         return file.StartsWith(projectRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    private static bool IsAllowedDatabaseProject(string file)
+    {
+        if (IsFinalDataPlatformMode())
+        {
+            return IsUnderProject(file, "WeCms.Data.SqlSugar") || IsUnderModuleSqlSugarProject(file);
+        }
+
+        return IsUnderProject(file, "WeCms.Persistence")
+            || IsUnderProject(file, "WeCms.Data.SqlSugar")
+            || IsUnderModuleSqlSugarProject(file);
+    }
+
+    private static bool IsFinalDataPlatformMode()
+    {
+        return string.Equals(Environment.GetEnvironmentVariable(FinalDataPlatformFlag), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUnderBusinessModuleProject(string file)
+    {
+        var relative = Path.GetRelativePath(TestPaths.SourceRoot, file);
+        var projectName = relative.Split(Path.DirectorySeparatorChar)[0];
+
+        return projectName.StartsWith("WeCms.Modules.", StringComparison.Ordinal)
+            && !projectName.EndsWith(".SqlSugar", StringComparison.Ordinal);
+    }
+
+    private static bool IsUnderModuleSqlSugarProject(string file)
+    {
+        var relative = Path.GetRelativePath(TestPaths.SourceRoot, file);
+        var projectName = relative.Split(Path.DirectorySeparatorChar)[0];
+
+        return projectName.StartsWith("WeCms.Modules.", StringComparison.Ordinal)
+            && projectName.EndsWith(".SqlSugar", StringComparison.Ordinal);
     }
 
     private static string RelativePath(string file)
