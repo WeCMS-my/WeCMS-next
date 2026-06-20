@@ -9,14 +9,52 @@ public sealed class LayerDependencyTests
         {
             ["WeCms.Api"] =
             [
+                "WeCms.Aop",
+                "WeCms.Caching",
+                "WeCms.Data.SqlSugar",
+                "WeCms.EventBus",
                 "WeCms.Infrastructure",
+                "WeCms.Modules.AccessControl",
+                "WeCms.Modules.AccessControl.SqlSugar",
+                "WeCms.Modules.Audit",
+                "WeCms.Modules.Audit.SqlSugar",
                 "WeCms.Modules.Cms",
+                "WeCms.Modules.Configuration",
+                "WeCms.Modules.Configuration.SqlSugar",
+                "WeCms.Modules.FileCenter",
+                "WeCms.Modules.FileCenter.SqlSugar",
+                "WeCms.Modules.Identity",
+                "WeCms.Modules.Identity.SqlSugar",
+                "WeCms.Modules.Organization",
+                "WeCms.Modules.Organization.SqlSugar",
+                "WeCms.Modules.Platform",
+                "WeCms.Modules.Security",
+                "WeCms.Modules.Security.SqlSugar",
                 "WeCms.Modules.System",
                 "WeCms.Persistence",
                 "WeCms.Shared"
             ],
+            ["WeCms.Aop"] = ["WeCms.Caching", "WeCms.EventBus", "WeCms.Shared"],
+            ["WeCms.Caching"] = ["WeCms.Shared"],
+            ["WeCms.Data.SqlSugar"] = ["WeCms.Shared"],
+            ["WeCms.EventBus"] = ["WeCms.Shared"],
             ["WeCms.Infrastructure"] = ["WeCms.Shared"],
+            ["WeCms.Modules.AccessControl"] = ["WeCms.Shared"],
+            ["WeCms.Modules.AccessControl.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.AccessControl", "WeCms.Shared"],
+            ["WeCms.Modules.Audit"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Audit.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Audit", "WeCms.Shared"],
             ["WeCms.Modules.Cms"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Configuration"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Configuration.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Configuration", "WeCms.Shared"],
+            ["WeCms.Modules.FileCenter"] = ["WeCms.Shared"],
+            ["WeCms.Modules.FileCenter.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.FileCenter", "WeCms.Shared"],
+            ["WeCms.Modules.Identity"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Identity.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Identity", "WeCms.Shared"],
+            ["WeCms.Modules.Organization"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Organization.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Organization", "WeCms.Shared"],
+            ["WeCms.Modules.Platform"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Security"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Security.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Security", "WeCms.Shared"],
             ["WeCms.Modules.System"] = ["WeCms.Shared"],
             ["WeCms.Persistence"] = ["WeCms.Modules.Cms", "WeCms.Modules.System", "WeCms.Shared"],
             ["WeCms.Shared"] = []
@@ -54,6 +92,25 @@ public sealed class LayerDependencyTests
         foreach (var project in moduleProjects)
         {
             Assert.DoesNotContain("WeCms.Persistence", ProjectReferences(project.Path));
+        }
+    }
+
+    [Fact]
+    public void BusinessModules_DoNotReferenceSqlSugarAdapterProjects()
+    {
+        var businessModuleProjects = ProductionProjects()
+            .Where(project => project.Name.StartsWith("WeCms.Modules.", StringComparison.Ordinal))
+            .Where(project => !project.Name.EndsWith(".SqlSugar", StringComparison.Ordinal));
+
+        foreach (var project in businessModuleProjects)
+        {
+            var adapterReferences = ProjectReferences(project.Path)
+                .Where(reference => reference.EndsWith(".SqlSugar", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.True(
+                adapterReferences.Length == 0,
+                $"{project.Name} references SqlSugar adapter projects: {string.Join(", ", adapterReferences)}");
         }
     }
 

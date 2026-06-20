@@ -1,0 +1,53 @@
+namespace WeCms.Tests.Architecture;
+
+public sealed class GovernanceRulesArchitectureTests
+{
+    [Fact]
+    public void AgentsRules_DescribeSystemFoundationUpgradeGovernance()
+    {
+        var source = ReadRepoFile("AGENTS.md");
+
+        Assert.Contains("允许 Autofac / DynamicProxy", source, StringComparison.Ordinal);
+        Assert.Contains("AOP 只能拦截 Application Service 接口", source, StringComparison.Ordinal);
+        Assert.Contains("CodeFirst 建模", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Data.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Modules.System 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains("无生产环境，允许重置数据库 baseline", source, StringComparison.Ordinal);
+        Assert.Contains("CMS 模块暂不实现", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CodeReviewRules_DescribeNewP0Boundaries()
+    {
+        var source = ReadRepoFile("code_review.md");
+
+        Assert.Contains("AOP 只能用于 Application Service 接口", source, StringComparison.Ordinal);
+        Assert.Contains("Repository 不得被 AOP 拦截", source, StringComparison.Ordinal);
+        Assert.Contains("业务模块不得引用 WeCms.Data.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("业务模块不得引用 WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("新增 Endpoint 无权限或审计 metadata", source, StringComparison.Ordinal);
+        Assert.Contains("SqlAudit 未脱敏", source, StringComparison.Ordinal);
+        Assert.Contains("重构必须先有架构测试保护", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TraeRules_DoNotContradictSystemFoundationUpgradeGovernance()
+    {
+        var source = ReadRepoFile(Path.Combine(".trae", "rules", "wecms-engineering-principles.md"));
+
+        Assert.Contains("允许 Autofac / DynamicProxy", source, StringComparison.Ordinal);
+        Assert.Contains("AOP 只能拦截 Application Service 接口", source, StringComparison.Ordinal);
+        Assert.Contains("CodeFirst 建模", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Data.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Modules.System 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
+    }
+
+    private static string ReadRepoFile(string relativePath)
+    {
+        return File.ReadAllText(Path.Combine(TestPaths.RepoRoot, relativePath));
+    }
+}

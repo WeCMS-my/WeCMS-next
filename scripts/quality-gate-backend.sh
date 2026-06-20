@@ -154,13 +154,13 @@ run_dotnet_gate_command() {
   dotnet "$@"
 }
 
-printf '[1/33] dotnet restore\n'
+printf '[1/36] dotnet restore\n'
 run_dotnet_gate_command restore backend/WeCms.slnx
 
-printf '[2/33] dotnet build -warnaserror\n'
+printf '[2/36] dotnet build -warnaserror\n'
 run_dotnet_gate_command build backend/WeCms.slnx -warnaserror --nologo --no-restore
 
-printf '[3/33] dotnet test\n'
+printf '[3/36] dotnet test\n'
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Unit/WeCms.Tests.Unit.csproj --nologo --no-build --no-restore
 run_dotnet_gate_command test backend/tests/WeCms.Tests.Architecture/WeCms.Tests.Architecture.csproj --nologo --no-build --no-restore
 if [[ "$run_mysql_integration_tests" == true ]]; then
@@ -170,98 +170,107 @@ else
   printf 'Integration tests skipped because WECMS_SKIP_MYSQL_INTEGRATION_TESTS is enabled.\n'
 fi
 
-printf '[4/33] dotnet publish JIT\n'
+printf '[4/36] dotnet publish JIT\n'
 run_dotnet_gate_command publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --self-contained false --nologo
 
-printf '[5/33] OpenAPI export\n'
+printf '[5/36] OpenAPI export\n'
 dotnet run --project backend/src/WeCms.Api --no-build --no-restore -- --export-openapi "$openapi_path"
 
-printf '[6/33] OpenAPI auth request body check\n'
+printf '[6/36] OpenAPI auth request body check\n'
 bash scripts/checks/check-openapi-auth-request-body.sh "$openapi_path"
 bash scripts/checks/check-openapi-endpoint-coverage.sh "$openapi_path"
 
-printf '[7/33] check-system-openapi-coverage\n'
+printf '[7/36] check-system-openapi-coverage\n'
 bash scripts/checks/check-system-openapi-coverage.sh "$openapi_path"
 
-printf '[8/33] check-write-endpoint-methods\n'
+printf '[8/36] check-write-endpoint-methods\n'
 bash scripts/checks/check-write-endpoint-methods.sh "$openapi_path"
 
-printf '[9/33] check-write-endpoint-permission-coverage\n'
+printf '[9/36] check-write-endpoint-permission-coverage\n'
 bash scripts/checks/check-write-endpoint-permission-coverage.sh "$openapi_path"
 
-printf '[10/33] check-write-endpoint-audit-coverage\n'
+printf '[10/36] check-write-endpoint-audit-coverage\n'
 bash scripts/checks/check-write-endpoint-audit-coverage.sh "$openapi_path"
 
-printf '[11/33] check-system-permission-coverage\n'
+printf '[11/36] check-system-permission-coverage\n'
 bash scripts/checks/check-system-permission-coverage.sh
 
-printf '[12/33] check-locked-role-seed\n'
+printf '[12/36] check-locked-role-seed\n'
 bash scripts/checks/check-locked-role-seed.sh
 
-printf '[13/33] check-rate-limit-policy-coverage\n'
+printf '[13/36] check-rate-limit-policy-coverage\n'
 bash scripts/checks/check-rate-limit-policy-coverage.sh
 
-printf '[14/33] check-security-event-coverage\n'
+printf '[14/36] check-security-event-coverage\n'
 bash scripts/checks/check-security-event-coverage.sh
 
-printf '[15/33] check-cookie-auth-origin-protection\n'
+printf '[15/36] check-cookie-auth-origin-protection\n'
 bash scripts/checks/check-cookie-auth-origin-protection.sh
 
-printf '[16/33] check-admingate-csrf-migration\n'
+printf '[16/36] check-admingate-csrf-migration\n'
 bash scripts/checks/check-admingate-csrf-migration.sh
 
-printf '[17/33] check-thinkphp-feature-delta\n'
+printf '[17/36] check-thinkphp-feature-delta\n'
 bash scripts/checks/check-thinkphp-feature-delta.sh "$openapi_path"
 
-printf '[18/33] check-foundation-freeze-baseline\n'
+printf '[18/36] check-foundation-freeze-baseline\n'
 bash scripts/checks/check-foundation-freeze-baseline.sh
 
-printf '[19/33] check-production-config-baseline\n'
+printf '[19/36] check-production-config-baseline\n'
 bash scripts/checks/check-production-config-baseline.sh
 
-printf '[20/33] check-security-baseline\n'
+printf '[20/36] check-security-baseline\n'
 bash scripts/checks/check-security-baseline.sh
 
-printf '[21/33] check-database-governance\n'
+printf '[21/36] check-database-governance\n'
 bash scripts/checks/check-database-governance.sh
 
-printf '[22/33] check-observability-baseline\n'
+printf '[22/36] check-observability-baseline\n'
 bash scripts/checks/check-observability-baseline.sh
 
-printf '[23/33] check-file-storage-production\n'
+printf '[23/36] check-file-storage-production\n'
 bash scripts/checks/check-file-storage-production.sh
 
-printf '[24/33] check-release-runbooks\n'
+printf '[24/36] check-release-runbooks\n'
 bash scripts/checks/check-release-runbooks.sh
 
-printf '[25/33] check-no-sql-in-modules\n'
+printf '[25/36] check-no-sql-in-modules\n'
 bash scripts/checks/check-no-sql-in-modules.sh
 
-printf '[26/33] check-db-boundary\n'
+printf '[26/36] check-no-controller\n'
+bash scripts/checks/check-no-controller.sh
+
+printf '[27/36] check-no-system-god-module\n'
+bash scripts/checks/check-no-system-god-module.sh
+
+printf '[28/36] check-sqlsugar-boundary\n'
+bash scripts/checks/check-sqlsugar-boundary.sh
+
+printf '[29/36] check-db-boundary\n'
 bash scripts/checks/check-db-boundary.sh
 
-printf '[27/33] check-layer-dependency\n'
+printf '[30/36] check-layer-dependency\n'
 bash scripts/checks/check-layer-dependency.sh
 
-printf '[28/33] check-di-boundary\n'
+printf '[31/36] check-di-boundary\n'
 bash scripts/checks/check-di-boundary.sh
 
-printf '[29/33] check-no-frontend-change\n'
+printf '[32/36] check-no-frontend-change\n'
 if [[ "$frontend_scope" == "backend-only" ]]; then
   bash scripts/checks/check-no-frontend-change.sh
 else
   printf 'check-no-frontend-change: skipped because WECMS_BACKEND_GATE_FRONTEND_SCOPE=includes-frontend\n'
 fi
 
-printf '[30/33] check-generated-test-artifacts\n'
+printf '[33/36] check-generated-test-artifacts\n'
 bash scripts/checks/check-generated-test-artifacts.sh
 
-printf '[31/33] check-code-review\n'
+printf '[34/36] check-code-review\n'
 bash scripts/checks/check-code-review.sh
-printf '[32/33] check-replace-write-affected-rows\n'
+printf '[35/36] check-replace-write-affected-rows\n'
 bash scripts/checks/check-replace-write-affected-rows.sh
 
-printf '[33/33] migration/seed smoke test\n'
+printf '[36/36] migration/seed smoke test\n'
 if [[ "$run_mysql_integration_tests" == true ]]; then
   run_dotnet_gate_command test backend/tests/WeCms.Tests.Integration/WeCms.Tests.Integration.csproj --settings backend/tests/WeCms.Tests.Integration/serial.runsettings --filter MigrationAndSeedSmokeTests --nologo --no-build --no-restore
 else

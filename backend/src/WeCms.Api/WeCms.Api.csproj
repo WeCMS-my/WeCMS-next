@@ -2,9 +2,28 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.9" />
-    <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
-    <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
+    <ProjectReference Include="..\WeCms.Aop\WeCms.Aop.csproj" />
+    <ProjectReference Include="..\WeCms.Caching\WeCms.Caching.csproj" />
+    <ProjectReference Include="..\WeCms.Data.SqlSugar\WeCms.Data.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.EventBus\WeCms.EventBus.csproj" />
     <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.AccessControl\WeCms.Modules.AccessControl.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.AccessControl.SqlSugar\WeCms.Modules.AccessControl.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Audit\WeCms.Modules.Audit.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Audit.SqlSugar\WeCms.Modules.Audit.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Cms\WeCms.Modules.Cms.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Configuration\WeCms.Modules.Configuration.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Configuration.SqlSugar\WeCms.Modules.Configuration.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.FileCenter\WeCms.Modules.FileCenter.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.FileCenter.SqlSugar\WeCms.Modules.FileCenter.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Identity\WeCms.Modules.Identity.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Identity.SqlSugar\WeCms.Modules.Identity.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Organization\WeCms.Modules.Organization.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Organization.SqlSugar\WeCms.Modules.Organization.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Platform\WeCms.Modules.Platform.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Security\WeCms.Modules.Security.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Security.SqlSugar\WeCms.Modules.Security.SqlSugar.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
     <ProjectReference Include="..\WeCms.Persistence\WeCms.Persistence.csproj" />
     <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
   </ItemGroup>

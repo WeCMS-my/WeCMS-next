@@ -2,6 +2,7 @@
 
 > 本文件是 WeCMS Next 项目的代码审查基线。  
 > 审查目标不是只看代码能否运行，而是确认代码是否符合架构、安全、JIT 运行时基线、SqlSugar ORM、后端契约优先、AI 二期边界等硬约束。
+> Minimal API 与 Controller 禁令依据：`docs/adr/0017-minimal-api-remains-controller-forbidden.md`。
 
 ---
 
@@ -32,9 +33,14 @@
 [ ] WeCms.Modules.* 出现 SQL 文本
 [ ] WeCms.Modules.* 引用 SqlSugar ORM / MySqlConnector
 [ ] WeCms.Modules.* 直接引用 WeCms.Persistence 实现
+[ ] 业务模块不得引用 WeCms.Data.SqlSugar
+[ ] 业务模块不得引用 WeCms.Modules.*.SqlSugar
 [ ] WeCms.Api / WeCms.Infrastructure / WeCms.Shared 出现 SQL 文本、ORM Client、数据库连接或 Repository implementation
 [ ] DTO 未加入 JsonSerializerContext
 [ ] 业务 Endpoint 未绑定权限码且未显式 AllowAnonymous
+[ ] 新增 Endpoint 无权限或审计 metadata
+[ ] AOP 只能用于 Application Service 接口，Repository 不得被 AOP 拦截
+[ ] SqlAudit 未脱敏
 [ ] 前端改写后端接口结构
 [ ] request interceptor 重塑业务 data
 [ ] Refresh Token 明文入库
@@ -57,6 +63,7 @@
 [ ] ≥ 200 行变更或公共契约变更没有 docs/specs/<change-id>/ 三件套
 [ ] 逻辑变更没有对应测试证据
 [ ] bugfix 没有先提交可复现失败测试
+[ ] 重构必须先有架构测试保护
 [ ] 当前任务未完成测试、门禁、审计闭环就启动下一项任务
 [ ] 为通过门禁而降低阈值、删除测试或绕过检查
 ```
@@ -89,8 +96,10 @@ M1-BE 额外阻断项：
 [ ] 是否没有 Razor / Razor Pages
 [ ] Endpoint 是否显式注册
 [ ] 是否没有运行时 Endpoint 扫描
-[ ] 是否没有动态代理 AOP
-[ ] 是否没有 runtime code generation
+[ ] 是否仅在 ADR 批准范围内使用 Autofac / DynamicProxy
+[ ] AOP 是否只拦截 Application Service 接口
+[ ] Repository 是否没有被 AOP 拦截
+[ ] 是否没有业务运行时 code generation
 [ ] 是否没有在核心业务路径使用 Newtonsoft.Json
 [ ] 新增 NuGet 包是否说明运行时兼容性、License、维护状态、替代方案
 ```
@@ -108,8 +117,9 @@ M1-BE 额外阻断项：
 ```text
 [ ] Endpoint 只处理 HTTP 绑定和返回
 [ ] Service / UseCase 负责业务规则
-[ ] WeCms.Persistence 中的 Repository 只负责 SQL 和数据映射
-[ ] Repository interface 只定义在模块层或 Shared，Repository implementation 只存在于 WeCms.Persistence
+[ ] 迁移期 WeCms.Persistence 中的 Repository 只负责 SQL 和数据映射
+[ ] 目标结构中 Repository implementation 只存在于 WeCms.Modules.*.SqlSugar
+[ ] Repository interface 只定义在模块层或 Shared
 [ ] 事务由 Service / UseCase 控制
 [ ] Endpoint 中没有直接写 SQL
 [ ] Repository 中没有 HTTP/权限/审计逻辑
@@ -138,12 +148,15 @@ M1-BE 额外阻断项：
 ### 3.2 数据库边界
 
 ```text
-[ ] 只有 WeCms.Persistence 引用了 SqlSugar ORM / MySqlConnector
+[ ] 迁移期只有 WeCms.Persistence / WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 引用了 SqlSugar ORM / MySqlConnector
+[ ] 最终期只有 WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 引用了 SqlSugar ORM / MySqlConnector
 [ ] WeCms.Modules.* 不直接处理 SQL 字符串
 [ ] WeCms.Modules.* 未出现 SqlSugarClient / ISqlSugarClient / Ado 原始 SQL API
+[ ] WeCms.Modules.* 未引用 WeCms.Data.SqlSugar
+[ ] WeCms.Modules.* 未引用 WeCms.Modules.*.SqlSugar
 [ ] WeCms.Api / WeCms.Infrastructure / WeCms.Shared 未出现 SQL 文本、ORM Client、数据库连接或 Repository implementation
 [ ] WeCms.Modules.* 不直接依赖持久化实现
-[ ] WeCms.Persistence 只做数据访问适配，不承载业务规则、权限编排、审计编排或 HTTP 逻辑
+[ ] WeCms.Persistence / WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 只做数据访问适配，不承载业务规则、权限编排、审计编排或 HTTP 逻辑
 ```
 
 ---
