@@ -11,8 +11,20 @@ fail() {
 
 command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
 
+module_paths=()
+for path in "$src_root"/WeCms.Modules.*; do
+  [[ -d "$path" ]] || continue
+  [[ "$path" == *.SqlSugar ]] && continue
+  module_paths+=("$path")
+done
+
+if [[ ${#module_paths[@]} -eq 0 ]]; then
+  printf 'check-di-boundary: ok\n'
+  exit 0
+fi
+
 if rg -n 'new\s+\w*Repository\s*\(|new\s+(SqlSugarClient|SqlSugarScope|MySqlConnection|HttpClient)\s*\(|\bDateTime\.UtcNow\b|\bGuid\.NewGuid\s*\(|\bRandom\.Shared\b' \
-  "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
+  "${module_paths[@]}" \
   --glob '!**/bin/**' --glob '!**/obj/**'; then
   fail 'business module code directly creates side-effect dependencies'
 fi
@@ -24,14 +36,14 @@ if rg -n '\bGuid\.NewGuid\s*\(' "$src_root" \
 fi
 
 if rg -n '[(,][[:space:]]*([[:alnum:]_.]+\.)?[[:alnum:]_]*Repository[[:space:]]+[[:alnum:]_]+' \
-  "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
+  "${module_paths[@]}" \
   --glob '!**/bin/**' --glob '!**/obj/**' \
   | rg -v '[(,][[:space:]]*([[:alnum:]_.]+\.)?I[A-Z][[:alnum:]_]*Repository[[:space:]]+'; then
   fail 'business constructors depend on concrete repository implementations'
 fi
 
 if rg -n 'RequestServices\.GetRequiredService' \
-  "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
+  "${module_paths[@]}" \
   --glob '*Filter.cs' --glob '!**/bin/**' --glob '!**/obj/**'; then
   fail 'endpoint filters must use constructor injection instead of RequestServices lookup'
 fi

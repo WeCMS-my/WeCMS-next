@@ -23,8 +23,8 @@
 - 禁止 Razor
 - 禁止 EF Core
 - 禁止运行时 Endpoint 扫描
-- 禁止动态代理 AOP
-- 禁止 runtime code generation
+- 允许 Autofac / DynamicProxy，但 AOP 只能拦截 Application Service 接口
+- 禁止业务运行时 code generation；DynamicProxy 仅限 ADR 批准的 Application Service AOP 场景
 - 禁止业务路径使用 `dynamic`
 - 禁止 `SELECT *`
 - 禁止拼接用户输入 SQL
@@ -59,18 +59,33 @@
 
 ```text
 WeCms.Api
-  -> WeCms.Modules.System
-  -> WeCms.Modules.Cms
+  -> WeCms.Modules.Identity / WeCms.Modules.AccessControl
+  -> WeCms.Modules.Organization / WeCms.Modules.Configuration
+  -> WeCms.Modules.Audit / WeCms.Modules.Security
+  -> WeCms.Modules.FileCenter / WeCms.Modules.Platform
+  -> WeCms.Modules.*.SqlSugar
   -> WeCms.Infrastructure
-  -> WeCms.Persistence
+  -> WeCms.Data.SqlSugar
+  -> WeCms.Caching
+  -> WeCms.EventBus
+  -> WeCms.Aop
   -> WeCms.Shared
 
-WeCms.Modules.System / WeCms.Modules.Cms
+WeCms.Modules.*
   -> WeCms.Shared
 
-WeCms.Persistence
+WeCms.Modules.*.SqlSugar
+  -> 对应 WeCms.Modules.*
+  -> WeCms.Data.SqlSugar
   -> WeCms.Shared
-  -> WeCms.Modules.System / WeCms.Modules.Cms（仅用于实现 repository port）
+
+WeCms.Data.SqlSugar / WeCms.Caching / WeCms.EventBus
+  -> WeCms.Shared
+
+WeCms.Aop
+  -> WeCms.Shared
+  -> WeCms.Caching
+  -> WeCms.EventBus
 
 WeCms.Infrastructure
   -> WeCms.Shared
@@ -79,12 +94,15 @@ WeCms.Shared
   -> 不得引用其它生产工程
 ```
 
+迁移期说明：`WeCms.Modules.System 最终删除`，`WeCms.Persistence 最终删除`，二者仅允许作为过渡 allow-list。CMS 模块暂不实现，不参与系统基础升级 API、OpenAPI 或质量门禁功能覆盖。
+
 ### 2.2 数据库边界
 
-- `WeCms.Persistence` 是唯一允许直接引用 ORM / 数据库连接器的生产项目
+- 迁移期 `WeCms.Persistence` 可继续暂存数据库/ORM/连接器代码；最终只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器
 - `WeCms.Modules.*` 不得出现 SQL 文本
 - `WeCms.Modules.*` 不得直接引用 `SqlSugar ORM`、`MySqlConnector`
-- `WeCms.Modules.*` 不得依赖 `WeCms.Persistence` 的具体实现
+- `WeCms.Modules.*` 不得依赖 `WeCms.Persistence`、`WeCms.Data.SqlSugar` 或 `WeCms.Modules.*.SqlSugar` 的具体实现
+- CodeFirst 建模仅允许在数据平台和 `.SqlSugar` 适配层内使用；当前无生产环境，允许重置数据库 baseline
 
 ---
 

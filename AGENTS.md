@@ -41,6 +41,7 @@ WeCMS Next 是从 ThinkPHP CMS 迁移重构的新系统。
 - 运行时基线已从 Native AOT 切换为 JIT。
 - Minimal API 与 `WebApplication.CreateSlimBuilder(args)` 继续保留。
 - 这次运行时基线调整 **不等于** 改成 MVC Controller。
+- ADR-0017 `docs/adr/0017-minimal-api-remains-controller-forbidden.md` 已明确：继续 Minimal API，禁止 Controller / ControllerBase / AddControllers / MapControllers。
 
 ---
 
@@ -88,21 +89,38 @@ code_review.md
 
 ### 3.3 依赖矩阵
 
+系统基础破坏性升级后的目标依赖矩阵：
+
 ```text
 WeCms.Api
-  -> WeCms.Modules.System / WeCms.Modules.Cms
+  -> WeCms.Modules.Identity / WeCms.Modules.AccessControl
+  -> WeCms.Modules.Organization / WeCms.Modules.Configuration
+  -> WeCms.Modules.Audit / WeCms.Modules.Security
+  -> WeCms.Modules.FileCenter / WeCms.Modules.Platform
+  -> WeCms.Modules.*.SqlSugar
   -> WeCms.Infrastructure
-  -> WeCms.Persistence
+  -> WeCms.Data.SqlSugar
+  -> WeCms.Caching
+  -> WeCms.EventBus
+  -> WeCms.Aop
   -> WeCms.Shared
 
-WeCms.Modules.System / WeCms.Modules.Cms
+WeCms.Modules.*
   -> WeCms.Shared
-  -> 必要时依赖模块内抽象
+  -> 必要时依赖其他模块 Contracts 抽象
 
-WeCms.Persistence
+WeCms.Modules.*.SqlSugar
+  -> 对应 WeCms.Modules.*
+  -> WeCms.Data.SqlSugar
   -> WeCms.Shared
-  -> WeCms.Modules.System / WeCms.Modules.Cms（仅实现模块暴露的持久化抽象）
-  -> SqlSugar ORM / MySqlConnector
+
+WeCms.Data.SqlSugar / WeCms.Caching / WeCms.EventBus
+  -> WeCms.Shared
+
+WeCms.Aop
+  -> WeCms.Shared
+  -> WeCms.Caching
+  -> WeCms.EventBus
 
 WeCms.Infrastructure
   -> WeCms.Shared
@@ -110,6 +128,12 @@ WeCms.Infrastructure
 WeCms.Shared
   -> 不得引用其它生产工程
 ```
+
+迁移期说明：
+
+- `WeCms.Modules.System 最终删除`，迁移期间只作为 allow-list 暂存。
+- `WeCms.Persistence 最终删除`，迁移期间只作为 allow-list 暂存。
+- `WeCms.Modules.Cms` / CMS 模块暂不实现，不参与系统基础升级 API、OpenAPI 或质量门禁功能覆盖。
 
 ### 3.4 拒绝隐式兼容
 
@@ -171,8 +195,8 @@ WeCms.Shared
 5. 禁止使用 MVC Controller。
 6. 禁止使用 Razor / Razor Pages。
 7. 禁止运行时 Endpoint 自动扫描。
-8. 禁止动态代理 AOP。
-9. 禁止 runtime code generation。
+8. 允许 Autofac / DynamicProxy，但 AOP 只能拦截 Application Service 接口。
+9. 禁止业务运行时 code generation；DynamicProxy 仅限 ADR 批准的 Application Service AOP 场景。
 10. 禁止在核心业务路径使用 Newtonsoft.Json。
 11. 所有请求/响应 DTO 必须纳入 `System.Text.Json` Source Generator。
 12. 所有 Endpoint 必须显式注册。
@@ -196,17 +220,19 @@ WeCms.Shared
 11. 分页参数必须校验，最大 `pageSize` 不超过 100。
 12. 写操作必须检查 affected rows。
 13. 批量操作必须限制最大数量。
-14. Repository interface 只能定义在模块层或 `WeCms.Shared`，Repository implementation 只能存在于 `WeCms.Persistence`。
+14. Repository interface 只能定义在模块层或 `WeCms.Shared`，Repository implementation 迁移期可存在于 `WeCms.Persistence`，最终只能存在于 `WeCms.Modules.*.SqlSugar`。
 15. Service / UseCase 获取 Repository、UnitOfWork、时钟、密码、Token、随机数等有副作用依赖时，必须通过接口 + DI，不得依赖具体实现。
 
 ### DB-BOUNDARY
 
-1. `WeCms.Persistence` 为唯一允许直接引用数据库/ORM/连接器的项目。
+1. 迁移期 `WeCms.Persistence` 可继续暂存数据库/ORM/连接器代码；最终只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器。
 2. `WeCms.Modules.*` 不得包含 SQL 文本。
 3. `WeCms.Modules.*` 不得直接引用 `SqlSugar ORM`、`MySqlConnector`。
-4. `WeCms.Modules.*` 不得依赖 `WeCms.Persistence` 的具体实现。
+4. `WeCms.Modules.*` 不得依赖 `WeCms.Persistence`、`WeCms.Data.SqlSugar` 或 `WeCms.Modules.*.SqlSugar` 的具体实现。
 5. `WeCms.Modules.*` 仅通过抽象控制事务边界，不得直接使用 `DbConnection` / `DbTransaction`。
 6. `WeCms.Api`、`WeCms.Infrastructure`、`WeCms.Shared` 也不得直接持有 SQL 文本、ORM Client、数据库连接或 Repository implementation。
+7. CodeFirst 建模仅允许在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内使用；最终数据库结构以 migration baseline 为准。
+8. 当前无生产环境，允许重置数据库 baseline；未来生产环境不得自动 DDL。
 
 ---
 
@@ -382,10 +408,11 @@ M1-BE quality gate
 不运行 pnpm
 不生成前端 TypeScript generated
 不做 CMS 内容 API
+CMS 模块暂不实现
 不做旧系统数据迁移
 不做旧系统兼容模式
 不做 AI runtime
-所有数据库操作只能在 WeCms.Persistence
+系统基础破坏性升级期间按 ADR-0019 迁移数据库边界，WeCms.Persistence 最终删除
 所有业务 Endpoint 必须有权限码或显式内部访问策略
 所有写操作必须记录审计
 ```
