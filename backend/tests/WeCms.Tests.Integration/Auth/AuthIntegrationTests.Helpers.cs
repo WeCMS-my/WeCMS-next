@@ -145,7 +145,7 @@ public sealed partial class AuthIntegrationTests
             twoFactorOptions);
 
         return new UserService(
-            repository ?? new UserRepository(db, securityEventClassifier),
+            repository ?? new UserRepository(db, securityEventClassifier, new WeCms.Infrastructure.Id.SystemIdGenerator()),
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
             twoFactorService,

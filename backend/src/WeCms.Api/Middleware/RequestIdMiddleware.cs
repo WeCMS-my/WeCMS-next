@@ -1,3 +1,5 @@
+using WeCms.Shared.Id;
+
 namespace WeCms.Api.Middleware;
 
 public sealed class RequestIdMiddleware
@@ -6,10 +8,12 @@ public sealed class RequestIdMiddleware
     private const int MaxTraceIdLength = 64;
 
     private readonly RequestDelegate _next;
+    private readonly IIdGenerator _idGenerator;
 
-    public RequestIdMiddleware(RequestDelegate next)
+    public RequestIdMiddleware(RequestDelegate next, IIdGenerator idGenerator)
     {
         _next = next;
+        _idGenerator = idGenerator;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -26,7 +30,7 @@ public sealed class RequestIdMiddleware
         await _next(context);
     }
 
-    private static string ResolveTraceId(HttpContext context)
+    private string ResolveTraceId(HttpContext context)
     {
         var incomingTraceId = context.Request.Headers[HeaderName].ToString();
         if (IsValidTraceId(incomingTraceId))
@@ -39,7 +43,7 @@ public sealed class RequestIdMiddleware
             return context.TraceIdentifier;
         }
 
-        return Guid.NewGuid().ToString("N");
+        return _idGenerator.NewId();
     }
 
     private static bool IsValidTraceId(string? traceId)

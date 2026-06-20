@@ -363,7 +363,7 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
     private static UserService CreateUserService(ISqlSugarClient db)
     {
         return new UserService(
-            new UserRepository(db, new SecurityEventClassifier()),
+            new UserRepository(db, new SecurityEventClassifier(), new WeCms.Infrastructure.Id.SystemIdGenerator()),
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
             new FakeTwoFactorService(),

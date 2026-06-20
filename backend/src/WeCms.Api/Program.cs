@@ -21,7 +21,9 @@ using WeCms.Modules.System.TwoFactor;
 using WeCms.Modules.System.Users;
 using WeCms.Persistence.Data;
 using WeCms.Infrastructure.Files;
+using WeCms.Infrastructure.Id;
 using WeCms.Shared;
+using WeCms.Shared.Id;
 using WeCms.Shared.Security;
 
 if (await OpenApiExtensions.ExportOpenApiAsync(args))
@@ -36,6 +38,7 @@ ProductionConfigurationValidator.Validate(builder.Configuration, builder.Environ
 
 builder.Services.AddWeCmsPersistence(builder.Configuration, useMigrationConnectionString: isMigrationCommand);
 builder.Services.AddWeCmsFileStorage(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton<IIdGenerator, SystemIdGenerator>();
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsSystemAuth(builder.Configuration);

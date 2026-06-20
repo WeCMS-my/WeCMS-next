@@ -30,6 +30,13 @@ def read(relative: str) -> str:
     path = repo / relative
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
+def read_glob(relative_glob: str) -> str:
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(repo.glob(relative_glob))
+        if path.is_file()
+    )
+
 program = read("backend/src/WeCms.Api/Program.cs")
 if "app.UseMiddleware<RequestIdMiddleware>();" not in program:
     violations.append("Program.cs must register RequestIdMiddleware")
@@ -79,7 +86,7 @@ for token in ["ApiResult<SystemDependenciesResponse>", "SystemDependencyStatus",
     if token not in json_context:
         violations.append(f"JsonSerializerContext missing {token}")
 
-openapi = read("backend/src/WeCms.Api/Extensions/OpenApiExtensions.cs")
+openapi = read_glob("backend/src/WeCms.Api/Extensions/OpenApiExtensions*.cs")
 if '"/health/dependencies"' not in openapi:
     violations.append("OpenAPI endpoints missing /health/dependencies")
 

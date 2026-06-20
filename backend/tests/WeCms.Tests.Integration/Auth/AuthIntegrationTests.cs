@@ -352,7 +352,7 @@ public sealed partial class AuthIntegrationTests : PerTestDatabaseResetBase
             var tokenOptions = TokenOptions();
             var service = CreateService(db, tokenOptions, new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
             var accessTokenService = new AccessTokenService(tokenOptions);
-            var userRepository = new UserRepository(db, new SecurityEventClassifier());
+            var userRepository = new UserRepository(db, new SecurityEventClassifier(), new WeCms.Infrastructure.Id.SystemIdGenerator());
             var adminUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             var targetUserId = await CreateUserAsync(
                 db,

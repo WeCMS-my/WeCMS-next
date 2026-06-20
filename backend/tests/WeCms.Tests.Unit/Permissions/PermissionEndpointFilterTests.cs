@@ -15,7 +15,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ReturnsUnauthorizedWhenUserIsMissing()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, userId: null);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
@@ -28,7 +28,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ReturnsUnauthorizedWhenUserIsDisabled()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.UserDisabled, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
@@ -46,7 +46,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ReturnsForbiddenWhenPermissionIsMissing()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
@@ -57,7 +57,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ReturnsPermissionDeniedWhenPermissionIsMissing()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
         var response = await ExecuteResultAsync(result, httpContext);
@@ -75,7 +75,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_ReturnsForbiddenWhenFileDownloadPermissionMissing()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Forbidden, FilePermissions.Download, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
 
         var result = await filter.InvokeAsync(filterContext, _ => throw new InvalidOperationException("Next must not run."));
 
@@ -86,7 +86,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_CallsNextWhenPermissionIsAllowed()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
         var called = false;
 
         var result = await filter.InvokeAsync(filterContext, _ =>
@@ -108,7 +108,7 @@ public sealed class PermissionEndpointFilterTests
     public async Task InvokeAsync_CallsNextWhenFilePermissionIsAllowed()
     {
         var (httpContext, filterContext) = CreateContext(PermissionCheckResult.Allowed, FilePermissions.Download, userId: 42);
-        var filter = new PermissionEndpointFilter();
+        var filter = CreateFilter(httpContext);
         var called = false;
 
         var result = await filter.InvokeAsync(filterContext, _ =>
@@ -164,6 +164,14 @@ public sealed class PermissionEndpointFilterTests
         }
 
         return (httpContext, new TestEndpointFilterInvocationContext(httpContext));
+    }
+
+    private static PermissionEndpointFilter CreateFilter(DefaultHttpContext httpContext)
+    {
+        return new PermissionEndpointFilter(
+            httpContext.RequestServices.GetRequiredService<IPermissionChecker>(),
+            httpContext.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>(),
+            httpContext.RequestServices.GetRequiredService<IAuthClock>());
     }
 
     private static async Task<int> ExecuteStatusCodeAsync(object? result, DefaultHttpContext httpContext)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Api.Middleware;
 using WeCms.Shared;
+using WeCms.Shared.Id;
 
 namespace WeCms.Tests.Unit.Api;
 
@@ -16,7 +17,7 @@ public sealed class ResponseAndExceptionTests
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
         context.Request.Headers["X-Trace-Id"] = "trace-from-client";
-        var middleware = new RequestIdMiddleware(_ => Task.CompletedTask);
+        var middleware = new RequestIdMiddleware(_ => Task.CompletedTask, new FixedIdGenerator("generated-trace"));
 
         await middleware.InvokeAsync(context);
         await context.Response.StartAsync(TestContext.Current.CancellationToken);
@@ -32,12 +33,12 @@ public sealed class ResponseAndExceptionTests
         context.TraceIdentifier = string.Empty;
         context.Response.Body = new MemoryStream();
         context.Request.Headers["X-Trace-Id"] = new string('x', 65);
-        var middleware = new RequestIdMiddleware(_ => Task.CompletedTask);
+        var middleware = new RequestIdMiddleware(_ => Task.CompletedTask, new FixedIdGenerator("generated-trace"));
 
         await middleware.InvokeAsync(context);
 
         Assert.NotEqual(new string('x', 65), context.TraceIdentifier);
-        Assert.Matches("^[A-Za-z0-9._-]{1,64}$", context.TraceIdentifier);
+        Assert.Equal("generated-trace", context.TraceIdentifier);
         Assert.Equal(context.TraceIdentifier, context.Response.Headers["X-Trace-Id"]);
     }
 
@@ -171,4 +172,16 @@ public sealed class ResponseAndExceptionTests
             Messages.Add(formatter(state, exception));
         }
     }
+}
+
+file sealed class FixedIdGenerator : IIdGenerator
+{
+    private readonly string _id;
+
+    public FixedIdGenerator(string id)
+    {
+        _id = id;
+    }
+
+    public string NewId() => _id;
 }

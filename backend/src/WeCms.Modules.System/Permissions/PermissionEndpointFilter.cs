@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.System.Auth;
 using WeCms.Shared;
 
@@ -8,6 +7,20 @@ namespace WeCms.Modules.System.Permissions;
 
 public sealed class PermissionEndpointFilter : IEndpointFilter
 {
+    private readonly IPermissionChecker _checker;
+    private readonly IPermissionSecurityEventWriter _securityEventWriter;
+    private readonly IAuthClock _clock;
+
+    public PermissionEndpointFilter(
+        IPermissionChecker checker,
+        IPermissionSecurityEventWriter securityEventWriter,
+        IAuthClock clock)
+    {
+        _checker = checker;
+        _securityEventWriter = securityEventWriter;
+        _clock = clock;
+    }
+
     public async ValueTask<object?> InvokeAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
@@ -22,8 +35,7 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
                 statusCode: ApiCodes.ToHttpStatus(ApiCodes.Unauthorized));
         }
 
-        var checker = context.HttpContext.RequestServices.GetRequiredService<IPermissionChecker>();
-        var result = await checker.CheckAsync(userId, metadata.Code, context.HttpContext.RequestAborted);
+        var result = await _checker.CheckAsync(userId, metadata.Code, context.HttpContext.RequestAborted);
         if (result == PermissionCheckResult.UserDisabled)
         {
             await RecordDeniedAsync(
@@ -53,23 +65,21 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
         return await next(context);
     }
 
-    private static Task RecordDeniedAsync(
+    private Task RecordDeniedAsync(
         HttpContext context,
         long userId,
         string permissionCode,
         string reason,
         CancellationToken cancellationToken)
     {
-        var writer = context.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>();
-        var clock = context.RequestServices.GetRequiredService<IAuthClock>();
-        return writer.RecordAsync(
+        return _securityEventWriter.RecordAsync(
             new PermissionSecurityEventRecord(
                 "permission_denied",
                 userId,
                 context.User.Identity?.Name,
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 $"{reason} Required permission: {permissionCode}.",
-                clock.UtcNow,
+                _clock.UtcNow,
                 context.TraceIdentifier),
             cancellationToken);
     }

@@ -4,6 +4,11 @@ namespace WeCms.Tests.Architecture;
 
 public sealed partial class DiBoundaryTests
 {
+    private static readonly string[] GuidNewGuidAllowedFiles =
+    [
+        Path.Combine("WeCms.Infrastructure", "Id", "SystemIdGenerator.cs")
+    ];
+
     [Fact]
     public void BusinessCode_DoesNotInstantiateSideEffectDependencies()
     {
@@ -20,6 +25,20 @@ public sealed partial class DiBoundaryTests
     }
 
     [Fact]
+    public void ProductionCode_UsesIdGeneratorInsteadOfDirectGuidCreation()
+    {
+        var violations = Directory.EnumerateFiles(TestPaths.SourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => GuidNewGuidPattern().IsMatch(File.ReadAllText(file)))
+            .Where(file => !IsAllowedGuidGeneratorFile(file))
+            .Select(file => Path.GetRelativePath(TestPaths.RepoRoot, file))
+            .ToArray();
+
+        Assert.True(violations.Length == 0, $"Production code must use IIdGenerator instead of Guid.NewGuid:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
+    }
+
+    [Fact]
     public void BusinessConstructors_DoNotDependOnConcreteRepositoryImplementations()
     {
         var violations = Directory.EnumerateFiles(TestPaths.SourceRoot, "*.cs", SearchOption.AllDirectories)
@@ -33,10 +52,36 @@ public sealed partial class DiBoundaryTests
         Assert.True(violations.Length == 0, $"Business constructors depend on concrete repositories:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
     }
 
+    [Fact]
+    public void EndpointFilters_UseConstructorInjectionInsteadOfRequestServicesLookup()
+    {
+        var violations = Directory.EnumerateFiles(TestPaths.SourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(file => IsBusinessProject(file))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(file => Path.GetFileName(file).EndsWith("Filter.cs", StringComparison.Ordinal))
+            .Where(file =>
+            {
+                var text = File.ReadAllText(file);
+                return text.Contains("IEndpointFilter", StringComparison.Ordinal)
+                    && text.Contains("RequestServices.GetRequiredService", StringComparison.Ordinal);
+            })
+            .Select(file => Path.GetRelativePath(TestPaths.RepoRoot, file))
+            .ToArray();
+
+        Assert.True(violations.Length == 0, $"Endpoint filters must use constructor injection instead of RequestServices lookup:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
+    }
+
     private static bool IsBusinessProject(string file)
     {
         return file.Contains($"{Path.DirectorySeparatorChar}WeCms.Modules.System{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || file.Contains($"{Path.DirectorySeparatorChar}WeCms.Modules.Cms{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    }
+
+    private static bool IsAllowedGuidGeneratorFile(string file)
+    {
+        var relativePath = Path.GetRelativePath(TestPaths.SourceRoot, file);
+        return GuidNewGuidAllowedFiles.Any(allowed => string.Equals(relativePath, allowed, StringComparison.Ordinal));
     }
 
     private static (Regex Regex, string Description)[] ForbiddenInstantiationPatterns()

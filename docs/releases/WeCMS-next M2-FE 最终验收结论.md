@@ -56,9 +56,9 @@ bash scripts/quality-gate-frontend.sh
 - 未新增 AI runtime、AI Provider、Prompt/RAG/Vector/Agent Tool 运行时代码。
 - 所有 `/system/*` 路由均有权限元数据。
 - 文件上传在前端执行类型、大小和 SHA-256 预校验，后端仍保留最终校验。
-- `frontend/soybean-admin/src/api/types/generated.ts` 当前仍是 OpenAPI 对齐的手工占位类型；M2-FE 门禁已校验本阶段使用的 schema 声明存在。
+- `frontend/soybean-admin/src/api/types/generated.ts` 当前由 `scripts/generate-openapi-types.py` 从 `artifacts/openapi/wecms-api-v1.json` 生成；前端门禁通过 diff 校验阻止手写漂移。
 
 ## 残余风险
 
 - 本次未运行端到端浏览器 smoke，因为当前任务没有可用的后端测试夹具和浏览器登录账号。
-- OpenAPI 自动生成替换仍可作为后续工程化增强，但不阻断 M2-FE 当前验收。
+- OpenAPI 类型生成链路已落地；后续风险转为保持 OpenAPI artifact、生成器和前端类型文件同步。

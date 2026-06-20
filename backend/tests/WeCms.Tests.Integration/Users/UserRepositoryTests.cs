@@ -1,4 +1,5 @@
 using SqlSugar;
+using WeCms.Infrastructure.Id;
 using WeCms.Persistence.Data;
 using WeCms.Persistence.Modules.System.Users;
 using WeCms.Shared.Security;
@@ -16,7 +17,7 @@ public sealed class UserRepositoryTests : PerTestDatabaseResetBase
         await PrepareDatabaseWithSeedsAsync(db);
 
         var roleId = Scalar<long>(db, "SELECT id FROM sys_role WHERE code = 'super_admin'");
-        var repository = new UserRepository(db, new SecurityEventClassifier());
+        var repository = new UserRepository(db, new SecurityEventClassifier(), new SystemIdGenerator());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             repository.ReplaceRolesAsync(999999, [], DateTimeOffset.UtcNow, CancellationToken.None));
@@ -39,7 +40,7 @@ public sealed class UserRepositoryTests : PerTestDatabaseResetBase
             new SugarParameter("@deletedAt", DateTime.UtcNow),
             new SugarParameter("@id", roleId));
 
-        var repository = new UserRepository(db, new SecurityEventClassifier());
+        var repository = new UserRepository(db, new SecurityEventClassifier(), new SystemIdGenerator());
         var existing = await repository.ExistingRoleIdsAsync([roleId], CancellationToken.None);
 
         Assert.Empty(existing);
@@ -66,7 +67,7 @@ public sealed class UserRepositoryTests : PerTestDatabaseResetBase
             new SugarParameter("@deletedAt", DateTime.UtcNow),
             new SugarParameter("@id", postId));
 
-        var repository = new UserRepository(db, new SecurityEventClassifier());
+        var repository = new UserRepository(db, new SecurityEventClassifier(), new SystemIdGenerator());
         var existing = await repository.ExistingPostIdsAsync([postId], CancellationToken.None);
 
         Assert.Empty(existing);

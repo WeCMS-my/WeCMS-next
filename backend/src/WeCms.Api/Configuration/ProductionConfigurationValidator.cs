@@ -9,6 +9,7 @@ public static class ProductionConfigurationValidator
     private const string DevelopmentSeedPassword = "Admin@123";
     private const int MinimumSecretLength = 32;
     private const int MinimumSeedPasswordLength = 12;
+    private static long _writeProbeCounter;
 
     private static readonly string[] PlaceholderValues =
     [
@@ -244,7 +245,8 @@ public static class ProductionConfigurationValidator
 
     private static void EnsureWritableDirectory(string path)
     {
-        var probePath = Path.Combine(path, $".wecms-write-probe-{Guid.NewGuid():N}");
+        var probeId = Interlocked.Increment(ref _writeProbeCounter);
+        var probePath = Path.Combine(path, $".wecms-write-probe-{Environment.ProcessId}-{probeId}");
         try
         {
             File.WriteAllText(probePath, "ok");

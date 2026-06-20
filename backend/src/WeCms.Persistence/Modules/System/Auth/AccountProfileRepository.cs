@@ -1,5 +1,6 @@
 using SqlSugar;
 using WeCms.Modules.System.Auth;
+using WeCms.Shared.Id;
 using WeCms.Shared.Security;
 
 namespace WeCms.Persistence.Modules.System.Auth;
@@ -8,11 +9,13 @@ public sealed class AccountProfileRepository : IAccountProfileRepository
 {
     private readonly ISqlSugarClient _db;
     private readonly ISecurityEventClassifier _securityEventClassifier;
+    private readonly IIdGenerator _idGenerator;
 
-    public AccountProfileRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier)
+    public AccountProfileRepository(ISqlSugarClient db, ISecurityEventClassifier securityEventClassifier, IIdGenerator idGenerator)
     {
         _db = db;
         _securityEventClassifier = securityEventClassifier;
+        _idGenerator = idGenerator;
     }
 
     public async Task<AccountProfileRecord?> GetAsync(long userId, CancellationToken cancellationToken)
@@ -108,7 +111,7 @@ public sealed class AccountProfileRepository : IAccountProfileRepository
             """,
             cancellationToken,
             new SugarParameter("@passwordHash", record.PasswordHash),
-            new SugarParameter("@securityStamp", Guid.NewGuid().ToString("N")),
+            new SugarParameter("@securityStamp", _idGenerator.NewId()),
             new SugarParameter("@updatedAt", ToDatabaseDateTime(record.Now)),
             new SugarParameter("@userId", record.UserId));
     }
