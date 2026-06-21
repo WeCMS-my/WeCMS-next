@@ -1,0 +1,32 @@
+# S5 AccessControl Migration Checklist
+
+- [x] Spec trio exists before Sprint 5 production code changes.
+- [x] Roles DTOs and records live in `WeCms.Modules.AccessControl`.
+- [x] Permissions DTOs and records live in `WeCms.Modules.AccessControl`.
+- [x] Menus DTOs and records live in `WeCms.Modules.AccessControl`.
+- [x] PermissionDefinition model exists and validates duplicate codes.
+- [x] PermissionDefinition model validates code format, module, kind, and action.
+- [x] URL permission binding model exists.
+- [x] Endpoint metadata can generate URL permission bindings.
+- [x] OpenAPI `x-wecms-permission` remains correct.
+- [x] Button permission definition model exists.
+- [x] AccessProfile returns button permissions.
+- [x] Role services and repository interfaces live in `WeCms.Modules.AccessControl`.
+- [x] Role repository implementation lives in `WeCms.Modules.AccessControl.SqlSugar`.
+- [x] Locked role protection is preserved.
+- [x] Permission version bump is preserved.
+- [x] Permission checker and endpoint filter live in `WeCms.Modules.AccessControl`.
+- [x] Permission management services and repository interfaces live in `WeCms.Modules.AccessControl`.
+- [x] Permission repository implementation lives in `WeCms.Modules.AccessControl.SqlSugar`.
+- [x] Permission denied security event recording is preserved through an abstraction.
+- [x] Menu services, tree builder, and repository interfaces live in `WeCms.Modules.AccessControl`.
+- [x] Menu repository implementation lives in `WeCms.Modules.AccessControl.SqlSugar`.
+- [x] `IAccessProfileService` returns roles, permissions, menus, buttons, and permission version.
+- [x] Identity uses AccessProfile abstraction without depending on AccessControl concrete implementations.
+- [x] AccessControl and AccessControl.SqlSugar DI registrations own AccessControl dependencies.
+- [x] Old System Roles, Permissions, and Menus service registrations are removed.
+- [x] AccessControl permissions and seed coverage are updated without changing existing permission code strings.
+- [x] Role, Permission, Menu, AccessProfile, and permission coverage tests pass.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No AI runtime capability is introduced.
+- [x] Full backend quality gate passes for each completed S5 task.

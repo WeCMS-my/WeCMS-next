@@ -95,11 +95,11 @@ WeCms.Shared
   -> 不得引用其它生产工程
 ```
 
-迁移期说明：`WeCms.Modules.System 最终删除`，`WeCms.Persistence 最终删除`，二者仅允许作为过渡 allow-list。CMS 模块暂不实现，不参与系统基础升级 API、OpenAPI 或质量门禁功能覆盖。
+最终期说明：`WeCms.Modules.System` 与 `WeCms.Persistence` 已退出 active source，不得重新引入。CMS 模块暂不实现，不参与系统基础升级 API、OpenAPI 或质量门禁功能覆盖。
 
 ### 2.2 数据库边界
 
-- 迁移期 `WeCms.Persistence` 可继续暂存数据库/ORM/连接器代码；最终只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器
+- `WeCms.Persistence` 不再是合法 active source；只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器
 - `WeCms.Modules.*` 不得出现 SQL 文本
 - `WeCms.Modules.*` 不得直接引用 `SqlSugar ORM`、`MySqlConnector`
 - `WeCms.Modules.*` 不得依赖 `WeCms.Persistence`、`WeCms.Data.SqlSugar` 或 `WeCms.Modules.*.SqlSugar` 的具体实现

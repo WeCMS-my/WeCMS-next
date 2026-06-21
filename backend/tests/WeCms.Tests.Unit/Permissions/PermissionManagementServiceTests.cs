@@ -1,4 +1,7 @@
-using WeCms.Modules.System.Permissions;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.AccessControl.Repositories;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Permissions;
@@ -100,7 +103,7 @@ public sealed class PermissionManagementServiceTests
         public Task RecordManagementAuditAsync(PermissionAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private sealed class FakePermissionVersionService : IPermissionVersionService
+    private sealed class FakePermissionVersionService : IAccessControlPermissionVersionService
     {
         public int BumpUsersByPermissionCalls { get; private set; }
 

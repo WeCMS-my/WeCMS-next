@@ -1,4 +1,3 @@
-using WeCms.Modules.System.TwoFactor;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.TwoFactor;

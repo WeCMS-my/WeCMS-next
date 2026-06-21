@@ -17,7 +17,7 @@
 | 层 | 技术 |
 |---|---|
 | 后端 | ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime |
-| 数据访问实现 | WeCms.Persistence / SqlSugar ORM / MySQL |
+| 数据访问实现 | WeCms.Data.SqlSugar + WeCms.Modules.*.SqlSugar / SqlSugar ORM / MySQL |
 | 前端 | SoybeanAdmin / Vue 3 管理端 |
 | CI/CD | GitHub Actions |
 
@@ -119,7 +119,7 @@ CI 默认为 strict 模式；本地默认为 fallback 模式，适合在本地�
 CI（`backend-quality-gate.yml`）运行 strict gate。
 CI 会显式设置 `WECMS_TEST_MYSQL_ALLOWED_HOSTS=127.0.0.1`；本地未设置该变量时，测试默认白名单也为 `127.0.0.1`。
 
-当前 backend quality gate 以 JIT + Persistence 边界治理、系统管理 API 权限码、OpenAPI、seed 和迁移烟测为准。当前重点覆盖以下检查面：
+当前 backend quality gate 以 JIT + SqlSugar 数据平台边界治理、系统管理 API 权限码、OpenAPI、seed 和迁移烟测为准。当前重点覆盖以下检查面：
 
 1. `dotnet build -warnaserror`
 2. `dotnet test`
@@ -224,9 +224,20 @@ backend/
     WeCms.Api/              # Host 层
     WeCms.Shared/            # 共享契约
     WeCms.Infrastructure/    # 非数据库基础设施适配
-    WeCms.Persistence/       # 数据访问实现适配器层（SqlSugar ORM / MySQL）
-    WeCms.Modules.System/    # 系统管理模块
-    WeCms.Modules.Cms/       # CMS 内容模块
+    WeCms.Data.SqlSugar/     # SqlSugar 数据平台、迁移、seed、UnitOfWork、CodeFirst、SQL 审计
+    WeCms.Caching/           # 缓存抽象与默认实现
+    WeCms.EventBus/          # 事件总线、outbox、幂等处理
+    WeCms.Aop/               # 应用服务 AOP 基础设施
+    WeCms.Modules.Identity/          # 认证、账户、用户、2FA
+    WeCms.Modules.AccessControl/     # 角色、菜单、权限、访问画像
+    WeCms.Modules.Organization/      # 部门、岗位
+    WeCms.Modules.Configuration/     # 设置、字典、i18n
+    WeCms.Modules.Audit/             # 审计日志、登录日志
+    WeCms.Modules.Security/          # 安全事件、封禁、限流事件
+    WeCms.Modules.FileCenter/        # 文件基础能力
+    WeCms.Modules.Platform/          # 平台探针与系统信息
+    WeCms.Modules.*.SqlSugar/        # 各模块持久化适配层
+    WeCms.Modules.Cms/       # CMS 内容模块占位；一期系统基础升级期间不启用
   tests/
     WeCms.Tests.Unit/
     WeCms.Tests.Integration/
@@ -235,7 +246,7 @@ backend/
 database/
   migrations/                # 数据库迁移
   seeds/                     # 种子数据
-  legacy-migration/          # 旧系统 Schema 对照（不执行迁移）
+  legacy-reference/          # 旧系统 Schema 对照（不执行迁移）
 
 scripts/
   quality-gate-backend.sh    # 后端质量门禁
@@ -265,13 +276,17 @@ artifacts/
 | [ADR-0013](docs/adr/0013-m1-system-management-api-scope.md) | M1-BE 系统管理 API backend-only 边界 | Accepted |
 | [ADR-0014](docs/adr/0014-refresh-token-storage-m2-fe.md) | 认证 token 存储最终基线：refresh cookie + access token memory | Accepted |
 | [ADR-0016](docs/adr/0016-admingate-csrf-migration-strategy.md) | AdminGate / CSRF 迁移拆解策略 | Accepted |
+| [ADR-0017](docs/adr/0017-minimal-api-remains-controller-forbidden.md) | 继续 Minimal API，禁止 Controller / ControllerBase / AddControllers / MapControllers | Accepted |
+| [ADR-0018](docs/adr/0018-system-foundation-module-split.md) | 系统基础模块拆分并最终删除 System God Module | Accepted |
+| [ADR-0019](docs/adr/0019-sqlsugar-data-platform.md) | SqlSugar 数据平台与模块持久化适配层 | Accepted |
 
 ## 核心原则
 
 - 后端契约优先。
 - 当前运行时基线为 `.NET 10 JIT publish/runtime`，不再将 Native AOT 作为现行门禁。
-- WeCms.Persistence 是 SqlSugar ORM / MySQL 的唯一数据访问实现适配器层，不是传统 DAL；业务模块只依赖抽象。
-- 所有数据库访问只能发生在 WeCms.Persistence；WeCms.Modules.* 不得持有 SQL、ORM Client、连接器或持久化实现依赖。
+- SqlSugar / MySqlConnector / ORM Client 只能出现在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内。
+- `WeCms.Modules.System` 与 `WeCms.Persistence` 已退出 active source；历史文档只能以迁移历史语境提及。
+- `WeCms.Modules.*` 业务模块不得持有 SQL、ORM Client、连接器或持久化实现依赖。
 - `database/migrations/*.sql` 与 `database/seeds/*.sql` 当前只支持简单标准 SQL 语句：按行末分号切分，跳过 `--` 单行注释；不得放入 `DELIMITER`、procedure、function、trigger 或依赖函数体内分号的脚本。
 - 业务代码中的 Repository、UnitOfWork、时钟、Token、密码、随机数等有副作用依赖必须通过接口 + DI 获取。
 - Refresh token 当前基线为 `HttpOnly; Secure; SameSite` Cookie，access token 仅保存在前端内存。
@@ -295,6 +310,7 @@ artifacts/
 - [AdminGate / CSRF 迁移设计说明](docs/context/WeCMS_Next_AdminGate_CSRF_迁移设计说明.md)
 - [工程骨架验证文档](docs/context/WeCMS_工程骨架验证文档.md)
 - [完整迁移重构计划（历史命名路径）](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
+- [系统基础开发指南](docs/dirs/system-foundation-development-guide.md)
 
 ## 许可证
 

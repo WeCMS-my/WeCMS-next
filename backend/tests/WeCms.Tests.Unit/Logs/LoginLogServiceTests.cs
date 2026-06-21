@@ -1,4 +1,4 @@
-using WeCms.Modules.System.Logs;
+using WeCms.Modules.Audit.Logs;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Logs;
@@ -72,9 +72,5 @@ public sealed class LoginLogServiceTests
         public Task<PagedResult<AuditLogSummaryDto>> ListAuditLogsAsync(AuditLogListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<AuditLogSummaryDto>([], criteria.Page, criteria.PageSize, 0));
 
         public Task<AuditLogDetailDto?> GetAuditLogAsync(long id, CancellationToken cancellationToken) => Task.FromResult<AuditLogDetailDto?>(new AuditLogDetailDto(id, 1, "admin", "system", "user", "create", "1", "POST", "/api/v1/system/users", "192.168.101.199", "unit-test", "trace", "success", "created", DateTimeOffset.UnixEpoch));
-
-        public Task<PagedResult<SecurityEventSummaryDto>> ListSecurityEventsAsync(SecurityEventListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<SecurityEventSummaryDto>([], criteria.Page, criteria.PageSize, 0));
-
-        public Task<SecurityEventDetailDto?> GetSecurityEventAsync(long id, CancellationToken cancellationToken) => Task.FromResult<SecurityEventDetailDto?>(new SecurityEventDetailDto(id, "auth.refresh_reuse", 1, "admin", "192.168.101.199", "high", "auth", "trace", "message", DateTimeOffset.UnixEpoch));
     }
 }

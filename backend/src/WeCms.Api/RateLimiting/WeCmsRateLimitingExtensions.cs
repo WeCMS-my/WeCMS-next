@@ -4,9 +4,10 @@ using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using WeCms.Api.Json;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Security;
 using WeCms.Shared;
+using WeCms.Shared.Security;
 
 namespace WeCms.Api.RateLimiting;
 

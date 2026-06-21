@@ -23,7 +23,7 @@ public sealed class ModuleBoundaryTests
         {
             var references = ProjectReferences(ProjectPath(module));
             var forbidden = references
-                .Where(reference => reference is "WeCms.Persistence" or "WeCms.Data.SqlSugar")
+                .Where(reference => string.Equals(reference, LegacyBoundaryNames.Persistence, StringComparison.Ordinal) || string.Equals(reference, "WeCms.Data.SqlSugar", StringComparison.Ordinal))
                 .Concat(references.Where(reference => reference.StartsWith("WeCms.Modules.", StringComparison.Ordinal)
                     && reference.EndsWith(".SqlSugar", StringComparison.Ordinal)))
                 .ToArray();

@@ -5,7 +5,7 @@ public sealed class DictApiScanTests
     [Fact]
     public async Task DictEndpoints_AreExplicitlyRegisteredWithPermissions()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Dicts", "DictEndpoints.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Configuration", "Dicts", "DictEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGroup(\"/api/v1/system\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -22,27 +22,29 @@ public sealed class DictApiScanTests
         Assert.Contains("MapDelete(\"/dict-values/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/dict-values/{id:long}/enable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/dict-values/{id:long}/disable\"", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeList)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeCreate)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeUpdate)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeDelete)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeEnable)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.TypeDisable)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueList)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueCreate)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueUpdate)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueDelete)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueEnable)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(DictPermissions.ValueDisable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeList)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeCreate)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeUpdate)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeDelete)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeEnable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.TypeDisable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueList)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueCreate)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueUpdate)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueDelete)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueEnable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(DictPermissions.ValueDisable)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Program_RegistersDictEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var programSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Endpoints", "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
+        var configurationSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Configuration", "ConfigurationServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("builder.Services.AddWeCmsSystemDicts();", source, StringComparison.Ordinal);
-        Assert.Contains("app.MapDictEndpoints();", source, StringComparison.Ordinal);
+        Assert.Contains("builder.Services.AddWeCmsConfiguration();", programSource, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapDictEndpoints();", endpointMapSource, StringComparison.Ordinal);
+        Assert.Contains("services.AddWeCmsConfigurationDicts();", configurationSource, StringComparison.Ordinal);
     }
 }
-

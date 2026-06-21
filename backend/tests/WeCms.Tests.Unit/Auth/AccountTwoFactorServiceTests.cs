@@ -1,6 +1,4 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.TwoFactor;
+using WeCms.Modules.AccessControl.Menus;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Auth;

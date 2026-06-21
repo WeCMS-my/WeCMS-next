@@ -1,11 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="11.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.9" />
+    <PackageReference Include="MiniProfiler.AspNetCore.Mvc" Version="4.5.4" />
+    <PackageReference Include="Scalar.AspNetCore.Swashbuckle" Version="2.16.4" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.2" />
     <ProjectReference Include="..\WeCms.Aop\WeCms.Aop.csproj" />
     <ProjectReference Include="..\WeCms.Caching\WeCms.Caching.csproj" />
     <ProjectReference Include="..\WeCms.Data.SqlSugar\WeCms.Data.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.EventBus\WeCms.EventBus.csproj" />
+    <ProjectReference Include="..\WeCms.EventBus.SqlSugar\WeCms.EventBus.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
     <ProjectReference Include="..\WeCms.Modules.AccessControl\WeCms.Modules.AccessControl.csproj" />
     <ProjectReference Include="..\WeCms.Modules.AccessControl.SqlSugar\WeCms.Modules.AccessControl.SqlSugar.csproj" />
@@ -20,10 +25,9 @@
     <ProjectReference Include="..\WeCms.Modules.Organization\WeCms.Modules.Organization.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Organization.SqlSugar\WeCms.Modules.Organization.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Platform\WeCms.Modules.Platform.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Platform.SqlSugar\WeCms.Modules.Platform.SqlSugar.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Security\WeCms.Modules.Security.csproj" />
     <ProjectReference Include="..\WeCms.Modules.Security.SqlSugar\WeCms.Modules.Security.SqlSugar.csproj" />
-    <ProjectReference Include="..\WeCms.Modules.System\WeCms.Modules.System.csproj" />
-    <ProjectReference Include="..\WeCms.Persistence\WeCms.Persistence.csproj" />
     <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
   </ItemGroup>
 

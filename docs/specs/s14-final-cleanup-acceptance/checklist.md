@@ -1,0 +1,35 @@
+# S14 Final Cleanup And Acceptance Checklist
+
+- [x] Spec trio exists before Sprint 14 production code changes.
+- [x] Sprint 14 boundary is documented as final cleanup, full verification, documentation, and acceptance reporting.
+- [x] `WeCms.Modules.System` cleanup scan is complete.
+- [x] `WeCms.Persistence` cleanup scan is complete.
+- [x] Controller/MVC/Razor forbidden scan is complete.
+- [x] System-position legacy naming scan is complete.
+- [x] EF Core, dynamic, AI runtime, and legacy fallback scan is complete.
+- [x] Swagger/Scalar/MiniProfiler package boundary scan is complete.
+- [x] Full backend restore passes.
+- [x] Full backend warn-as-error build passes.
+- [x] Full unit tests pass.
+- [x] Full architecture tests pass.
+- [x] Full integration tests pass with MySQL `127.0.0.1`.
+- [x] Full backend quality gate passes with MySQL `127.0.0.1`.
+- [x] OpenAPI export passes.
+- [x] Migration/seed smoke passes.
+- [x] Final module structure is documented.
+- [x] Minimal API-only decision is documented.
+- [x] Endpoint addition flow is documented.
+- [x] Permission addition flow is documented.
+- [x] Repository addition flow is documented.
+- [x] CodeFirst entity addition flow is documented.
+- [x] Migration baseline flow is documented.
+- [x] Test and quality gate commands are documented.
+- [x] Final acceptance report exists.
+- [x] Final acceptance report includes completed sprint list.
+- [x] Final acceptance report includes module split results.
+- [x] Final acceptance report includes old module deletion results.
+- [x] Final acceptance report includes database baseline results.
+- [x] Final acceptance report includes test/gate result matrix.
+- [x] Final acceptance report includes remaining risks.
+- [x] Final acceptance report includes CMS next-step recommendation.
+- [x] Final Sprint 14 total audit passes.

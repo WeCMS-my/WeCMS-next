@@ -3,11 +3,10 @@ using Microsoft.AspNetCore.Http;
 using SqlSugar;
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Infrastructure.Files;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.Auth;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Files;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Identity.Services;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.FileCenter.SqlSugar.Repositories;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 

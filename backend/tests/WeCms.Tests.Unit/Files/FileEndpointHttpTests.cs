@@ -1,4 +1,4 @@
-using WeCms.Modules.System.Files;
+using WeCms.Modules.FileCenter.Files;
 
 namespace WeCms.Tests.Unit.Files;
 
@@ -7,15 +7,15 @@ public sealed class FileEndpointHttpTests
     [Fact]
     public void FileEndpoints_SourceDeclaresExpectedRoutesPermissionsAndAntiforgeryMetadata()
     {
-        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"));
+        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.FileCenter", "Files", "FileEndpoints.cs"));
 
-        Assert.Contains("group.MapGet(\"/files\", ListAsync).RequirePermission(FilePermissions.List);", source, StringComparison.Ordinal);
-        Assert.Contains("group.MapGet(\"/files/{id:long}\", DetailAsync).RequirePermission(FilePermissions.Detail);", source, StringComparison.Ordinal);
-        Assert.Contains("group.MapGet(\"/files/{id:long}/download\", DownloadAsync).RequirePermission(FilePermissions.Download);", source, StringComparison.Ordinal);
-        Assert.Contains("group.MapGet(\"/files/{id:long}/preview\", PreviewAsync).RequirePermission(FilePermissions.Download);", source, StringComparison.Ordinal);
-        Assert.Contains("group.MapDelete(\"/files/{id:long}\", DeleteAsync).RequirePermission(FilePermissions.Delete);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files\", ListAsync).RequireEndpointPermission(FilePermissions.List);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}\", DetailAsync).RequireEndpointPermission(FilePermissions.Detail);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}/download\", DownloadAsync).RequireEndpointPermission(FilePermissions.Download);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/files/{id:long}/preview\", PreviewAsync).RequireEndpointPermission(FilePermissions.Download);", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapDelete(\"/files/{id:long}\", DeleteAsync).RequireEndpointPermission(FilePermissions.Delete);", source, StringComparison.Ordinal);
         Assert.Contains(".DisableAntiforgery()", source, StringComparison.Ordinal);
-        Assert.Contains(".RequirePermission(FilePermissions.Upload)", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireEndpointPermission(FilePermissions.Upload)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -27,7 +27,7 @@ public sealed class FileEndpointHttpTests
     [Fact]
     public void FileEndpoints_SourceUsesSafeContentDispositionBuilderForPreview()
     {
-        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"));
+        var source = File.ReadAllText(RepoPath("backend", "src", "WeCms.Modules.FileCenter", "Files", "FileEndpoints.cs"));
 
         Assert.Contains("ContentDispositionHeaderValue", source, StringComparison.Ordinal);
         Assert.Contains("FileNameStar = payload.FileName", source, StringComparison.Ordinal);

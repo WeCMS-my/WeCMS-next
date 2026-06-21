@@ -24,7 +24,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WeCms.Api\WeCms.Api.csproj" />
-    <ProjectReference Include="..\..\src\WeCms.Persistence\WeCms.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Aop\WeCms.Aop.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Caching\WeCms.Caching.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.EventBus\WeCms.EventBus.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.Identity\WeCms.Modules.Identity.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,4 +36,3 @@
   </ItemGroup>
 
 </Project>
-

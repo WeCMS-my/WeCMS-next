@@ -3,7 +3,6 @@ namespace WeCms.Tests.Architecture;
 public sealed class NoSystemGodModuleArchitectureTests
 {
     private const string SystemSplitAdr = "0018-system-foundation-module-split.md";
-    private const string FinalSplitFlag = "WECMS_ARCHITECTURE_FINAL_SYSTEM_SPLIT";
 
     private static readonly string[] TargetModules =
     [
@@ -26,7 +25,7 @@ public sealed class NoSystemGodModuleArchitectureTests
         var adr = File.ReadAllText(adrPath);
         Assert.Contains("## 状态", adr, StringComparison.Ordinal);
         Assert.Contains("Accepted", adr, StringComparison.Ordinal);
-        Assert.Contains("WeCms.Modules.System 最终删除", adr, StringComparison.Ordinal);
+        Assert.Contains(LegacyBoundaryNames.SystemModule + " 最终删除", adr, StringComparison.Ordinal);
         Assert.Contains("Posts -> Positions", adr, StringComparison.Ordinal);
         Assert.Contains("WeCms.Modules.Cms 暂不启用", adr, StringComparison.Ordinal);
 
@@ -37,28 +36,20 @@ public sealed class NoSystemGodModuleArchitectureTests
     }
 
     [Fact]
-    public void SystemGodModule_IsOnlyAllowedDuringExplicitTransition()
+    public void SystemGodModule_IsRejectedByDefault()
     {
-        var systemProjectPath = Path.Combine(TestPaths.SourceRoot, "WeCms.Modules.System", "WeCms.Modules.System.csproj");
-        if (!File.Exists(systemProjectPath))
-        {
-            return;
-        }
-
-        var adr = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "docs", "adr", SystemSplitAdr));
-        Assert.Contains("迁移期间允许旧 WeCms.Modules.System 暂存", adr, StringComparison.Ordinal);
-        Assert.Contains("最终验收不得保留 WeCms.Modules.System", adr, StringComparison.Ordinal);
+        var systemProjectPath = Path.Combine(TestPaths.SourceRoot, LegacyBoundaryNames.SystemModule, LegacyBoundaryNames.SystemProject);
+        Assert.False(File.Exists(systemProjectPath), "Final system split mode does not allow " + LegacyBoundaryNames.SystemModule + ".");
     }
 
     [Fact]
-    public void FinalSystemSplitMode_RejectsSystemGodModule()
+    public void NoSystemGodModuleGate_IsFinalByDefault()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable(FinalSplitFlag), "true", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
+        var scriptPath = Path.Combine(TestPaths.RepoRoot, "scripts", "checks", "check-no-system-god-module.sh");
+        var script = File.ReadAllText(scriptPath);
 
-        var systemProjectPath = Path.Combine(TestPaths.SourceRoot, "WeCms.Modules.System", "WeCms.Modules.System.csproj");
-        Assert.False(File.Exists(systemProjectPath), "Final system split mode does not allow WeCms.Modules.System.");
+        Assert.DoesNotContain("WECMS_ARCHITECTURE_FINAL_SYSTEM_SPLIT", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("迁移期间允许旧 " + LegacyBoundaryNames.SystemModule + " 暂存", script, StringComparison.Ordinal);
+        Assert.Contains("final mode does not allow " + LegacyBoundaryNames.SystemModule, script, StringComparison.Ordinal);
     }
 }

@@ -10,15 +10,15 @@ from pathlib import Path
 
 repo = Path(sys.argv[1])
 seed = "\n".join(path.read_text(encoding="utf-8") for path in sorted((repo / "database" / "seeds").glob("*.sql")))
-role_seed = (repo / "database" / "seeds" / "000005_seed_m1_role_permissions.sql").read_text(encoding="utf-8")
+role_seed = (repo / "database" / "seeds" / "000003_seed_super_admin.sql").read_text(encoding="utf-8")
 
 expected = {
-    "sys:user:page", "sys:user:list", "sys:user:detail", "sys:user:create", "sys:user:update", "sys:user:delete", "sys:user:enable", "sys:user:disable", "sys:user:reset-password", "sys:user:reset-2fa", "sys:user:assign-role", "sys:user:assign-post",
+    "sys:user:page", "sys:user:list", "sys:user:detail", "sys:user:create", "sys:user:update", "sys:user:delete", "sys:user:enable", "sys:user:disable", "sys:user:reset-password", "sys:user:reset-2fa", "sys:user:assign-role", "sys:user:assign-position",
     "sys:role:page", "sys:role:list", "sys:role:detail", "sys:role:create", "sys:role:update", "sys:role:delete", "sys:role:enable", "sys:role:disable", "sys:role:assign-permission", "sys:role:assign-menu",
     "sys:menu:page", "sys:menu:list", "sys:menu:tree", "sys:menu:detail", "sys:menu:create", "sys:menu:update", "sys:menu:sort", "sys:menu:delete", "sys:menu:enable", "sys:menu:disable",
     "sys:permission:page", "sys:permission:list", "sys:permission:tree", "sys:permission:detail", "sys:permission:create", "sys:permission:update", "sys:permission:delete", "sys:permission:enable", "sys:permission:disable",
     "sys:dept:page", "sys:dept:list", "sys:dept:tree", "sys:dept:detail", "sys:dept:create", "sys:dept:update", "sys:dept:delete", "sys:dept:enable", "sys:dept:disable",
-    "sys:post:page", "sys:post:list", "sys:post:detail", "sys:post:create", "sys:post:update", "sys:post:delete", "sys:post:enable", "sys:post:disable",
+    "sys:position:page", "sys:position:list", "sys:position:detail", "sys:position:create", "sys:position:update", "sys:position:delete", "sys:position:enable", "sys:position:disable",
     "sys:dict:page", "sys:dict:type:list", "sys:dict:type:create", "sys:dict:type:update", "sys:dict:type:enable", "sys:dict:type:disable", "sys:dict:type:delete", "sys:dict:value:list", "sys:dict:value:create", "sys:dict:value:update", "sys:dict:value:enable", "sys:dict:value:disable", "sys:dict:value:delete",
     "sys:setting:page", "sys:setting:list", "sys:setting:detail", "sys:setting:update", "sys:setting:validate-ip-rules", "sys:setting:reload-cache",
     "sys:i18n:page", "sys:i18n:list", "sys:i18n:detail", "sys:i18n:create", "sys:i18n:update", "sys:i18n:delete",

@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json;
 using WeCms.Api.Json;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Security;
 using WeCms.Shared;
 
 namespace WeCms.Api.Middleware;

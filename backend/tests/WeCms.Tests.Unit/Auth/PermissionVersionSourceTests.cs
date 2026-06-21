@@ -5,7 +5,7 @@ public sealed class PermissionVersionSourceTests
     [Fact]
     public async Task AuthDtos_ExposePermissionVersionInLoginAndMeResponses()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthDtos.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Contracts", "AuthDtos.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("long PermissionVersion", source, StringComparison.Ordinal);
         Assert.Contains("public sealed record LoginResponse(", source, StringComparison.Ordinal);
@@ -15,18 +15,21 @@ public sealed class PermissionVersionSourceTests
     [Fact]
     public async Task PermissionVersionService_IsRegisteredAndUsedByPermissionChangingServices()
     {
-        var permissionsDi = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Permissions", "SystemPermissionsServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
-        var persistenceDi = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Persistence", "Data", "PersistenceServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
-        var userService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Users", "UserService.cs"), TestContext.Current.CancellationToken);
-        var roleService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Roles", "RoleService.cs"), TestContext.Current.CancellationToken);
-        var permissionService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Permissions", "PermissionManagementService.cs"), TestContext.Current.CancellationToken);
-        var menuService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Menus", "MenuService.cs"), TestContext.Current.CancellationToken);
+        var program = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var accessControlSqlSugarDi = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl.SqlSugar", "AccessControlSqlSugarServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
+        var userService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Services", "UserService.cs"), TestContext.Current.CancellationToken);
+        var roleService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "Roles", "RoleService.cs"), TestContext.Current.CancellationToken);
+        var permissionService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "Permissions", "PermissionManagementService.cs"), TestContext.Current.CancellationToken);
+        var menuService = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "Menus", "MenuService.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("IPermissionVersionService", permissionsDi, StringComparison.Ordinal);
-        Assert.Contains("IPermissionVersionRepository", persistenceDi, StringComparison.Ordinal);
+        Assert.Contains("IAccessControlPermissionVersionService", program, StringComparison.Ordinal);
+        Assert.Contains("IIdentityPermissionVersionService", program, StringComparison.Ordinal);
+        Assert.Contains("IPermissionVersionRepository", accessControlSqlSugarDi, StringComparison.Ordinal);
         Assert.Contains("BumpUserAsync", userService, StringComparison.Ordinal);
         Assert.Contains("BumpUsersByRoleAsync", roleService, StringComparison.Ordinal);
+        Assert.Contains("IAccessControlPermissionVersionService", permissionService, StringComparison.Ordinal);
         Assert.Contains("BumpUsersByPermissionAsync", permissionService, StringComparison.Ordinal);
+        Assert.Contains("IAccessControlPermissionVersionService", menuService, StringComparison.Ordinal);
         Assert.Contains("BumpUsersByMenuAsync", menuService, StringComparison.Ordinal);
     }
 

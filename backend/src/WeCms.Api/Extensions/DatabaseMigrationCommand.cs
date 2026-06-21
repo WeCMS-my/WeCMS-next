@@ -1,4 +1,4 @@
-using WeCms.Persistence.Migration;
+using WeCms.Data.SqlSugar;
 
 namespace WeCms.Api.Extensions;
 

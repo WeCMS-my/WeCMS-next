@@ -8,14 +8,13 @@ public sealed class SystemEndpointSourceTests
         var source = await File.ReadAllTextAsync(RepoPath(
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.Platform",
             "System",
-            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
+            "PlatformSystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("MapGet(\"/health/live\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/health/ready\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/health/dependencies\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/api/v1/system/ping\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/version\"", source, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/api/v1/system/db-check\"", source, StringComparison.Ordinal);
         Assert.Contains("DatabaseUnavailableMessage", source, StringComparison.Ordinal);
@@ -29,12 +28,12 @@ public sealed class SystemEndpointSourceTests
         var source = await File.ReadAllTextAsync(RepoPath(
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.Platform",
             "System",
-            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
+            "PlatformSystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         var dependenciesStart = source.IndexOf("MapGet(\"/health/dependencies\"", StringComparison.Ordinal);
-        var nextRoute = source.IndexOf("MapGet(\"/api/v1/system/ping\"", dependenciesStart, StringComparison.Ordinal);
+        var nextRoute = source.IndexOf("MapGet(\"/api/v1/system/version\"", dependenciesStart, StringComparison.Ordinal);
         Assert.True(dependenciesStart >= 0);
         Assert.True(nextRoute > dependenciesStart);
 
@@ -49,9 +48,9 @@ public sealed class SystemEndpointSourceTests
         var source = await File.ReadAllTextAsync(RepoPath(
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.Platform",
             "System",
-            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
+            "PlatformSystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
 
         var liveStart = source.IndexOf("MapGet(\"/health/live\"", StringComparison.Ordinal);
         var readyStart = source.IndexOf("MapGet(\"/health/ready\"", StringComparison.Ordinal);

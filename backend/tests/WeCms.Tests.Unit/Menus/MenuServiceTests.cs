@@ -1,5 +1,8 @@
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.AccessControl.Repositories;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -193,7 +196,12 @@ public sealed class MenuServiceTests
         FakeUnitOfWork? unitOfWork = null,
         FakePermissionVersionService? permissionVersionService = null)
     {
-        return new MenuService(repository, unitOfWork ?? new FakeUnitOfWork(), permissionVersionService ?? new FakePermissionVersionService());
+        return new MenuService(
+            repository,
+            unitOfWork ?? new FakeUnitOfWork(),
+            permissionVersionService ?? new FakePermissionVersionService(),
+            new WeCms.Tests.Unit.NullOutboxWriter(),
+            new WeCms.Tests.Unit.FixedTestIdGenerator());
     }
 
     private sealed class FakeMenuRepository : IMenuRepository
@@ -282,7 +290,7 @@ public sealed class MenuServiceTests
         }
     }
 
-    private sealed class FakePermissionVersionService : IPermissionVersionService
+    private sealed class FakePermissionVersionService : IAccessControlPermissionVersionService
     {
         public IReadOnlyList<long> BumpedMenuIds => _bumpedMenuIds;
         private readonly List<long> _bumpedMenuIds = [];

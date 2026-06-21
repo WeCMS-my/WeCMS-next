@@ -1,4 +1,4 @@
-using WeCms.Modules.System.Logs;
+using WeCms.Modules.Security.Events;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Logs;
@@ -8,7 +8,7 @@ public sealed class SecurityEventServiceTests
     [Fact]
     public async Task ListSecurityEventsAsync_RejectsPageSizeGreaterThanOneHundred()
     {
-        var service = new LogService(new FakeLogRepository());
+        var service = new SecurityEventService(new FakeSecurityEventRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() => service.ListSecurityEventsAsync(new SecurityEventListQuery(PageSize: 101), CancellationToken.None));
 
@@ -18,7 +18,7 @@ public sealed class SecurityEventServiceTests
     [Fact]
     public async Task ListSecurityEventsAsync_RejectsInvalidDateRange()
     {
-        var service = new LogService(new FakeLogRepository());
+        var service = new SecurityEventService(new FakeSecurityEventRepository());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() => service.ListSecurityEventsAsync(new SecurityEventListQuery(From: DateTimeOffset.UnixEpoch.AddDays(1), To: DateTimeOffset.UnixEpoch), CancellationToken.None));
 
@@ -28,7 +28,7 @@ public sealed class SecurityEventServiceTests
     [Fact]
     public async Task GetSecurityEventAsync_ReturnsNotFoundWhenMissing()
     {
-        var service = new LogService(new FakeLogRepository { Missing = true });
+        var service = new SecurityEventService(new FakeSecurityEventRepository { Missing = true });
 
         var exception = await Assert.ThrowsAsync<DomainException>(() => service.GetSecurityEventAsync(1, CancellationToken.None));
 
@@ -38,8 +38,8 @@ public sealed class SecurityEventServiceTests
     [Fact]
     public async Task ListSecurityEventsAsync_PassesFiltersToRepository()
     {
-        var repository = new FakeLogRepository();
-        var service = new LogService(repository);
+        var repository = new FakeSecurityEventRepository();
+        var service = new SecurityEventService(repository);
         var from = DateTimeOffset.UnixEpoch;
         var to = from.AddDays(1);
 
@@ -48,16 +48,10 @@ public sealed class SecurityEventServiceTests
         Assert.Equal(new SecurityEventListCriteria(2, 30, "auth.refresh_reuse", "high", "admin", "192.168.101.199", from, to), repository.LastSecurityCriteria);
     }
 
-    private sealed class FakeLogRepository : ILogRepository
+    private sealed class FakeSecurityEventRepository : ISecurityEventRepository
     {
         public bool Missing { get; init; }
         public SecurityEventListCriteria? LastSecurityCriteria { get; private set; }
-
-        public Task<PagedResult<LoginLogSummaryDto>> ListLoginLogsAsync(LoginLogListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<LoginLogSummaryDto>([], criteria.Page, criteria.PageSize, 0));
-        public Task<LoginLogDetailDto?> GetLoginLogAsync(long id, CancellationToken cancellationToken) => Task.FromResult<LoginLogDetailDto?>(new LoginLogDetailDto(id, "admin", 1, "192.168.101.199", "unit-test", "success", null, DateTimeOffset.UnixEpoch));
-        public Task<PagedResult<AuditLogSummaryDto>> ListAuditLogsAsync(AuditLogListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<AuditLogSummaryDto>([], criteria.Page, criteria.PageSize, 0));
-        public Task<AuditLogDetailDto?> GetAuditLogAsync(long id, CancellationToken cancellationToken) => Task.FromResult<AuditLogDetailDto?>(new AuditLogDetailDto(id, 1, "admin", "system", "user", "create", "1", "POST", "/api/v1/system/users", "192.168.101.199", "unit-test", "trace", "success", "created", DateTimeOffset.UnixEpoch));
-
         public Task<PagedResult<SecurityEventSummaryDto>> ListSecurityEventsAsync(SecurityEventListCriteria criteria, CancellationToken cancellationToken)
         {
             LastSecurityCriteria = criteria;

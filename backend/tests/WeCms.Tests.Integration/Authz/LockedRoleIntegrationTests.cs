@@ -1,15 +1,12 @@
 using System.Linq;
 using SqlSugar;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.TwoFactor;
-using WeCms.Modules.System.Users;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Permissions;
-using WeCms.Persistence.Modules.System.Roles;
-using WeCms.Persistence.Modules.System.Users;
+using WeCms.Api.Security;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.AccessControl.Roles;
+using WeCms.Modules.AccessControl.SqlSugar.Repositories;
+using WeCms.Modules.Organization;
+using WeCms.Modules.Organization.SqlSugar.Repositories;
+using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 
@@ -33,7 +30,9 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             var service = new RoleService(
                 new RoleRepository(db),
                 new SqlSugarUnitOfWork(db),
-                new PermissionVersionService(new PermissionVersionRepository(db)));
+                new PermissionVersionService(new PermissionVersionRepository(db)),
+                new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
+                new WeCms.Infrastructure.Id.SystemIdGenerator());
 
             var exception = await Assert.ThrowsAsync<DomainException>(
                 () => service.AssignPermissionsAsync(
@@ -343,7 +342,7 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             db.Ado.ExecuteCommand("DELETE FROM sys_refresh_token WHERE user_id = @userId", new SugarParameter("@userId", userId));
             db.Ado.ExecuteCommand("DELETE FROM sys_audit_log WHERE user_id = @userId", new SugarParameter("@userId", userId));
             db.Ado.ExecuteCommand("DELETE FROM sys_user_role WHERE user_id = @userId", new SugarParameter("@userId", userId));
-            db.Ado.ExecuteCommand("DELETE FROM sys_user_post WHERE user_id = @userId", new SugarParameter("@userId", userId));
+            db.Ado.ExecuteCommand("DELETE FROM sys_user_position WHERE user_id = @userId", new SugarParameter("@userId", userId));
             db.Ado.ExecuteCommand("DELETE FROM sys_user WHERE id = @userId", new SugarParameter("@userId", userId));
         }
 
@@ -367,7 +366,10 @@ public sealed class LockedRoleIntegrationTests : PerTestDatabaseResetBase
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
             new FakeTwoFactorService(),
-            new PermissionVersionService(new PermissionVersionRepository(db)));
+            new PermissionVersionService(new PermissionVersionRepository(db)),
+            new OrganizationLookupService(new DepartmentRepository(db), new PositionRepository(db)),
+            new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
+            new WeCms.Infrastructure.Id.SystemIdGenerator());
     }
 
     private sealed record ConcurrentLockedRoleOutcome(bool Success, int Code);

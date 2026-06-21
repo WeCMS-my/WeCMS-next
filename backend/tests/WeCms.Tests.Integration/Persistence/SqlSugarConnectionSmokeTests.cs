@@ -1,4 +1,4 @@
-using WeCms.Persistence.Data;
+using WeCms.Data.SqlSugar;
 using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Persistence;

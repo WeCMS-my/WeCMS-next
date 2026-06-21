@@ -6,14 +6,18 @@
 
 - `docs/context/WeCMS_工程落地执行计划与交付工件.md`
 
+S14 系统基础破坏性升级完成后，当前开发流程补充事实源是：
+
+- `docs/dirs/system-foundation-development-guide.md`
+
 阅读顺序要求：
 
 1. 先阅读本入口文件，确认映射关系。
 2. 再完整阅读 `docs/context/WeCMS_工程落地执行计划与交付工件.md`。
+3. 执行系统基础后续开发时，再阅读 `docs/dirs/system-foundation-development-guide.md`。
 
 维护规则：
 
 - 本文件只承担稳定路径与映射说明，不复制完整正文，避免双份事实源漂移。
 - 如果中文源文档重命名，本文件必须同步更新。
-
 

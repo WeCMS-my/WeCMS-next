@@ -20,25 +20,29 @@ public sealed class RateLimitingSourceTests
     [Fact]
     public async Task AuthEndpoints_BindRequiredAuthRateLimitPolicies()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "AuthEndpointDefinition.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains($".RequireRateLimiting(RateLimitPolicyNames.AuthLogin)", source, StringComparison.Ordinal);
-        Assert.Contains($".RequireRateLimiting(RateLimitPolicyNames.AuthRefresh)", source, StringComparison.Ordinal);
-        Assert.Contains($".RequireRateLimiting(RateLimitPolicyNames.AuthTwoFactor)", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(IdentityEndpointRateLimitPolicyNames.AuthLogin)", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(IdentityEndpointRateLimitPolicyNames.AuthRefresh)", source, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(IdentityEndpointRateLimitPolicyNames.AuthTwoFactor)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task HighRiskSystemEndpoints_BindSpecificRateLimitPolicies()
     {
-        var filesSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Files", "FileEndpoints.cs"), TestContext.Current.CancellationToken);
-        var securitySource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Security", "SecurityEndpoints.cs"), TestContext.Current.CancellationToken);
-        var userSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Users", "UserEndpoints.cs"), TestContext.Current.CancellationToken);
-        var menuSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Menus", "MenuEndpoints.cs"), TestContext.Current.CancellationToken);
+        var filesSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.FileCenter", "Files", "FileEndpoints.cs"), TestContext.Current.CancellationToken);
+        var securitySource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Security", "SecurityEndpoints.cs"), TestContext.Current.CancellationToken);
+        var userSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "UserEndpointDefinition.cs"), TestContext.Current.CancellationToken);
+        var menuSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "Menus", "MenuEndpoints.cs"), TestContext.Current.CancellationToken);
+        var dictSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Configuration", "Dicts", "DictEndpoints.cs"), TestContext.Current.CancellationToken);
+        var i18nSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Configuration", "I18n", "I18nEndpoints.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.FileUpload)", filesSource, StringComparison.Ordinal);
         Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.SecurityUnban)", securitySource, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.AdminWrite)", userSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(IdentityEndpointRateLimitPolicyNames.AdminWrite)", userSource, StringComparison.Ordinal);
         Assert.Contains(".RequireRateLimiting(RateLimitPolicyNames.AdminWrite)", menuSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(AdminWriteRateLimitPolicy)", dictSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(AdminWriteRateLimitPolicy)", i18nSource, StringComparison.Ordinal);
         var fileReadLines = filesSource.Split(Environment.NewLine)
             .Where(line => line.Contains("MapGet(\"/files", StringComparison.Ordinal))
             .ToArray();

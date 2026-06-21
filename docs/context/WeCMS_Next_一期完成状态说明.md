@@ -22,7 +22,7 @@
 - ASP.NET Core Minimal APIs。
 - .NET 10 JIT publish/runtime。
 - `WebApplication.CreateSlimBuilder(args)`。
-- SqlSugar ORM 隔离在 `WeCms.Persistence`。
+- SqlSugar ORM 隔离在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`。
 - MySQL 开发与集成测试路径。
 - 统一 `ApiResult` / 错误响应 / traceId。
 - 健康检查与基础系统探针。
@@ -61,7 +61,7 @@
 - 除 `AllowAnonymous` 接口外，业务 Endpoint 必须绑定权限码或内部访问策略。
 - 所有写操作必须具备明确 HTTP Method、权限码、DTO 校验和 Audit Log。
 - 高风险操作必须补充 Security Event，必要时要求当前密码、2FA 或 challenge。
-- 数据库访问只能在 `WeCms.Persistence`。
+- 数据库/ORM/连接器只能在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内。
 - 业务模块只能依赖接口和 `WeCms.Shared` 抽象。
 
 ## 4. 一期后补齐范围

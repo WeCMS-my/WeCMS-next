@@ -19,7 +19,7 @@ required_files = [
     "docs/runbooks/database-backup-restore.md",
     "backend/src/WeCms.Api/Extensions/DatabaseMigrationCommand.cs",
     "backend/src/WeCms.Api/Extensions/DatabaseStartupMigrationOptions.cs",
-    "backend/src/WeCms.Persistence/Data/DatabaseOptions.cs",
+    "backend/src/WeCms.Data.SqlSugar/SqlSugarDataServiceCollectionExtensions.cs",
 ]
 
 for relative in required_files:
@@ -57,10 +57,10 @@ for token in ["--migrate", "IDbMigrationRunner", "ISeedRunner", "Database:SeedAd
     if token not in command_source:
         violations.append(f"migration command missing {token}")
 
-persistence_source = (repo / "backend/src/WeCms.Persistence/Data/PersistenceServiceCollectionExtensions.cs").read_text(encoding="utf-8")
-for token in ["GetConnectionString(\"Migration\")", "DatabaseOptions.FromConfiguration", "useMigrationConnectionString"]:
-    if token not in persistence_source:
-        violations.append(f"persistence registration missing {token}")
+data_source = (repo / "backend/src/WeCms.Data.SqlSugar/SqlSugarDataServiceCollectionExtensions.cs").read_text(encoding="utf-8")
+for token in ["GetConnectionString(\"Migration\")", "DatabasePlatformOptions", "useMigrationConnectionString"]:
+    if token not in data_source:
+        violations.append(f"SqlSugar data registration missing {token}")
 
 template = json.loads((repo / "backend/src/WeCms.Api/appsettings.Production.example.json").read_text(encoding="utf-8"))
 if template.get("ConnectionStrings", {}).get("Migration") != "__SET_BY_SECRET_MANAGER__":

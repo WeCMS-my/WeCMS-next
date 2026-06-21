@@ -1,17 +1,18 @@
 using System.Text.Json.Nodes;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
-using WeCms.Modules.System.System;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.Identity.Contracts;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Audit.Logs;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
+using WeCms.Modules.Platform.System;
 
 namespace WeCms.Api.Extensions;
 
@@ -26,7 +27,8 @@ public static partial class OpenApiExtensions
                 ["bearerAuth"] = new JsonObject
                 {
                     ["type"] = "http",
-                    ["scheme"] = "bearer"
+                    ["scheme"] = "bearer",
+                    ["bearerFormat"] = "JWT"
                 }
             },
             ["schemas"] = Schemas()
@@ -283,7 +285,7 @@ public static partial class OpenApiExtensions
             [nameof(UserDetailDto)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "permissionVersion", "roleIds", "postIds", "createdAt", "updatedAt"),
+                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "permissionVersion", "roleIds", "positionIds", "createdAt", "updatedAt"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
@@ -297,7 +299,7 @@ public static partial class OpenApiExtensions
                     ["permissionVersion"] = IntegerSchema(),
                     ["lastLoginAt"] = DateTimeSchema(nullable: true),
                     ["roleIds"] = ArrayOf(IntegerSchema()),
-                    ["postIds"] = ArrayOf(IntegerSchema()),
+                    ["positionIds"] = ArrayOf(IntegerSchema()),
                     ["createdAt"] = DateTimeSchema(),
                     ["updatedAt"] = DateTimeSchema()
                 }
@@ -315,7 +317,7 @@ public static partial class OpenApiExtensions
                     ["phone"] = NullableStringSchema(),
                     ["deptId"] = IntegerSchema(nullable: true),
                     ["roleIds"] = NullableArrayOf(IntegerSchema()),
-                    ["postIds"] = NullableArrayOf(IntegerSchema())
+                    ["positionIds"] = NullableArrayOf(IntegerSchema())
                 }
             },
             [nameof(UpdateUserRequest)] = new JsonObject
@@ -338,11 +340,11 @@ public static partial class OpenApiExtensions
                 ["required"] = Required("roleIds"),
                 ["properties"] = new JsonObject { ["roleIds"] = ArrayOf(IntegerSchema()) }
             },
-            [nameof(AssignUserPostsRequest)] = new JsonObject
+            [nameof(AssignUserPositionsRequest)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("postIds"),
-                ["properties"] = new JsonObject { ["postIds"] = ArrayOf(IntegerSchema()) }
+                ["required"] = Required("positionIds"),
+                ["properties"] = new JsonObject { ["positionIds"] = ArrayOf(IntegerSchema()) }
             },
             [nameof(UserMutationResponse)] = ObjectSchema(("id", "integer"))
         };

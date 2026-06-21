@@ -1,5 +1,7 @@
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.Security;
 using WeCms.Shared;
+using WeCms.Shared.Data;
 
 namespace WeCms.Tests.Unit.Security;
 
@@ -136,15 +138,54 @@ public sealed class SecurityBanServiceTests
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
     }
 
+    [Fact]
+    public async Task CreateTemporaryAsync_WritesSecurityBanCreatedEventBeforeCommit()
+    {
+        var operations = new List<string>();
+        var outbox = new WeCms.Tests.Unit.RecordingOutboxWriter(operations);
+        var service = CreateService(new FakeSecurityBanRepository(), unitOfWork: new FakeUnitOfWork(operations), outboxWriter: outbox);
+
+        await service.CreateTemporaryAsync(
+            new CreateSecurityBanRecord(SecurityBanTypes.Ip, "127.0.0.1", "bruteforce", "warning", "login", Now.AddMinutes(5), Now),
+            CancellationToken.None);
+
+        var evt = Assert.IsType<SecurityBanCreatedEvent>(Assert.Single(outbox.Events));
+        Assert.Equal(SecurityBanCreatedEvent.EventType, evt.Type);
+        Assert.Equal(11, evt.BanId);
+        Assert.Equal(SecurityBanTypes.Ip, evt.BanType);
+        Assert.Equal("127.0.0.1", evt.Target);
+        Assert.Equal("warning", evt.Severity);
+        AssertWriteWasInsideTransaction(operations, SecurityBanCreatedEvent.EventType);
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
     private static readonly SecurityBanRequestContext Context = new(9, "operator", "127.0.0.1", "unit-test", "trace-security", Now);
 
     private static SecurityBanService CreateService(
         ISecurityBanRepository repository,
-        FakeSecurityAlertService? alertService = null)
+        FakeSecurityAlertService? alertService = null,
+        FakeUnitOfWork? unitOfWork = null,
+        WeCms.Tests.Unit.RecordingOutboxWriter? outboxWriter = null)
     {
-        return new SecurityBanService(repository, alertService ?? new FakeSecurityAlertService());
+        return new SecurityBanService(
+            repository,
+            alertService ?? new FakeSecurityAlertService(),
+            unitOfWork ?? new FakeUnitOfWork(),
+            outboxWriter ?? new WeCms.Tests.Unit.RecordingOutboxWriter(),
+            new WeCms.Tests.Unit.FixedTestIdGenerator());
+    }
+
+    private static void AssertWriteWasInsideTransaction(IReadOnlyList<string> operations, string eventType)
+    {
+        var orderedOperations = operations.ToList();
+        var begin = orderedOperations.IndexOf("begin");
+        var outbox = orderedOperations.IndexOf($"outbox:{eventType}");
+        var commit = orderedOperations.IndexOf("commit");
+
+        Assert.True(begin >= 0, string.Join(", ", operations));
+        Assert.True(outbox > begin, string.Join(", ", operations));
+        Assert.True(commit > outbox, string.Join(", ", operations));
     }
 
     private sealed class FakeSecurityBanRepository : ISecurityBanRepository
@@ -233,6 +274,39 @@ public sealed class SecurityBanServiceTests
         {
             Count++;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeUnitOfWork : IUnitOfWork
+    {
+        private readonly List<string>? _operations;
+
+        public FakeUnitOfWork(List<string>? operations = null)
+        {
+            _operations = operations;
+        }
+
+        public Task<ITransactionContext> BeginTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            _operations?.Add("begin");
+            return Task.FromResult<ITransactionContext>(new FakeTransactionContext(_operations));
+        }
+
+        private sealed class FakeTransactionContext(List<string>? operations) : ITransactionContext
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public Task CommitAsync(CancellationToken cancellationToken = default)
+            {
+                operations?.Add("commit");
+                return Task.CompletedTask;
+            }
+
+            public Task RollbackAsync(CancellationToken cancellationToken = default)
+            {
+                operations?.Add("rollback");
+                return Task.CompletedTask;
+            }
         }
     }
 }

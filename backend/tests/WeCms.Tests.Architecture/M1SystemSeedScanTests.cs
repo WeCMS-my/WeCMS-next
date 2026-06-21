@@ -15,7 +15,7 @@ public sealed class M1SystemSeedScanTests
         "sys:user:reset-password",
         "sys:user:reset-2fa",
         "sys:user:assign-role",
-        "sys:user:assign-post",
+        "sys:user:assign-position",
         "sys:role:page",
         "sys:role:list",
         "sys:role:detail",
@@ -53,14 +53,14 @@ public sealed class M1SystemSeedScanTests
         "sys:dept:delete",
         "sys:dept:enable",
         "sys:dept:disable",
-        "sys:post:page",
-        "sys:post:list",
-        "sys:post:detail",
-        "sys:post:create",
-        "sys:post:update",
-        "sys:post:delete",
-        "sys:post:enable",
-        "sys:post:disable",
+        "sys:position:page",
+        "sys:position:list",
+        "sys:position:detail",
+        "sys:position:create",
+        "sys:position:update",
+        "sys:position:delete",
+        "sys:position:enable",
+        "sys:position:disable",
         "sys:dict:page",
         "sys:dict:type:list",
         "sys:dict:type:create",
@@ -94,7 +94,7 @@ public sealed class M1SystemSeedScanTests
     [Fact]
     public async Task M1SystemPermissionSeed_ContainsEveryPlannedPermissionCode()
     {
-        var source = await ReadSeedAsync("000003_seed_m1_system_permissions.sql");
+        var source = await ReadSeedAsync("000002_seed_system_permissions.sql");
 
         foreach (var code in RequiredPermissionCodes)
         {
@@ -107,7 +107,7 @@ public sealed class M1SystemSeedScanTests
     [Fact]
     public async Task M1SystemMenuSeed_UsesCurrentMenuNameAsStableCode()
     {
-        var source = await ReadSeedAsync("000004_seed_m1_system_menus.sql");
+        var source = await ReadSeedAsync("000002_seed_system_permissions.sql");
 
         Assert.Contains("'sys.users'", source, StringComparison.Ordinal);
         Assert.Contains("'sys.roles'", source, StringComparison.Ordinal);
@@ -118,7 +118,7 @@ public sealed class M1SystemSeedScanTests
     [Fact]
     public async Task M1RolePermissionSeed_GrantsSuperAdminEveryPermission()
     {
-        var source = await ReadSeedAsync("000005_seed_m1_role_permissions.sql");
+        var source = await ReadSeedAsync("000003_seed_super_admin.sql");
 
         Assert.Contains("JOIN sys_permission p", source, StringComparison.Ordinal);
         Assert.Contains("WHERE r.code = 'super_admin'", source, StringComparison.Ordinal);
@@ -131,4 +131,3 @@ public sealed class M1SystemSeedScanTests
         return File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "database", "seeds", fileName), TestContext.Current.CancellationToken);
     }
 }
-

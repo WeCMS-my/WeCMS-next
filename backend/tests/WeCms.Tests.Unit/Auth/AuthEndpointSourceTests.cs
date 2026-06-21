@@ -5,23 +5,23 @@ public sealed class AuthEndpointSourceTests
     [Fact]
     public async Task AuthEndpoints_ExplicitlyAllowAnonymousForLoginRefreshAndLogoutWhileMeRequiresAuthorization()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "AuthEndpointDefinition.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("group.MapPost(\"/login\"", source, StringComparison.Ordinal);
         Assert.Contains(".AllowAnonymous();", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/refresh\"", source, StringComparison.Ordinal);
-        Assert.Contains("ICookieAuthOriginValidator cookieAuthOriginValidator", source, StringComparison.Ordinal);
-        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Refresh, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("IIdentityCookieAuthOriginValidator cookieAuthOriginValidator", source, StringComparison.Ordinal);
+        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, IdentityCookieAuthOriginEndpoints.Refresh, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("ReadRefreshTokenCookie(context)", source, StringComparison.Ordinal);
         Assert.Contains("authService.RefreshAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/logout\"", source, StringComparison.Ordinal);
-        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, CookieAuthOriginEndpoints.Logout, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
+        Assert.Contains("await cookieAuthOriginValidator.ValidateAsync(context, IdentityCookieAuthOriginEndpoints.Logout, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("authService.LogoutAsync(refreshToken, CreateRequestContext(context), cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/2fa/verify\"", source, StringComparison.Ordinal);
-        Assert.Contains("CookieAuthOriginEndpoints.TwoFactorVerify", source, StringComparison.Ordinal);
+        Assert.Contains("IdentityCookieAuthOriginEndpoints.TwoFactorVerify", source, StringComparison.Ordinal);
         Assert.Contains("authService.VerifyTwoFactorAsync(request, requestContext, cancellationToken)", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/2fa/recovery-code\"", source, StringComparison.Ordinal);
-        Assert.Contains("CookieAuthOriginEndpoints.TwoFactorRecoveryCode", source, StringComparison.Ordinal);
+        Assert.Contains("IdentityCookieAuthOriginEndpoints.TwoFactorRecoveryCode", source, StringComparison.Ordinal);
         Assert.Contains("authService.VerifyTwoFactorRecoveryCodeAsync(request, requestContext, cancellationToken)", source, StringComparison.Ordinal);
 
         var logoutRouteIndex = source.IndexOf("group.MapPost(\"/logout\"", StringComparison.Ordinal);
@@ -40,7 +40,7 @@ public sealed class AuthEndpointSourceTests
     [Fact]
     public async Task AuthEndpoints_UseSecureHttpOnlyRefreshCookie()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "AuthEndpointDefinition.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("RefreshCookieName = \"__Host-wecms_refresh\"", source, StringComparison.Ordinal);
         Assert.Contains("HttpOnly = true", source, StringComparison.Ordinal);
@@ -57,11 +57,12 @@ public sealed class AuthEndpointSourceTests
     [Fact]
     public async Task AccountTwoFactorEndpoints_AreExplicitlyAuthenticatedSelfServiceRoutes()
     {
-        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AccountTwoFactorEndpoints.cs"), TestContext.Current.CancellationToken);
-        var programSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "AccountTwoFactorEndpointDefinition.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Endpoints", "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("app.MapAccountTwoFactorEndpoints();", programSource, StringComparison.Ordinal);
-        Assert.Contains("MapGroup(\"/api/v1/account/2fa\").RequireAuthorization()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("registry.Add(new AccountTwoFactorEndpointDefinition());", endpointMapSource, StringComparison.Ordinal);
+        Assert.Contains("MapGroup(\"/api/v1/account/2fa\")", endpointSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireAuthorization();", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/status\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/setup\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/confirm\"", endpointSource, StringComparison.Ordinal);
@@ -73,11 +74,12 @@ public sealed class AuthEndpointSourceTests
     [Fact]
     public async Task AccountProfileEndpoints_AreExplicitlyAuthenticatedSelfServiceRoutes()
     {
-        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.System", "Auth", "AccountProfileEndpoints.cs"), TestContext.Current.CancellationToken);
-        var programSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Identity", "Endpoints", "AccountProfileEndpointDefinition.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Endpoints", "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("app.MapAccountProfileEndpoints();", programSource, StringComparison.Ordinal);
-        Assert.Contains("MapGroup(\"/api/v1/account\").RequireAuthorization()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("registry.Add(new AccountProfileEndpointDefinition());", endpointMapSource, StringComparison.Ordinal);
+        Assert.Contains("MapGroup(\"/api/v1/account\")", endpointSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireAuthorization();", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/profile\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPut(\"/profile\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPut(\"/password\"", endpointSource, StringComparison.Ordinal);

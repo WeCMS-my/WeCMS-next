@@ -9,7 +9,7 @@ public sealed class MenuApiScanTests
             TestPaths.RepoRoot,
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.AccessControl",
             "Menus",
             "MenuEndpoints.cs"), TestContext.Current.CancellationToken);
 
@@ -24,24 +24,24 @@ public sealed class MenuApiScanTests
         Assert.Contains("MapDelete(\"/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/enable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/disable\"", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.List)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Tree)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Detail)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Create)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Update)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Sort)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Delete)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Enable)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(MenuPermissions.Disable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.List)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Tree)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Detail)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Create)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Update)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Sort)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Delete)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Enable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(MenuPermissions.Disable)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Program_RegistersMenuEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var programSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Endpoints", "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("builder.Services.AddWeCmsSystemMenus();", source, StringComparison.Ordinal);
-        Assert.Contains("app.MapMenuEndpoints();", source, StringComparison.Ordinal);
+        Assert.Contains("builder.Services.AddWeCmsAccessControl();", programSource, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapAccessControlEndpoints();", endpointMapSource, StringComparison.Ordinal);
     }
 }
-

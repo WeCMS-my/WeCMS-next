@@ -50,7 +50,7 @@ required_api_clients=(
   roles.ts
   permissions.ts
   depts.ts
-  posts.ts
+  positions.ts
   dicts.ts
   settings.ts
   logs.ts

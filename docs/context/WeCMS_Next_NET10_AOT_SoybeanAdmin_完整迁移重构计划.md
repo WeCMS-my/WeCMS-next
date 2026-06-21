@@ -1,7 +1,7 @@
 ﻿# WeCMS Next .NET 10 JIT + SoybeanAdmin 完整迁移重构计划
 
 > 说明：文件名保留历史路径以避免引用漂移，但当前正文已经切换为 **JIT 运行时基线**。  
-> 说明：本文件是历史命名路径下的总览文档，**不是** M0-BE 当前执行入口；当前主计划请优先阅读 `docs/context/WeCMS Next 完整迁移重构计划 v3.0.md` 和 `docs/context/WeCMS Next M0-BE 后端-only 开发计划.md`。
+> 说明：本文件是历史命名路径下的总览文档，**不是**当前执行入口；S14 后系统基础当前边界以 `docs/dirs/system-foundation-development-guide.md`、ADR-0018 和 ADR-0019 为准。
 > 目标技术栈：ASP.NET Core Minimal APIs / .NET 10 / JIT publish/runtime / SqlSugar ORM / SoybeanAdmin
 
 ---
@@ -23,7 +23,7 @@
 - 运行时基线为 JIT publish/runtime
 - ORM 方向为 SqlSugar
 - OpenAPI 仍是前后端契约来源
-- 当前 M0-BE 阶段仍是 backend-only，前端开发与前端 generated 类型生成继续后移
+- 当前系统基础已完成 S14 模块拆分，前端基础系统已进入已验收范围；后端-only 任务仍不得顺带修改前端
 
 ---
 
@@ -36,7 +36,7 @@
 - 后端契约优先
 - 模块化单体
 - OpenAPI 作为契约来源
-- SqlSugar 仅限 `WeCms.Persistence`
+- SqlSugar / MySqlConnector / ORM Client 仅限 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
 
 ### 2.2 已变更
 
@@ -82,7 +82,7 @@
 
 ## 5. SqlSugar ORM 约束
 
-1. SqlSugar 只允许在 `WeCms.Persistence` 注册和使用。
+1. SqlSugar 只允许在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 注册和使用。
 2. `WeCms.Modules.*` 只能定义 repository port，不得持有 `SqlSugarClient`、`ISqlSugarClient`、连接对象或 SQL 文本。
 3. 禁止 `dynamic` 查询/返回。
 4. 禁止 `SELECT *`。
@@ -90,7 +90,7 @@
 6. 排序字段必须白名单映射。
 7. Repository 方法必须支持 `CancellationToken`。
 8. Service / UseCase 负责业务规则和事务边界。
-9. Repository interface 只保留在模块层或 `WeCms.Shared`，Repository implementation 只允许存在于 `WeCms.Persistence`。
+9. Repository interface 只保留在模块层或 `WeCms.Shared`，Repository implementation 只允许存在于 `WeCms.Modules.*.SqlSugar`。
 10. Service / UseCase 获取 Repository、UnitOfWork、Clock、Token、密码、随机数等有副作用依赖时，必须通过接口 + DI。
 
 ---
@@ -122,9 +122,17 @@ backend/
     WeCms.Api/
     WeCms.Shared/
     WeCms.Infrastructure/
-    WeCms.Persistence/
-    WeCms.Modules.System/
-    WeCms.Modules.Cms/
+    WeCms.Data.SqlSugar/
+    WeCms.Modules.Identity/
+    WeCms.Modules.AccessControl/
+    WeCms.Modules.Organization/
+    WeCms.Modules.Configuration/
+    WeCms.Modules.Audit/
+    WeCms.Modules.Security/
+    WeCms.Modules.FileCenter/
+    WeCms.Modules.Platform/
+    WeCms.Modules.*.SqlSugar/
+    WeCms.Modules.Cms/        # 二期内容模块占位，系统基础升级期间不启用
   tests/
     WeCms.Tests.Unit/
     WeCms.Tests.Integration/
@@ -141,12 +149,13 @@ docs/
 
 边界要求：
 
-- `WeCms.Persistence` 是唯一数据库适配器层
-- `WeCms.Modules.*` 不得反向依赖 `WeCms.Persistence`
-- 所有数据库访问只能发生在 `WeCms.Persistence`
-- `WeCms.Modules.*` 不得持有 SQL 文本、ORM Client、数据库连接或 Persistence implementation
+- `WeCms.Data.SqlSugar` 是 SqlSugar 数据平台层
+- `WeCms.Modules.*.SqlSugar` 是模块持久化适配层
+- `WeCms.Modules.*` 不得反向依赖持久化实现
+- 数据库/ORM/连接器只能发生在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
+- `WeCms.Modules.*` 不得持有 SQL 文本、ORM Client、数据库连接或 Repository implementation
 - `WeCms.Shared` 不得引用其它生产工程
-- `WeCms.Infrastructure` 不做数据库适配层，也不得持有 SQL 文本、ORM Client、数据库连接或 Persistence implementation
+- `WeCms.Infrastructure` 不做数据库适配层，也不得持有 SQL 文本、ORM Client、数据库连接或 Repository implementation
 
 ---
 

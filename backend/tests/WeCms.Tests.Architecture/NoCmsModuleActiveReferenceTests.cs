@@ -27,12 +27,11 @@ public sealed class NoCmsModuleActiveReferenceTests
     }
 
     [Fact]
-    public void ApiAndPersistence_DoNotReferenceCmsProject()
+    public void Api_DoesNotReferenceCmsProject()
     {
         var activeReferences = new[]
             {
-                ProjectPath("WeCms.Api"),
-                ProjectPath("WeCms.Persistence")
+                ProjectPath("WeCms.Api")
             }
             .SelectMany(ProjectReferences)
             .Where(reference => reference == "WeCms.Modules.Cms")

@@ -11,8 +11,8 @@ from pathlib import Path
 repo = Path(sys.argv[1])
 violations: list[str] = []
 
-auth_endpoints_path = repo / "backend/src/WeCms.Modules.System/Auth/AuthEndpoints.cs"
-validator_path = repo / "backend/src/WeCms.Modules.System/Auth/CookieAuthOriginValidation.cs"
+auth_endpoints_path = repo / "backend/src/WeCms.Modules.Identity/Endpoints/AuthEndpointDefinition.cs"
+validator_path = repo / "backend/src/WeCms.Modules.Identity/Services/CookieAuthOriginValidation.cs"
 validator_tests_path = repo / "backend/tests/WeCms.Tests.Unit/Auth/CookieAuthOriginValidatorTests.cs"
 endpoint_tests_path = repo / "backend/tests/WeCms.Tests.Unit/Auth/AuthEndpointSourceTests.cs"
 
@@ -30,10 +30,10 @@ for path in required_files:
 if not violations:
     source = auth_endpoints_path.read_text(encoding="utf-8")
     route_requirements = {
-        'MapPost("/refresh"': ["CookieAuthOriginEndpoints.Refresh", "ReadRefreshTokenCookie(context)", "AppendRefreshTokenCookie(context, session)"],
-        'MapPost("/logout"': ["CookieAuthOriginEndpoints.Logout", "ReadRefreshTokenCookie(context)", "DeleteRefreshTokenCookie(context)"],
-        'MapPost("/2fa/verify"': ["CookieAuthOriginEndpoints.TwoFactorVerify", "AppendRefreshTokenCookie(context, session)"],
-        'MapPost("/2fa/recovery-code"': ["CookieAuthOriginEndpoints.TwoFactorRecoveryCode", "AppendRefreshTokenCookie(context, session)"],
+        'MapPost("/refresh"': ["IdentityCookieAuthOriginEndpoints.Refresh", "ReadRefreshTokenCookie(context)", "AppendRefreshTokenCookie(context, session)"],
+        'MapPost("/logout"': ["IdentityCookieAuthOriginEndpoints.Logout", "ReadRefreshTokenCookie(context)", "DeleteRefreshTokenCookie(context)"],
+        'MapPost("/2fa/verify"': ["IdentityCookieAuthOriginEndpoints.TwoFactorVerify", "AppendRefreshTokenCookie(context, session)"],
+        'MapPost("/2fa/recovery-code"': ["IdentityCookieAuthOriginEndpoints.TwoFactorRecoveryCode", "AppendRefreshTokenCookie(context, session)"],
     }
 
     for route_fragment, tokens in route_requirements.items():
@@ -58,7 +58,7 @@ if not violations:
         'Path = "/"',
     ]:
         if token not in source:
-            violations.append(f"AuthEndpoints.cs missing secure refresh cookie token {token!r}")
+            violations.append(f"AuthEndpointDefinition.cs missing secure refresh cookie token {token!r}")
 
     validator_source = validator_path.read_text(encoding="utf-8")
     for token in [
@@ -88,10 +88,10 @@ if not violations:
 
     endpoint_tests = endpoint_tests_path.read_text(encoding="utf-8")
     for token in [
-        "CookieAuthOriginEndpoints.Refresh",
-        "CookieAuthOriginEndpoints.Logout",
-        "CookieAuthOriginEndpoints.TwoFactorVerify",
-        "CookieAuthOriginEndpoints.TwoFactorRecoveryCode",
+        "IdentityCookieAuthOriginEndpoints.Refresh",
+        "IdentityCookieAuthOriginEndpoints.Logout",
+        "IdentityCookieAuthOriginEndpoints.TwoFactorVerify",
+        "IdentityCookieAuthOriginEndpoints.TwoFactorRecoveryCode",
         "AuthEndpoints_UseSecureHttpOnlyRefreshCookie",
     ]:
         if token not in endpoint_tests:

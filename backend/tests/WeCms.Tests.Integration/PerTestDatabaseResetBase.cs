@@ -1,5 +1,5 @@
 using SqlSugar;
-using WeCms.Persistence.Migration;
+using WeCms.Data.SqlSugar;
 
 namespace WeCms.Tests.Integration;
 

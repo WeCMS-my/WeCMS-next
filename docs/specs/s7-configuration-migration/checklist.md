@@ -1,0 +1,31 @@
+# S7 Configuration Migration Checklist
+
+- [x] Spec trio exists before Sprint 7 production code changes.
+- [x] Development-plan S7 is treated as Configuration migration; technical-book numbering drift is documented.
+- [x] S7 preserves existing public routes and `sys:*` permission codes unless a later explicit contract-change spec is approved.
+- [x] Settings DTOs and records live in `WeCms.Modules.Configuration`.
+- [x] Settings permissions live in `WeCms.Modules.Configuration`.
+- [x] Setting service, security rules, and repository interface live in `WeCms.Modules.Configuration`.
+- [x] Setting repository implementation lives in `WeCms.Modules.Configuration.SqlSugar`.
+- [x] Sensitive setting protections are preserved.
+- [x] Settings write operations call the Configuration cache invalidation abstraction.
+- [x] Dict DTOs and records live in `WeCms.Modules.Configuration`.
+- [x] Dict permissions live in `WeCms.Modules.Configuration`.
+- [x] Dict service and repository interface live in `WeCms.Modules.Configuration`.
+- [x] Dict repository implementation lives in `WeCms.Modules.Configuration.SqlSugar`.
+- [x] Dict type/value separation and status behavior are preserved.
+- [x] Dict write operations call the Configuration cache invalidation abstraction.
+- [x] I18n DTOs and records live in `WeCms.Modules.Configuration`.
+- [x] I18n permissions live in `WeCms.Modules.Configuration`.
+- [x] I18n message service and repository interface live in `WeCms.Modules.Configuration`.
+- [x] I18n repository implementation lives in `WeCms.Modules.Configuration.SqlSugar`.
+- [x] Public I18n message endpoint behavior is preserved.
+- [x] User language switching policy is preserved.
+- [x] I18n write operations call the Configuration cache invalidation abstraction.
+- [x] `IConfigurationCacheInvalidator` exists in `WeCms.Modules.Configuration`.
+- [x] Configuration does not depend on Configuration.SqlSugar, Persistence, SqlSugar ORM, MySqlConnector, database connections, or SQL text.
+- [x] Audit, Security, FileCenter, Platform, CMS, caching infrastructure, AOP, and EventBus are not migrated in S7.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No AI runtime capability is introduced.
+- [x] Settings, Dicts, I18n, OpenAPI, permission coverage, audit coverage, and DB boundary tests pass.
+- [x] Full backend quality gate passes for each completed S7 task.

@@ -9,6 +9,7 @@ public sealed class SystemFoundationProjectSkeletonTests
         "WeCms.Data.SqlSugar",
         "WeCms.Caching",
         "WeCms.EventBus",
+        "WeCms.EventBus.SqlSugar",
         "WeCms.Aop"
     ];
 
@@ -55,6 +56,7 @@ public sealed class SystemFoundationProjectSkeletonTests
         AssertProjectReferences("WeCms.Data.SqlSugar", "WeCms.Shared");
         AssertProjectReferences("WeCms.Caching", "WeCms.Shared");
         AssertProjectReferences("WeCms.EventBus", "WeCms.Shared");
+        AssertProjectReferences("WeCms.EventBus.SqlSugar", "WeCms.Data.SqlSugar", "WeCms.EventBus", "WeCms.Shared");
         AssertProjectReferences("WeCms.Aop", "WeCms.Caching", "WeCms.EventBus", "WeCms.Shared");
     }
 
@@ -63,7 +65,18 @@ public sealed class SystemFoundationProjectSkeletonTests
     {
         foreach (var projectName in ModuleProjects)
         {
-            AssertProjectReferences(projectName, "WeCms.Shared");
+            if (projectName == "WeCms.Modules.Identity")
+            {
+                AssertProjectReferences(projectName, "WeCms.EventBus", "WeCms.Modules.AccessControl", "WeCms.Modules.Organization", "WeCms.Shared");
+            }
+            else if (projectName is "WeCms.Modules.AccessControl" or "WeCms.Modules.Configuration" or "WeCms.Modules.Security")
+            {
+                AssertProjectReferences(projectName, "WeCms.EventBus", "WeCms.Shared");
+            }
+            else
+            {
+                AssertProjectReferences(projectName, "WeCms.Shared");
+            }
 
             foreach (var folder in new[] { "Endpoints", "Services", "Contracts", "Permissions", "Repositories", "Records" })
             {

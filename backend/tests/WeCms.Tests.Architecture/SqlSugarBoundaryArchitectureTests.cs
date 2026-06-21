@@ -30,7 +30,7 @@ public sealed class SqlSugarBoundaryArchitectureTests
         Assert.Contains("SQL 审计", adr, StringComparison.Ordinal);
         Assert.Contains("WeCms.Data.SqlSugar", adr, StringComparison.Ordinal);
         Assert.Contains("WeCms.Modules.*.SqlSugar", adr, StringComparison.Ordinal);
-        Assert.Contains("旧 WeCms.Persistence 不作为长期合法项目", adr, StringComparison.Ordinal);
+        Assert.Contains("旧 " + LegacyBoundaryNames.Persistence + " 不作为长期合法项目", adr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -57,8 +57,8 @@ public sealed class SqlSugarBoundaryArchitectureTests
             return;
         }
 
-        var persistenceProject = Path.Combine(TestPaths.SourceRoot, "WeCms.Persistence", "WeCms.Persistence.csproj");
-        Assert.False(File.Exists(persistenceProject), "Final SqlSugar platform mode does not allow WeCms.Persistence.");
+        var persistenceProject = Path.Combine(TestPaths.SourceRoot, LegacyBoundaryNames.Persistence, LegacyBoundaryNames.PersistenceProject);
+        Assert.False(File.Exists(persistenceProject), "Final SqlSugar platform mode does not allow " + LegacyBoundaryNames.Persistence + ".");
     }
 
     private static IEnumerable<string> ProductionFiles()
@@ -76,8 +76,9 @@ public sealed class SqlSugarBoundaryArchitectureTests
             return IsUnderProject(file, "WeCms.Data.SqlSugar") || IsUnderModuleSqlSugarProject(file);
         }
 
-        return IsUnderProject(file, "WeCms.Persistence")
+        return IsUnderProject(file, LegacyBoundaryNames.Persistence)
             || IsUnderProject(file, "WeCms.Data.SqlSugar")
+            || IsUnderProject(file, "WeCms.EventBus.SqlSugar")
             || IsUnderModuleSqlSugarProject(file);
     }
 

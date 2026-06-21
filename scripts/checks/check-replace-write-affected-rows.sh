@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-python3 - "$repo_root/backend/src/WeCms.Persistence/Modules/System/Users/UserRepository.cs" "$repo_root/backend/src/WeCms.Persistence/Modules/System/Roles/RoleRepository.cs" <<'PY'
+python3 - "$repo_root/backend/src/WeCms.Modules.Identity.SqlSugar/Repositories/UserRepository.cs" "$repo_root/backend/src/WeCms.Modules.AccessControl.SqlSugar/Repositories/RoleRepository.cs" <<'PY'
 import re
 import sys
 
@@ -10,7 +10,7 @@ files = sys.argv[1:]
 
 method_metadata = {
     "ReplaceRolesAsync": "DELETE FROM sys_user_role",
-    "ReplacePostsAsync": "DELETE FROM sys_user_post",
+    "ReplacePositionsAsync": "DELETE FROM sys_user_position",
     "ReplacePermissionsAsync": "DELETE FROM sys_role_permission",
     "ReplaceMenusAsync": "DELETE FROM sys_role_menu",
 }
@@ -65,9 +65,9 @@ for path in files:
         lines = handle.read().splitlines()
 
     for method_name, delete_sql in method_metadata.items():
-        if "Users/UserRepository.cs" in path and method_name not in {"ReplaceRolesAsync", "ReplacePostsAsync"}:
+        if path.endswith("UserRepository.cs") and method_name not in {"ReplaceRolesAsync", "ReplacePositionsAsync"}:
             continue
-        if "Roles/RoleRepository.cs" in path and method_name not in {"ReplacePermissionsAsync", "ReplaceMenusAsync"}:
+        if path.endswith("RoleRepository.cs") and method_name not in {"ReplacePermissionsAsync", "ReplaceMenusAsync"}:
             continue
 
         body, _ = extract_method_body(lines, method_name)

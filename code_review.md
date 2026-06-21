@@ -118,8 +118,7 @@ M1-BE 额外阻断项：
 ```text
 [ ] Endpoint 只处理 HTTP 绑定和返回
 [ ] Service / UseCase 负责业务规则
-[ ] 迁移期 WeCms.Persistence 中的 Repository 只负责 SQL 和数据映射
-[ ] 目标结构中 Repository implementation 只存在于 WeCms.Modules.*.SqlSugar
+[ ] Repository implementation 只存在于 WeCms.Modules.*.SqlSugar
 [ ] Repository interface 只定义在模块层或 Shared
 [ ] 事务由 Service / UseCase 控制
 [ ] Endpoint 中没有直接写 SQL
@@ -149,15 +148,14 @@ M1-BE 额外阻断项：
 ### 3.2 数据库边界
 
 ```text
-[ ] 迁移期只有 WeCms.Persistence / WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 引用了 SqlSugar ORM / MySqlConnector
-[ ] 最终期只有 WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 引用了 SqlSugar ORM / MySqlConnector
+[ ] 只有 WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 引用了 SqlSugar ORM / MySqlConnector
 [ ] WeCms.Modules.* 不直接处理 SQL 字符串
 [ ] WeCms.Modules.* 未出现 SqlSugarClient / ISqlSugarClient / Ado 原始 SQL API
 [ ] WeCms.Modules.* 未引用 WeCms.Data.SqlSugar
 [ ] WeCms.Modules.* 未引用 WeCms.Modules.*.SqlSugar
 [ ] WeCms.Api / WeCms.Infrastructure / WeCms.Shared 未出现 SQL 文本、ORM Client、数据库连接或 Repository implementation
 [ ] WeCms.Modules.* 不直接依赖持久化实现
-[ ] WeCms.Persistence / WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 只做数据访问适配，不承载业务规则、权限编排、审计编排或 HTTP 逻辑
+[ ] WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar 只做数据平台或数据访问适配，不承载业务规则、权限编排、审计编排或 HTTP 逻辑
 ```
 
 ---

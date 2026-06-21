@@ -4,7 +4,8 @@ using System.Reflection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using WeCms.Api.RateLimiting;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Security;
+using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Unit.Security;
 

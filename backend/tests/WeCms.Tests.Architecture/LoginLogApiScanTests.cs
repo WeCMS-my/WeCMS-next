@@ -5,7 +5,7 @@ public sealed class LoginLogApiScanTests
     [Fact]
     public void LoginLogEndpoints_AreReadOnlyAndPermissionProtected()
     {
-        var source = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Logs", "LoginLogEndpoints.cs"));
+        var source = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Audit", "Logs", "LoginLogEndpoints.cs"));
 
         Assert.Contains("MapGroup(\"/api/v1/system\")", source, StringComparison.Ordinal);
         Assert.Contains(".RequireAuthorization()", source, StringComparison.Ordinal);
@@ -14,14 +14,14 @@ public sealed class LoginLogApiScanTests
         Assert.DoesNotContain("MapPost", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MapPut", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MapDelete", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(LogPermissions.LoginLogList)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(LogPermissions.LoginLogDetail)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(LogPermissions.LoginLogList)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(LogPermissions.LoginLogDetail)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public void LogModule_DoesNotContainSqlOrOrmReferences()
     {
-        var moduleRoot = Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Logs");
+        var moduleRoot = Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Audit", "Logs");
         var sources = Directory.GetFiles(moduleRoot, "*.cs", SearchOption.AllDirectories)
             .Select(File.ReadAllText)
             .ToArray();

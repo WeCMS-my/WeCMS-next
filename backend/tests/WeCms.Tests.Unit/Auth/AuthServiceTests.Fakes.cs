@@ -1,7 +1,6 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.TwoFactor;
+using WeCms.Modules.AccessControl.AccessProfiles;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Menus;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -28,6 +27,7 @@ public sealed partial class AuthServiceTests
         var securityEventWriter = new AuthSecurityEventWriter(repository, securityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
+            repository,
             accessTokenService,
             refreshTokenService,
             clock,
@@ -40,8 +40,9 @@ public sealed partial class AuthServiceTests
             clock,
             auditWriter,
             securityEventWriter);
-        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
+        var sessionIssuer = new AuthSessionIssuer(repository, repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
         return new AuthService(
+            repository,
             repository,
             new PasswordHasher(),
             clock,
@@ -69,6 +70,7 @@ public sealed partial class AuthServiceTests
     {
         var unitOfWork = new FakeUnitOfWork();
         var limiter = new FakeLoginFailureLimiter();
+        var accessProfileService = repository as IAccessProfileService ?? EmptyAccessProfileService.Instance;
         var tokenOptions = new AuthTokenOptions("unit-test-secret-with-more-than-32-characters", "wecms-unit", TimeSpan.FromMinutes(15), TimeSpan.FromDays(7));
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(new FixedAuthTokenEntropy());
@@ -77,6 +79,7 @@ public sealed partial class AuthServiceTests
         var securityEventWriter = new AuthSecurityEventWriter(repository, securityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             repository,
+            accessProfileService,
             accessTokenService,
             refreshTokenService,
             clock,
@@ -89,9 +92,10 @@ public sealed partial class AuthServiceTests
             clock,
             auditWriter,
             securityEventWriter);
-        var sessionIssuer = new AuthSessionIssuer(repository, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
+        var sessionIssuer = new AuthSessionIssuer(repository, accessProfileService, accessTokenService, refreshTokenService, unitOfWork, limiter, clock);
         return new AuthService(
             repository,
+            accessProfileService,
             new PasswordHasher(),
             clock,
             limiter,
@@ -133,15 +137,21 @@ public sealed partial class AuthServiceTests
         }
     }
 
-    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    private sealed class FakeSecurityAlertService : IIdentitySecurityAlertService
     {
-        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        public Task PublishIfRequiredAsync(
+            string eventType,
+            string severity,
+            string message,
+            string traceId,
+            DateTimeOffset createdAt,
+            CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }
     }
 
-    private sealed class FakeAuthRepository : IAuthRepository
+    private sealed class FakeAuthRepository : IAuthRepository, IAccessProfileService
     {
         public AuthUserRecord? User { get; init; }
 
@@ -204,19 +214,14 @@ public sealed partial class AuthServiceTests
             return Task.FromResult(RefreshToken?.TokenHash == tokenHash ? RefreshToken : null);
         }
 
-        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
+        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
         {
-            return Task.FromResult(Roles);
-        }
-
-        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Permissions);
-        }
-
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(VisibleMenus);
+            return Task.FromResult(new AccessProfileDto(
+                User?.PermissionVersion ?? 0,
+                Roles,
+                Permissions,
+                Permissions.Where(static permission => permission.Contains(":button:", StringComparison.Ordinal)).ToArray(),
+                MenuTreeBuilder.Build(VisibleMenus)));
         }
 
         public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
@@ -293,7 +298,7 @@ public sealed partial class AuthServiceTests
         }
     }
 
-    private sealed class ConcurrentReplayAuthRepository : IAuthRepository
+    private sealed class ConcurrentReplayAuthRepository : IAuthRepository, IAccessProfileService
     {
         private readonly object _lock = new();
         private readonly AuthUserRecord? _user;
@@ -344,19 +349,9 @@ public sealed partial class AuthServiceTests
             }
         }
 
-        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
+        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
         {
-            return Task.FromResult<IReadOnlyList<string>>([]);
-        }
-
-        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<IReadOnlyList<string>>([]);
-        }
-
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<IReadOnlyList<MenuSummaryDto>>([]);
+            return Task.FromResult(new AccessProfileDto(0, [], [], [], []));
         }
 
         public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
@@ -505,6 +500,16 @@ public sealed partial class AuthServiceTests
         public Task RollbackAsync(CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class EmptyAccessProfileService : IAccessProfileService
+    {
+        public static readonly EmptyAccessProfileService Instance = new();
+
+        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new AccessProfileDto(0, [], [], [], []));
         }
     }
 }

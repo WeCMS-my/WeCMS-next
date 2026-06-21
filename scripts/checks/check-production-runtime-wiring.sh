@@ -23,7 +23,7 @@ def add_violation(message: str) -> None:
 
 program = read("backend/src/WeCms.Api/Program.cs")
 file_storage_ext = read("backend/src/WeCms.Api/Extensions/FileStorageExtensions.cs")
-system_files_ext = read("backend/src/WeCms.Modules.System/Files/SystemFilesServiceCollectionExtensions.cs")
+file_center_ext = read("backend/src/WeCms.Modules.FileCenter/FileCenterServiceCollectionExtensions.cs")
 fwd_ext = read("backend/src/WeCms.Api/Security/WeCmsForwardedHeadersExtensions.cs")
 cors_ext = read("backend/src/WeCms.Api/Security/WeCmsCorsExtensions.cs")
 config_validator = read("backend/src/WeCms.Api/Configuration/ProductionConfigurationValidator.cs")
@@ -36,7 +36,7 @@ file_storage_doc = read("docs/ops/file-storage-production.md")
 for relative in [
     "backend/src/WeCms.Api/Program.cs",
     "backend/src/WeCms.Api/Extensions/FileStorageExtensions.cs",
-    "backend/src/WeCms.Modules.System/Files/SystemFilesServiceCollectionExtensions.cs",
+    "backend/src/WeCms.Modules.FileCenter/FileCenterServiceCollectionExtensions.cs",
     "backend/src/WeCms.Api/Security/WeCmsForwardedHeadersExtensions.cs",
     "backend/src/WeCms.Api/Security/WeCmsCorsExtensions.cs",
     "backend/src/WeCms.Api/Configuration/ProductionConfigurationValidator.cs",
@@ -72,11 +72,11 @@ if "FileStorage:Local:BasePath" not in file_storage_ext and "FileStorage:Local:B
 
 
 # 2. IFileScanService registration and runtime wiring
-if "AddSingleton<IFileScanService" not in system_files_ext:
-    add_violation("SystemFilesServiceCollectionExtensions.cs must register IFileScanService")
+if "AddSingleton<IFileScanService" not in file_center_ext:
+    add_violation("FileCenterServiceCollectionExtensions.cs must register IFileScanService")
 if "CreateFileScanService(" not in program:
     add_violation("Program.cs should call CreateFileScanService to wire IFileScanService runtime implementation")
-if "FileStorage:VirusScan" not in config_validator and "NoopFileScanService" not in system_files_ext:
+if "FileStorage:VirusScan" not in config_validator and "NoopFileScanService" not in file_center_ext:
     add_violation("runtime/file validator should recognize FileStorage virus scan configuration")
 
 

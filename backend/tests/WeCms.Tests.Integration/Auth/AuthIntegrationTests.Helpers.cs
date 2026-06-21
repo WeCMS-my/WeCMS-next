@@ -1,15 +1,12 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Users;
-using WeCms.Modules.System.Permissions;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Auth;
-using WeCms.Persistence.Modules.System.Permissions;
-using WeCms.Persistence.Modules.System.Security;
-using WeCms.Persistence.Modules.System.TwoFactor;
-using WeCms.Persistence.Modules.System.Users;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.TwoFactor;
+using WeCms.Data.SqlSugar;
+using WeCms.Api.Security;
+using WeCms.Modules.AccessControl.AccessProfiles;
+using WeCms.Modules.AccessControl.SqlSugar.Repositories;
+using WeCms.Modules.Organization;
+using WeCms.Modules.Organization.SqlSugar.Repositories;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Security.SqlSugar.Repositories;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 using SqlSugar;
@@ -76,15 +73,24 @@ public sealed partial class AuthIntegrationTests
         var twoFactorOptions = new TwoFactorOptions("integration-two-factor-secret-key-32", "WeCMS", 30, 6, 1, 10);
         var twoFactorRepository = new UserTwoFactorRepository(db);
         var authRepository = new AuthRepository(db, securityEventClassifier);
+        var accessProfileService = new AccessProfileService(new AccessProfileRepository(db));
         var unitOfWork = new SqlSugarUnitOfWork(db);
         var clock = new FixedAuthClock(now);
         var securityAlertService = new SecurityAlertService(new NoopSecurityAlertSink());
+        var identitySecurityAlertService = new IdentitySecurityAlertServiceAdapter(securityAlertService);
+        var securityBanService = new SecurityBanService(
+            securityBanRepository,
+            securityAlertService,
+            new SqlSugarUnitOfWork(db),
+            new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
+            new WeCms.Infrastructure.Id.SystemIdGenerator());
+        var identitySecurityBanService = new IdentitySecurityBanServiceAdapter(securityBanService);
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
         var loginFailureLimiter = new LoginFailureLimiter(
             new LoginFailureCounterRepository(db, securityEventClassifier),
-            new SecurityBanService(securityBanRepository, securityAlertService),
-            securityAlertService,
+            identitySecurityBanService,
+            identitySecurityAlertService,
             loginFailureOptions ?? new LoginFailurePolicyOptions(true, TimeSpan.FromMinutes(10), 5, 20, 10, TimeSpan.FromMinutes(15)));
         var twoFactorService = new TwoFactorService(
             twoFactorRepository,
@@ -93,9 +99,10 @@ public sealed partial class AuthIntegrationTests
             new RecoveryCodeService(twoFactorOptions, new TwoFactorEntropy()),
             twoFactorOptions);
         var auditWriter = new AuthAuditWriter(authRepository, clock);
-        var securityEventWriter = new AuthSecurityEventWriter(authRepository, securityAlertService);
+        var securityEventWriter = new AuthSecurityEventWriter(authRepository, identitySecurityAlertService);
         var refreshTokenRotationService = new RefreshTokenRotationService(
             authRepository,
+            accessProfileService,
             accessTokenService,
             refreshTokenService,
             clock,
@@ -108,9 +115,10 @@ public sealed partial class AuthIntegrationTests
             clock,
             auditWriter,
             securityEventWriter);
-        var sessionIssuer = new AuthSessionIssuer(authRepository, accessTokenService, refreshTokenService, unitOfWork, loginFailureLimiter, clock);
+        var sessionIssuer = new AuthSessionIssuer(authRepository, accessProfileService, accessTokenService, refreshTokenService, unitOfWork, loginFailureLimiter, clock);
         return new AuthService(
             authRepository,
+            accessProfileService,
             new PasswordHasher(),
             clock,
             loginFailureLimiter,
@@ -130,7 +138,7 @@ public sealed partial class AuthIntegrationTests
                 unitOfWork,
                 clock,
                 challengeOptions ?? new TwoFactorChallengeOptions(TimeSpan.FromMinutes(5), 5),
-                securityAlertService));
+                identitySecurityAlertService));
     }
 
     private static UserService CreateUserService(SqlSugar.ISqlSugarClient db, UserRepository? repository = null)
@@ -149,7 +157,10 @@ public sealed partial class AuthIntegrationTests
             new PasswordHasher(),
             new SqlSugarUnitOfWork(db),
             twoFactorService,
-            new PermissionVersionService(new PermissionVersionRepository(db)));
+            new PermissionVersionService(new PermissionVersionRepository(db)),
+            new OrganizationLookupService(new DepartmentRepository(db), new PositionRepository(db)),
+            new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
+            new WeCms.Infrastructure.Id.SystemIdGenerator());
     }
 
     private static async Task<TwoFactorSetupResult> EnableTwoFactorAsync(

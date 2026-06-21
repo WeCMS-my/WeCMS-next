@@ -4,8 +4,6 @@ namespace WeCms.Tests.Architecture;
 
 public sealed partial class PersistenceBoundaryTests
 {
-    private const string FinalDataPlatformFlag = "WECMS_ARCHITECTURE_FINAL_SQLSUGAR_PLATFORM";
-
     private static readonly string[] ForbiddenDatabaseTokens =
     [
         "SqlSugarCore",
@@ -19,7 +17,7 @@ public sealed partial class PersistenceBoundaryTests
     ];
 
     [Fact]
-    public void OnlyPersistenceProject_CanReferenceSqlSugarOrMySql()
+    public void OnlyDataProjects_CanReferenceSqlSugarOrMySql()
     {
         var violations = ProductionFiles()
             .Where(file => !IsAllowedDatabaseProject(file))
@@ -48,10 +46,8 @@ public sealed partial class PersistenceBoundaryTests
     {
         var source = File.ReadAllText(Path.Combine(
             TestPaths.SourceRoot,
-            "WeCms.Persistence",
-            "Modules",
-            "System",
-            "Users",
+            "WeCms.Modules.Identity.SqlSugar",
+            "Repositories",
             "UserRepository.cs"));
 
         Assert.Contains("CountEnabledUsersByRoleForUpdateAsync", source, StringComparison.Ordinal);
@@ -63,10 +59,8 @@ public sealed partial class PersistenceBoundaryTests
     {
         var source = File.ReadAllText(Path.Combine(
             TestPaths.SourceRoot,
-            "WeCms.Persistence",
-            "Modules",
-            "System",
-            "Users",
+            "WeCms.Modules.Identity.SqlSugar",
+            "Repositories",
             "UserRepository.cs"));
 
         var createMethodStart = source.IndexOf("public async Task<long> CreateAsync", StringComparison.Ordinal);
@@ -84,24 +78,18 @@ public sealed partial class PersistenceBoundaryTests
     {
         var permissionVersionRepository = File.ReadAllText(Path.Combine(
             TestPaths.SourceRoot,
-            "WeCms.Persistence",
-            "Modules",
-            "System",
-            "Permissions",
+            "WeCms.Modules.AccessControl.SqlSugar",
+            "Repositories",
             "PermissionVersionRepository.cs"));
         var userRepository = File.ReadAllText(Path.Combine(
             TestPaths.SourceRoot,
-            "WeCms.Persistence",
-            "Modules",
-            "System",
-            "Users",
+            "WeCms.Modules.Identity.SqlSugar",
+            "Repositories",
             "UserRepository.cs"));
         var roleRepository = File.ReadAllText(Path.Combine(
             TestPaths.SourceRoot,
-            "WeCms.Persistence",
-            "Modules",
-            "System",
-            "Roles",
+            "WeCms.Modules.AccessControl.SqlSugar",
+            "Repositories",
             "RoleRepository.cs"));
 
         Assert.Contains("permission_version = permission_version + 1", permissionVersionRepository, StringComparison.Ordinal);
@@ -126,19 +114,9 @@ public sealed partial class PersistenceBoundaryTests
 
     private static bool IsAllowedDatabaseProject(string file)
     {
-        if (IsFinalDataPlatformMode())
-        {
-            return IsUnderProject(file, "WeCms.Data.SqlSugar") || IsUnderModuleSqlSugarProject(file);
-        }
-
-        return IsUnderProject(file, "WeCms.Persistence")
-            || IsUnderProject(file, "WeCms.Data.SqlSugar")
+        return IsUnderProject(file, "WeCms.Data.SqlSugar")
+            || IsUnderProject(file, "WeCms.EventBus.SqlSugar")
             || IsUnderModuleSqlSugarProject(file);
-    }
-
-    private static bool IsFinalDataPlatformMode()
-    {
-        return string.Equals(Environment.GetEnvironmentVariable(FinalDataPlatformFlag), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUnderBusinessModuleProject(string file)

@@ -1,8 +1,5 @@
 using SqlSugar;
-using WeCms.Modules.System.TwoFactor;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.TwoFactor;
+using WeCms.Data.SqlSugar;
 
 namespace WeCms.Tests.Integration.TwoFactor;
 

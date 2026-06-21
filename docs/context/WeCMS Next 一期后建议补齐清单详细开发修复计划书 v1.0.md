@@ -13,7 +13,7 @@
 3. 将旧系统 AdminGate / CSRF 中有价值的安全控制拆解并落地到 WeCMS Next 的新架构中。
 4. 在进入 CMS 二期前，优先消除基础系统后台的安全能力缺口。
 5. 保持当前技术路线不变：.NET 10、ASP.NET Core Minimal APIs、SqlSugar、MySQL、Vue3 管理端。
-6. 保持架构边界不变：数据库访问只能在 Persistence，业务模块只能依赖接口和 Shared 抽象。
+6. 保持架构边界不变：数据库/ORM/连接器只能在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内，业务模块只能依赖接口和 Shared 抽象。
 
 ---
 
@@ -1739,7 +1739,7 @@ H3-010 CMS 二期启动前冻结基础系统
 5. 不复制旧 AdminGate。
 6. 不复制旧 PHP WAF 作为主要业务安全边界。
 7. 不改变当前 .NET 10 + Minimal API + SqlSugar + Vue3 技术路线。
-8. 数据库访问只能在 WeCms.Persistence。
+8. 数据库/ORM/连接器只能在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内。
 9. WeCms.Modules.* 不得引用 SqlSugar / Persistence / MySqlConnector。
 10. 所有写操作必须绑定权限码并写 audit log。
 11. 安全高风险操作必须写 security event。

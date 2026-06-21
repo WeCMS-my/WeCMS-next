@@ -4,7 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Http;
-using WeCms.Modules.System.Files;
+using WeCms.Modules.FileCenter;
+using WeCms.Modules.FileCenter.Files;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Files;
@@ -12,13 +13,13 @@ namespace WeCms.Tests.Unit.Files;
 public sealed class FileServiceTests
 {
     [Fact]
-    public void AddWeCmsSystemFiles_DefaultsToNoopScannerAndResolvesFileService()
+    public void AddWeCmsFileCenter_DefaultsToNoopScannerAndResolvesFileService()
     {
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IFileRepository, FakeFileRepository>()
             .AddSingleton<IFileStorage, FakeFileStorage>()
-            .AddWeCmsSystemFiles();
+            .AddWeCmsFileCenter();
 
         using var provider = services.BuildServiceProvider();
         var scanner = provider.GetRequiredService<IFileScanService>();

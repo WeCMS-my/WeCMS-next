@@ -5,16 +5,22 @@ public sealed class SystemApiScanTests
     [Fact]
     public async Task ApiHost_ExplicitlyMapsSystemEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(
+        var programSource = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
             "backend",
             "src",
             "WeCms.Api",
             "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(Path.Combine(
+            TestPaths.RepoRoot,
+            "backend",
+            "src",
+            "WeCms.Api",
+            "Endpoints",
+            "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("WebApplication.CreateSlimBuilder(args)", source, StringComparison.Ordinal);
-        Assert.Contains("app.MapSystemEndpoints();", source, StringComparison.Ordinal);
-        Assert.Contains("app.MapSystemPermissionEndpoints();", source, StringComparison.Ordinal);
+        Assert.Contains("WebApplication.CreateSlimBuilder(args)", programSource, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapPlatformEndpoints();", endpointMapSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,27 +49,18 @@ public sealed class SystemApiScanTests
             TestPaths.RepoRoot,
             "backend",
             "src",
-            "WeCms.Modules.System",
-            "Auth",
-            "AuthEndpoints.cs"), TestContext.Current.CancellationToken);
+            "WeCms.Modules.Identity",
+            "Endpoints",
+            "AuthEndpointDefinition.cs"), TestContext.Current.CancellationToken);
         var systemSource = await File.ReadAllTextAsync(Path.Combine(
             TestPaths.RepoRoot,
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.Platform",
             "System",
-            "SystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
-        var permissionSource = await File.ReadAllTextAsync(Path.Combine(
-            TestPaths.RepoRoot,
-            "backend",
-            "src",
-            "WeCms.Modules.System",
-            "Permissions",
-            "PermissionEndpointExtensions.cs"), TestContext.Current.CancellationToken);
-
+            "PlatformSystemEndpointExtensions.cs"), TestContext.Current.CancellationToken);
         var declarations = CollectSystemAuthEndpointDeclarations(authSource)
             .Concat(CollectSystemAuthEndpointDeclarations(systemSource))
-            .Concat(CollectSystemAuthEndpointDeclarations(permissionSource))
             .ToArray();
 
         Assert.NotEmpty(declarations);
@@ -127,7 +124,8 @@ public sealed class SystemApiScanTests
     {
         return segment.Contains(".AllowAnonymous()", StringComparison.Ordinal)
             || segment.Contains(".RequireAuthorization()", StringComparison.Ordinal)
-            || segment.Contains(".RequirePermission(", StringComparison.Ordinal);
+            || segment.Contains(".RequirePermission(", StringComparison.Ordinal)
+            || segment.Contains(".RequireEndpointPermission(", StringComparison.Ordinal);
     }
 
     private static bool IsSystemOrAuthEndpoint(string path)
@@ -140,4 +138,3 @@ public sealed class SystemApiScanTests
 
     private sealed record SystemAuthEndpointDeclaration(string Path, string Method, bool IsAuthenticationIntentExplicit);
 }
-

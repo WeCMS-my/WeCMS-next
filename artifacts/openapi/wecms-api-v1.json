@@ -49,7 +49,14 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account-2fa",
+          "action": "confirm"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/account/2fa/disable": {
@@ -96,7 +103,14 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account-2fa",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/account/2fa/recovery-codes/regenerate": {
@@ -143,7 +157,14 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account-2fa",
+          "action": "regenerate"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/account/2fa/setup": {
@@ -180,7 +201,14 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account-2fa",
+          "action": "setup"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/account/2fa/status": {
@@ -217,7 +245,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity"
       }
     },
     "/api/v1/account/avatar": {
@@ -264,7 +293,14 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "file_upload_policy"
       }
     },
     "/api/v1/account/avatar/content": {
@@ -301,7 +337,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity"
       }
     },
     "/api/v1/account/i18n/switch": {
@@ -349,7 +386,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "account:i18n:switch"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "account:i18n:switch",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "i18n",
+          "action": "switch"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/account/password": {
@@ -396,7 +440,13 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account",
+          "action": "update"
+        }
       }
     },
     "/api/v1/account/profile": {
@@ -433,7 +483,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity"
       },
       "put": {
         "tags": [
@@ -478,7 +529,13 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "account",
+          "action": "update"
+        }
       }
     },
     "/api/v1/account/security": {
@@ -515,7 +572,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity"
       }
     },
     "/api/v1/auth/2fa/recovery-code": {
@@ -557,7 +615,14 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "auth",
+          "action": "recovery-code"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/auth/2fa/verify": {
@@ -599,7 +664,14 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "auth",
+          "action": "verify"
+        },
+        "x-wecms-rate-limit": "auth_2fa_policy"
       }
     },
     "/api/v1/auth/login": {
@@ -641,7 +713,14 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "auth",
+          "action": "login"
+        },
+        "x-wecms-rate-limit": "auth_login_policy"
       }
     },
     "/api/v1/auth/logout": {
@@ -673,6 +752,12 @@
               }
             }
           }
+        },
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "auth",
+          "action": "logout"
         }
       }
     },
@@ -710,7 +795,8 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-wecms-module": "identity"
       }
     },
     "/api/v1/auth/refresh": {
@@ -742,7 +828,14 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "identity",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "auth",
+          "action": "refresh"
+        },
+        "x-wecms-rate-limit": "auth_refresh_policy"
       }
     },
     "/api/v1/i18n/messages": {
@@ -775,6 +868,7 @@
             }
           }
         },
+        "x-wecms-module": "configuration",
         "parameters": [
           {
             "name": "locale",
@@ -822,6 +916,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "audit",
         "x-wecms-permission": "sys:audit-log:list",
         "parameters": [
           {
@@ -938,6 +1033,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "audit",
         "x-wecms-permission": "sys:audit-log:detail"
       }
     },
@@ -970,7 +1066,8 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "platform"
       }
     },
     "/api/v1/system/depts": {
@@ -1008,6 +1105,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "organization",
         "x-wecms-permission": "sys:dept:list"
       },
       "post": {
@@ -1054,7 +1152,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dept:create"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:dept:create",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "depts",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/depts/tree": {
@@ -1092,6 +1197,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "organization",
         "x-wecms-permission": "sys:dept:tree"
       }
     },
@@ -1130,7 +1236,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dept:delete"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:dept:delete",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "depts",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -1166,6 +1279,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "organization",
         "x-wecms-permission": "sys:dept:detail"
       },
       "put": {
@@ -1212,7 +1326,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dept:update"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:dept:update",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "depts",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/depts/{id:long}/disable": {
@@ -1250,7 +1371,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dept:disable"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:dept:disable",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "depts",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/depts/{id:long}/enable": {
@@ -1288,7 +1416,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dept:enable"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:dept:enable",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "depts",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-types": {
@@ -1326,6 +1461,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:dict:type:list",
         "parameters": [
           {
@@ -1408,7 +1544,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:type:create"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:type:create",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-types/{id:long}": {
@@ -1446,7 +1589,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:type:delete"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:type:delete",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -1482,6 +1632,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:dict:type:list"
       },
       "put": {
@@ -1528,7 +1679,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:type:update"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:type:update",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-types/{id:long}/disable": {
@@ -1576,7 +1734,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:type:disable"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:type:disable",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-types/{id:long}/enable": {
@@ -1614,7 +1779,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:type:enable"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:type:enable",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-types/{typeCode}/values": {
@@ -1652,6 +1824,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:dict:value:list"
       },
       "post": {
@@ -1698,7 +1871,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:value:create"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:value:create",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-values/{id:long}": {
@@ -1736,7 +1916,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:value:delete"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:value:delete",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "put": {
         "tags": [
@@ -1782,7 +1969,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:value:update"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:value:update",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-values/{id:long}/disable": {
@@ -1820,7 +2014,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:value:disable"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:value:disable",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/dict-values/{id:long}/enable": {
@@ -1858,7 +2059,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:dict:value:enable"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:dict:value:enable",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "dicts",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/files": {
@@ -1896,6 +2104,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "file-center",
         "x-wecms-permission": "sys:file:list",
         "parameters": [
           {
@@ -1986,7 +2195,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:file:upload"
+        "x-wecms-module": "file-center",
+        "x-wecms-permission": "sys:file:upload",
+        "x-wecms-audit": {
+          "module": "file-center",
+          "resource": "files",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "file_upload_policy"
       }
     },
     "/api/v1/system/files/{id:long}": {
@@ -2024,7 +2240,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:file:delete"
+        "x-wecms-module": "file-center",
+        "x-wecms-permission": "sys:file:delete",
+        "x-wecms-audit": {
+          "module": "file-center",
+          "resource": "files",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -2060,6 +2283,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "file-center",
         "x-wecms-permission": "sys:file:detail"
       }
     },
@@ -2098,6 +2322,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "file-center",
         "x-wecms-permission": "sys:file:download"
       }
     },
@@ -2136,6 +2361,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "file-center",
         "x-wecms-permission": "sys:file:download"
       }
     },
@@ -2174,6 +2400,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:i18n:list",
         "parameters": [
           {
@@ -2272,7 +2499,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:i18n:create"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:i18n:create",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "i18n",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/i18n/messages/{id:long}": {
@@ -2310,7 +2544,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:i18n:delete"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:i18n:delete",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "i18n",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -2346,6 +2587,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:i18n:detail"
       },
       "put": {
@@ -2392,7 +2634,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:i18n:update"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:i18n:update",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "i18n",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/login-logs": {
@@ -2430,6 +2679,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "audit",
         "x-wecms-permission": "sys:login-log:list",
         "parameters": [
           {
@@ -2530,6 +2780,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "audit",
         "x-wecms-permission": "sys:login-log:detail"
       }
     },
@@ -2568,6 +2819,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:menu:list"
       },
       "post": {
@@ -2614,7 +2866,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:create"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:create",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/menus/sort": {
@@ -2662,7 +2921,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:sort"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:sort",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "sort"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/menus/tree": {
@@ -2700,6 +2966,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:menu:tree"
       }
     },
@@ -2738,7 +3005,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:delete"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:delete",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -2774,6 +3048,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:menu:detail"
       },
       "put": {
@@ -2820,7 +3095,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:update"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:update",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/menus/{id:long}/disable": {
@@ -2858,7 +3140,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:disable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:disable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/menus/{id:long}/enable": {
@@ -2896,7 +3185,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:menu:enable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:menu:enable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "menus",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/permissions": {
@@ -2934,6 +3230,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:permission:list"
       },
       "post": {
@@ -2980,7 +3277,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:permission:create"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:permission:create",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "permissions",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/permissions/tree": {
@@ -3018,6 +3322,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:permission:tree"
       }
     },
@@ -3056,7 +3361,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:permission:delete"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:permission:delete",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "permissions",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -3092,6 +3404,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:permission:detail"
       },
       "put": {
@@ -3138,7 +3451,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:permission:update"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:permission:update",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "permissions",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/permissions/{id:long}/disable": {
@@ -3176,7 +3496,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:permission:disable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:permission:disable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "permissions",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/permissions/{id:long}/enable": {
@@ -3214,7 +3541,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:permission:enable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:permission:enable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "permissions",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/ping": {
@@ -3246,15 +3580,16 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "platform"
       }
     },
-    "/api/v1/system/posts": {
+    "/api/v1/system/positions": {
       "get": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "GET /api/v1/system/posts",
+        "summary": "GET /api/v1/system/positions",
         "responses": {
           "200": {
             "description": "Success",
@@ -3269,7 +3604,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/PagedPostSummary"
+                          "$ref": "#/components/schemas/PagedPositionSummary"
                         }
                       }
                     }
@@ -3284,7 +3619,8 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:list",
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:list",
         "parameters": [
           {
             "name": "page",
@@ -3324,9 +3660,9 @@
       },
       "post": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "POST /api/v1/system/posts",
+        "summary": "POST /api/v1/system/positions",
         "responses": {
           "200": {
             "description": "Success",
@@ -3341,7 +3677,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/PostMutationResponse"
+                          "$ref": "#/components/schemas/PositionMutationResponse"
                         }
                       }
                     }
@@ -3356,7 +3692,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePostRequest"
+                "$ref": "#/components/schemas/CreatePositionRequest"
               }
             }
           }
@@ -3366,15 +3702,22 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:create"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:create",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "positions",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
-    "/api/v1/system/posts/{id:long}": {
+    "/api/v1/system/positions/{id:long}": {
       "delete": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "DELETE /api/v1/system/posts/{id:long}",
+        "summary": "DELETE /api/v1/system/positions/{id:long}",
         "responses": {
           "200": {
             "description": "Success",
@@ -3404,13 +3747,20 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:delete"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:delete",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "positions",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "GET /api/v1/system/posts/{id:long}",
+        "summary": "GET /api/v1/system/positions/{id:long}",
         "responses": {
           "200": {
             "description": "Success",
@@ -3425,7 +3775,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/PostDetailDto"
+                          "$ref": "#/components/schemas/PositionDetailDto"
                         }
                       }
                     }
@@ -3440,13 +3790,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:detail"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:detail"
       },
       "put": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "PUT /api/v1/system/posts/{id:long}",
+        "summary": "PUT /api/v1/system/positions/{id:long}",
         "responses": {
           "200": {
             "description": "Success",
@@ -3461,7 +3812,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/PostMutationResponse"
+                          "$ref": "#/components/schemas/PositionMutationResponse"
                         }
                       }
                     }
@@ -3476,7 +3827,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePostRequest"
+                "$ref": "#/components/schemas/UpdatePositionRequest"
               }
             }
           }
@@ -3486,15 +3837,22 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:update"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:update",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "positions",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
-    "/api/v1/system/posts/{id:long}/disable": {
+    "/api/v1/system/positions/{id:long}/disable": {
       "post": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "POST /api/v1/system/posts/{id:long}/disable",
+        "summary": "POST /api/v1/system/positions/{id:long}/disable",
         "responses": {
           "200": {
             "description": "Success",
@@ -3524,15 +3882,22 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:disable"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:disable",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "positions",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
-    "/api/v1/system/posts/{id:long}/enable": {
+    "/api/v1/system/positions/{id:long}/enable": {
       "post": {
         "tags": [
-          "Posts"
+          "Positions"
         ],
-        "summary": "POST /api/v1/system/posts/{id:long}/enable",
+        "summary": "POST /api/v1/system/positions/{id:long}/enable",
         "responses": {
           "200": {
             "description": "Success",
@@ -3562,7 +3927,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:post:enable"
+        "x-wecms-module": "organization",
+        "x-wecms-permission": "sys:position:enable",
+        "x-wecms-audit": {
+          "module": "organization",
+          "resource": "positions",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles": {
@@ -3600,6 +3972,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:role:list",
         "parameters": [
           {
@@ -3682,7 +4055,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:create"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:create",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles/{id:long}": {
@@ -3720,7 +4100,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:delete"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:delete",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -3756,6 +4143,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "access-control",
         "x-wecms-permission": "sys:role:detail"
       },
       "put": {
@@ -3802,7 +4190,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:update"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:update",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles/{id:long}/disable": {
@@ -3840,7 +4235,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:disable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:disable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles/{id:long}/enable": {
@@ -3878,7 +4280,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:enable"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:enable",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles/{id:long}/menus": {
@@ -3926,7 +4335,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:assign-menu"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:assign-menu",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "assign-menu"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/roles/{id:long}/permissions": {
@@ -3974,7 +4390,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:role:assign-permission"
+        "x-wecms-module": "access-control",
+        "x-wecms-permission": "sys:role:assign-permission",
+        "x-wecms-audit": {
+          "module": "access-control",
+          "resource": "roles",
+          "action": "assign-permission"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/secure-ping": {
@@ -4012,6 +4435,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "platform",
         "x-wecms-permission": "sys:system:secure-ping"
       }
     },
@@ -4050,6 +4474,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "security",
         "x-wecms-permission": "sys:security-event:list",
         "parameters": [
           {
@@ -4158,6 +4583,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "security",
         "x-wecms-permission": "sys:security-event:detail"
       }
     },
@@ -4196,6 +4622,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "security",
         "x-wecms-permission": "sys:security:ban:list",
         "parameters": [
           {
@@ -4304,7 +4731,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:security:ban:batch-unban"
+        "x-wecms-module": "security",
+        "x-wecms-permission": "sys:security:ban:batch-unban",
+        "x-wecms-audit": {
+          "module": "security",
+          "resource": "security-bans",
+          "action": "batch-unban"
+        },
+        "x-wecms-rate-limit": "security_unban_policy"
       }
     },
     "/api/v1/system/security/bans/{id:long}": {
@@ -4342,6 +4776,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "security",
         "x-wecms-permission": "sys:security:ban:detail"
       }
     },
@@ -4390,7 +4825,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:security:ban:unban"
+        "x-wecms-module": "security",
+        "x-wecms-permission": "sys:security:ban:unban",
+        "x-wecms-audit": {
+          "module": "security",
+          "resource": "security-bans",
+          "action": "unban"
+        },
+        "x-wecms-rate-limit": "security_unban_policy"
       }
     },
     "/api/v1/system/security/status": {
@@ -4428,6 +4870,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "security",
         "x-wecms-permission": "sys:security:status"
       }
     },
@@ -4466,6 +4909,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:setting:list",
         "parameters": [
           {
@@ -4540,7 +4984,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:setting:reload-cache"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:setting:reload-cache",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "settings",
+          "action": "reload-cache"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/settings/validate-ip-rules": {
@@ -4588,7 +5039,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:setting:validate-ip-rules"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:setting:validate-ip-rules",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "settings",
+          "action": "validate-ip-rules"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/settings/{key}": {
@@ -4626,6 +5084,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "configuration",
         "x-wecms-permission": "sys:setting:detail"
       },
       "put": {
@@ -4672,7 +5131,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:setting:update"
+        "x-wecms-module": "configuration",
+        "x-wecms-permission": "sys:setting:update",
+        "x-wecms-audit": {
+          "module": "configuration",
+          "resource": "settings",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users": {
@@ -4710,6 +5176,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "identity",
         "x-wecms-permission": "sys:user:list",
         "parameters": [
           {
@@ -4792,7 +5259,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:create"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:create",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "create"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}": {
@@ -4830,7 +5304,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:delete"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:delete",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "delete"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       },
       "get": {
         "tags": [
@@ -4866,6 +5347,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "identity",
         "x-wecms-permission": "sys:user:detail"
       },
       "put": {
@@ -4912,7 +5394,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:update"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:update",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "update"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}/disable": {
@@ -4950,7 +5439,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:disable"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:disable",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "disable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}/enable": {
@@ -4988,15 +5484,22 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:enable"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:enable",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "enable"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
-    "/api/v1/system/users/{id:long}/posts": {
+    "/api/v1/system/users/{id:long}/positions": {
       "put": {
         "tags": [
           "Users"
         ],
-        "summary": "PUT /api/v1/system/users/{id:long}/posts",
+        "summary": "PUT /api/v1/system/users/{id:long}/positions",
         "responses": {
           "200": {
             "description": "Success",
@@ -5026,7 +5529,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignUserPostsRequest"
+                "$ref": "#/components/schemas/AssignUserPositionsRequest"
               }
             }
           }
@@ -5036,7 +5539,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:assign-post"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:assign-position",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "assign-position"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}/reset-2fa": {
@@ -5084,7 +5594,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:reset-2fa"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:reset-2fa",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "reset-2fa"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}/reset-password": {
@@ -5132,7 +5649,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:reset-password"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:reset-password",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "reset-password"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/users/{id:long}/roles": {
@@ -5180,7 +5704,14 @@
             "bearerAuth": []
           }
         ],
-        "x-wecms-permission": "sys:user:assign-role"
+        "x-wecms-module": "identity",
+        "x-wecms-permission": "sys:user:assign-role",
+        "x-wecms-audit": {
+          "module": "identity",
+          "resource": "users",
+          "action": "assign-role"
+        },
+        "x-wecms-rate-limit": "admin_write_policy"
       }
     },
     "/api/v1/system/version": {
@@ -5212,7 +5743,8 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "platform"
       }
     },
     "/health/dependencies": {
@@ -5250,6 +5782,7 @@
             "bearerAuth": []
           }
         ],
+        "x-wecms-module": "platform",
         "x-wecms-permission": "sys:system:secure-ping"
       }
     },
@@ -5282,7 +5815,8 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "platform"
       }
     },
     "/health/ready": {
@@ -5314,7 +5848,8 @@
               }
             }
           }
-        }
+        },
+        "x-wecms-module": "platform"
       }
     }
   },
@@ -5322,7 +5857,8 @@
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     },
     "schemas": {
@@ -6033,7 +6569,7 @@
           "isSuperAdmin",
           "permissionVersion",
           "roleIds",
-          "postIds",
+          "positionIds",
           "createdAt",
           "updatedAt"
         ],
@@ -6091,7 +6627,7 @@
               "format": "int64"
             }
           },
-          "postIds": {
+          "positionIds": {
             "type": "array",
             "items": {
               "type": "integer",
@@ -6154,7 +6690,7 @@
               "format": "int64"
             }
           },
-          "postIds": {
+          "positionIds": {
             "type": [
               "array",
               "null"
@@ -6233,13 +6769,13 @@
           }
         }
       },
-      "AssignUserPostsRequest": {
+      "AssignUserPositionsRequest": {
         "type": "object",
         "required": [
-          "postIds"
+          "positionIds"
         ],
         "properties": {
-          "postIds": {
+          "positionIds": {
             "type": "array",
             "items": {
               "type": "integer",
@@ -7341,7 +7877,7 @@
           }
         }
       },
-      "PagedPostSummary": {
+      "PagedPositionSummary": {
         "type": "object",
         "required": [
           "records",
@@ -7353,7 +7889,7 @@
           "records": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PostSummaryDto"
+              "$ref": "#/components/schemas/PositionSummaryDto"
             }
           },
           "page": {
@@ -7370,7 +7906,7 @@
           }
         }
       },
-      "PostSummaryDto": {
+      "PositionSummaryDto": {
         "type": "object",
         "required": [
           "id",
@@ -7404,7 +7940,7 @@
           }
         }
       },
-      "PostDetailDto": {
+      "PositionDetailDto": {
         "type": "object",
         "required": [
           "id",
@@ -7443,7 +7979,7 @@
           }
         }
       },
-      "CreatePostRequest": {
+      "CreatePositionRequest": {
         "type": "object",
         "required": [
           "code",
@@ -7467,7 +8003,7 @@
           }
         }
       },
-      "UpdatePostRequest": {
+      "UpdatePositionRequest": {
         "type": "object",
         "required": [
           "name",
@@ -7487,7 +8023,7 @@
           }
         }
       },
-      "PostMutationResponse": {
+      "PositionMutationResponse": {
         "type": "object",
         "required": [
           "id"

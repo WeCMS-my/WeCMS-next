@@ -91,6 +91,10 @@ PostPermissions -> PositionPermissions
 - 代码中不得保留系统岗位旧命名：`sys_post`、`UserPost`、`PostService`、`IPostRepository`、`PostPermissions`。
 - 文档历史说明可以保留旧名称，但必须标明历史上下文。
 
+## S14 最终状态
+
+S14 最终清理验收时，`WeCms.Modules.System` 已从 active source、solution/project references 和 OpenAPI/质量门禁覆盖面中移除。系统基础能力由 Identity、AccessControl、Organization、Configuration、Audit、Security、FileCenter 和 Platform 模块承载。
+
 ## 关联
 
 - `docs/context/WeCMS_next_系统基础破坏性升级技术书_v3_不引入Controller.md`

@@ -12,12 +12,12 @@ fail() {
 command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
 
 if rg -n 'SqlSugarCore|SqlSugarClient|SqlSugarScope|ISqlSugarClient|MySqlConnector|MySqlConnection|DbConnection|DbTransaction' \
-  "$src_root" \
-  --glob '!**/WeCms.Persistence/**' \
-  --glob '!**/WeCms.Data.SqlSugar/**' \
+	  "$src_root" \
+	  --glob '!**/WeCms.Data.SqlSugar/**' \
+  --glob '!**/WeCms.EventBus.SqlSugar/**' \
   --glob '!**/WeCms.Modules.*.SqlSugar/**' \
   --glob '!**/bin/**' --glob '!**/obj/**'; then
-  fail 'database/ORM tokens found outside transition or target data projects'
+	  fail 'database/ORM tokens found outside target data projects'
 fi
 
 if rg -n -i '\b(SELECT[[:space:]]+.+[[:space:]]+FROM|INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[[:alnum:]_]+|DELETE[[:space:]]+FROM)\b' "$src_root"/WeCms.Modules.* \

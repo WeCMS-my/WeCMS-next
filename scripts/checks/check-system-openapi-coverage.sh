@@ -24,7 +24,7 @@ expected = {
     "/api/v1/system/users/{id:long}/reset-password": {"post"},
     "/api/v1/system/users/{id:long}/reset-2fa": {"post"},
     "/api/v1/system/users/{id:long}/roles": {"put"},
-    "/api/v1/system/users/{id:long}/posts": {"put"},
+    "/api/v1/system/users/{id:long}/positions": {"put"},
     "/api/v1/system/roles": {"get", "post"},
     "/api/v1/system/roles/{id:long}": {"get", "put", "delete"},
     "/api/v1/system/roles/{id:long}/enable": {"post"},
@@ -46,10 +46,10 @@ expected = {
     "/api/v1/system/depts/{id:long}": {"get", "put", "delete"},
     "/api/v1/system/depts/{id:long}/enable": {"post"},
     "/api/v1/system/depts/{id:long}/disable": {"post"},
-    "/api/v1/system/posts": {"get", "post"},
-    "/api/v1/system/posts/{id:long}": {"get", "put", "delete"},
-    "/api/v1/system/posts/{id:long}/enable": {"post"},
-    "/api/v1/system/posts/{id:long}/disable": {"post"},
+    "/api/v1/system/positions": {"get", "post"},
+    "/api/v1/system/positions/{id:long}": {"get", "put", "delete"},
+    "/api/v1/system/positions/{id:long}/enable": {"post"},
+    "/api/v1/system/positions/{id:long}/disable": {"post"},
     "/api/v1/system/dict-types": {"get", "post"},
     "/api/v1/system/dict-types/{id:long}": {"get", "put", "delete"},
     "/api/v1/system/dict-types/{id:long}/enable": {"post"},
@@ -93,7 +93,7 @@ request_body_required = {
     ("/api/v1/system/users/{id:long}/reset-password", "post"),
     ("/api/v1/system/users/{id:long}/reset-2fa", "post"),
     ("/api/v1/system/users/{id:long}/roles", "put"),
-    ("/api/v1/system/users/{id:long}/posts", "put"),
+    ("/api/v1/system/users/{id:long}/positions", "put"),
     ("/api/v1/system/roles", "post"),
     ("/api/v1/system/roles/{id:long}", "put"),
     ("/api/v1/system/roles/{id:long}/permissions", "put"),
@@ -104,8 +104,8 @@ request_body_required = {
     ("/api/v1/system/permissions/{id:long}", "put"),
     ("/api/v1/system/depts", "post"),
     ("/api/v1/system/depts/{id:long}", "put"),
-    ("/api/v1/system/posts", "post"),
-    ("/api/v1/system/posts/{id:long}", "put"),
+    ("/api/v1/system/positions", "post"),
+    ("/api/v1/system/positions/{id:long}", "put"),
     ("/api/v1/system/dict-types", "post"),
     ("/api/v1/system/dict-types/{id:long}", "put"),
     ("/api/v1/system/dict-types/{id:long}/disable", "post"),
@@ -131,8 +131,8 @@ request_body_forbidden = {
     ("/api/v1/system/permissions/{id:long}/disable", "post"),
     ("/api/v1/system/depts/{id:long}/enable", "post"),
     ("/api/v1/system/depts/{id:long}/disable", "post"),
-    ("/api/v1/system/posts/{id:long}/enable", "post"),
-    ("/api/v1/system/posts/{id:long}/disable", "post"),
+    ("/api/v1/system/positions/{id:long}/enable", "post"),
+    ("/api/v1/system/positions/{id:long}/disable", "post"),
 }
 
 for route, methods in expected.items():
@@ -148,7 +148,7 @@ for route, methods in expected.items():
             raise SystemExit(f"check-system-openapi-coverage: {method.upper()} {route} must not declare requestBody")
 
 list_routes = {
-    "/api/v1/system/users", "/api/v1/system/roles", "/api/v1/system/posts", "/api/v1/system/dict-types",
+    "/api/v1/system/users", "/api/v1/system/roles", "/api/v1/system/positions", "/api/v1/system/dict-types",
     "/api/v1/system/settings", "/api/v1/system/login-logs", "/api/v1/system/audit-logs",
     "/api/v1/system/i18n/messages", "/api/v1/system/security/bans", "/api/v1/system/security-events", "/api/v1/system/files",
 }

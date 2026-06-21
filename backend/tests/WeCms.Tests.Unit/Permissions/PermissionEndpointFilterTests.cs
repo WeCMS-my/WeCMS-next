@@ -2,9 +2,10 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Files;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.FileCenter.Files;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Permissions;
@@ -39,7 +40,7 @@ public sealed class PermissionEndpointFilterTests
             httpContext.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>());
         Assert.Equal("permission_denied", writer.LastRecord?.EventType);
         Assert.Equal(42, writer.LastRecord?.UserId);
-        Assert.Contains(SystemPermissions.SecurePing, writer.LastRecord?.Message, StringComparison.Ordinal);
+        Assert.Contains(PlatformPermissions.SecurePing, writer.LastRecord?.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +102,7 @@ public sealed class PermissionEndpointFilterTests
         var checker = Assert.IsType<FakePermissionChecker>(
             httpContext.RequestServices.GetRequiredService<IPermissionChecker>());
         Assert.Equal(42, checker.LastUserId);
-        Assert.Equal(SystemPermissions.SecurePing, checker.LastPermissionCode);
+        Assert.Equal(PlatformPermissions.SecurePing, checker.LastPermissionCode);
     }
 
     [Fact]
@@ -130,7 +131,7 @@ public sealed class PermissionEndpointFilterTests
         PermissionCheckResult result,
         long? userId)
     {
-        return CreateContext(result, SystemPermissions.SecurePing, userId);
+        return CreateContext(result, PlatformPermissions.SecurePing, userId);
     }
 
     private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContext(
@@ -142,7 +143,7 @@ public sealed class PermissionEndpointFilterTests
             .AddLogging()
             .AddSingleton<IPermissionChecker>(new FakePermissionChecker(result))
             .AddSingleton<IPermissionSecurityEventWriter, FakePermissionSecurityEventWriter>()
-            .AddSingleton<IAuthClock>(new FakeAuthClock(new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero)))
+            .AddSingleton<IAccessControlClock>(new FakeAccessControlClock(new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero)))
             .BuildServiceProvider();
 
         var httpContext = new DefaultHttpContext
@@ -171,7 +172,7 @@ public sealed class PermissionEndpointFilterTests
         return new PermissionEndpointFilter(
             httpContext.RequestServices.GetRequiredService<IPermissionChecker>(),
             httpContext.RequestServices.GetRequiredService<IPermissionSecurityEventWriter>(),
-            httpContext.RequestServices.GetRequiredService<IAuthClock>());
+            httpContext.RequestServices.GetRequiredService<IAccessControlClock>());
     }
 
     private static async Task<int> ExecuteStatusCodeAsync(object? result, DefaultHttpContext httpContext)
@@ -247,9 +248,9 @@ public sealed class PermissionEndpointFilterTests
         }
     }
 
-    private sealed class FakeAuthClock : IAuthClock
+    private sealed class FakeAccessControlClock : IAccessControlClock
     {
-        public FakeAuthClock(DateTimeOffset utcNow)
+        public FakeAccessControlClock(DateTimeOffset utcNow)
         {
             UtcNow = utcNow;
         }

@@ -1,0 +1,31 @@
+# S8 System Residual Migration Checklist
+
+- [x] Spec trio exists before Sprint 8 production code changes.
+- [x] Development-plan S8 is treated as Audit / Security / FileCenter / Platform migration; technical-book Sprint 6 numbering drift is documented.
+- [x] S8 preserves existing public routes and `sys:*` permission codes unless a later explicit contract-change spec is approved.
+- [x] Audit DTOs and records live in `WeCms.Modules.Audit`.
+- [x] Audit permissions live in `WeCms.Modules.Audit`.
+- [x] Audit services and repository interfaces live in `WeCms.Modules.Audit`.
+- [x] Audit repository implementations live in `WeCms.Modules.Audit.SqlSugar`.
+- [x] Audit and login log query behavior is preserved.
+- [x] Security DTOs and records live in `WeCms.Modules.Security`.
+- [x] Security permissions live in `WeCms.Modules.Security`.
+- [x] Security services, security-event writers, alerting, and repository interfaces live in `WeCms.Modules.Security`.
+- [x] Security repository implementations live in `WeCms.Modules.Security.SqlSugar`.
+- [x] Security event, security ban, rate-limit event, and alerting behavior is preserved.
+- [x] File DTOs and records live in `WeCms.Modules.FileCenter`.
+- [x] File permissions live in `WeCms.Modules.FileCenter`.
+- [x] File services, upload policies, object key abstractions, and repository interfaces live in `WeCms.Modules.FileCenter`.
+- [x] File repository implementations live in `WeCms.Modules.FileCenter.SqlSugar`.
+- [x] File storage provider implementations remain in `WeCms.Infrastructure`.
+- [x] File upload/download behavior and security checks are preserved.
+- [x] Platform health/ping records and endpoint definitions live in `WeCms.Modules.Platform`.
+- [x] Platform database and migration probe contracts live in `WeCms.Modules.Platform` or an approved infrastructure boundary.
+- [x] Health-check route behavior is preserved.
+- [x] Target modules do not depend on their SqlSugar implementations, Persistence, SqlSugar ORM, MySqlConnector, database connections, or SQL text.
+- [x] Target SqlSugar adapter modules use only allowed project references.
+- [x] OpenAPI, permission coverage, audit coverage, rate-limit coverage, security-event coverage, and DB boundary tests pass.
+- [x] Audit, Security, FileCenter, and Platform do not migrate CMS, caching infrastructure, AOP, EventBus, or Outbox in S8.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No AI runtime capability is introduced.
+- [x] Full backend quality gate passes for each completed S8 implementation task.

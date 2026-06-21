@@ -1,15 +1,15 @@
 using System.Text.Json.Nodes;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.I18n;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.Audit.Logs;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
 
 namespace WeCms.Api.Extensions;
 
@@ -122,12 +122,12 @@ public static partial class OpenApiExtensions
             [nameof(CreateDepartmentRequest)] = DepartmentMutationSchema(includeCode: true),
             [nameof(UpdateDepartmentRequest)] = DepartmentMutationSchema(includeCode: false),
             [nameof(DepartmentMutationResponse)] = ObjectSchema(("id", "integer")),
-            ["PagedPostSummary"] = PagedSchema(nameof(PostSummaryDto)),
-            [nameof(PostSummaryDto)] = PostSchema(includeTimestamps: false),
-            [nameof(PostDetailDto)] = PostSchema(includeTimestamps: true),
-            [nameof(CreatePostRequest)] = PostMutationSchema(includeCode: true),
-            [nameof(UpdatePostRequest)] = PostMutationSchema(includeCode: false),
-            [nameof(PostMutationResponse)] = ObjectSchema(("id", "integer")),
+            ["PagedPositionSummary"] = PagedSchema(nameof(PositionSummaryDto)),
+            [nameof(PositionSummaryDto)] = PositionSchema(includeTimestamps: false),
+            [nameof(PositionDetailDto)] = PositionSchema(includeTimestamps: true),
+            [nameof(CreatePositionRequest)] = PositionMutationSchema(includeCode: true),
+            [nameof(UpdatePositionRequest)] = PositionMutationSchema(includeCode: false),
+            [nameof(PositionMutationResponse)] = ObjectSchema(("id", "integer")),
             ["PagedDictTypeSummary"] = PagedSchema(nameof(DictTypeSummaryDto)),
             [nameof(DictTypeSummaryDto)] = DictTypeSchema(includeTimestamps: false),
             [nameof(DictTypeDetailDto)] = DictTypeSchema(includeTimestamps: true),

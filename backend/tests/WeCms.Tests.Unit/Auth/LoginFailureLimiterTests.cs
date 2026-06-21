@@ -1,5 +1,4 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Security;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Auth;
@@ -57,7 +56,7 @@ public sealed class LoginFailureLimiterTests
 
     private static LoginFailureLimiter CreateLimiter(
         ILoginFailureCounterRepository repository,
-        ISecurityBanService securityBanService)
+        IIdentitySecurityBanService securityBanService)
     {
         return new LoginFailureLimiter(
             repository,
@@ -115,31 +114,31 @@ public sealed class LoginFailureLimiterTests
         }
     }
 
-    private sealed class FakeSecurityBanService : ISecurityBanService
+    private sealed class FakeSecurityBanService : IIdentitySecurityBanService
     {
         public int CreateTemporaryCalls { get; private set; }
 
         public List<string> CreatedTargets { get; } = [];
 
-        public Task<SecurityBanMutationResponse> CreateTemporaryAsync(CreateSecurityBanRecord record, CancellationToken cancellationToken)
+        public Task CreateTemporaryAsync(IdentitySecurityBanCreateRecord record, CancellationToken cancellationToken)
         {
             CreateTemporaryCalls++;
             CreatedTargets.Add(record.Target);
-            return Task.FromResult(new SecurityBanMutationResponse(CreateTemporaryCalls));
+            return Task.CompletedTask;
         }
 
-        public Task<SecurityStatusDto> GetStatusAsync(DateTimeOffset now, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<PagedResult<SecurityBanSummaryDto>> ListAsync(SecurityBanListQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<SecurityBanDetailDto> GetAsync(long id, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<SecurityBanMutationResponse> UnbanAsync(long id, UnbanSecurityBanRequest request, SecurityBanRequestContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<BatchUnbanSecurityBansResponse> BatchUnbanAsync(BatchUnbanSecurityBansRequest request, SecurityBanRequestContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<SecurityBanRecord?> FindActiveAsync(string banType, string target, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<SecurityBanRecord?>(null);
-        public Task RecordHitAsync(SecurityBanRecord ban, SecurityBanHitContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> HasActiveAsync(string banType, string target, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult(false);
     }
 
-    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    private sealed class FakeSecurityAlertService : IIdentitySecurityAlertService
     {
-        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        public Task PublishIfRequiredAsync(
+            string eventType,
+            string severity,
+            string message,
+            string traceId,
+            DateTimeOffset createdAt,
+            CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

@@ -1,8 +1,9 @@
 using SqlSugar;
-using WeCms.Modules.System.Permissions;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Permissions;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.AccessControl.SqlSugar.Repositories;
+using WeCms.Data.SqlSugar;
 using WeCms.Shared.Security;
 using WeCms.Tests.Integration;
 
@@ -28,7 +29,7 @@ public sealed class PermissionRepositoryTests : PerTestDatabaseResetBase
             var user = await repository.FindUserAsync(adminUserId, CancellationToken.None);
             var hasSecurePing = await repository.UserHasPermissionAsync(
                 adminUserId,
-                SystemPermissions.SecurePing,
+                PlatformPermissions.SecurePing,
                 CancellationToken.None);
             var hasMissingPermission = await repository.UserHasPermissionAsync(
                 adminUserId,
@@ -62,7 +63,7 @@ public sealed class PermissionRepositoryTests : PerTestDatabaseResetBase
 
             var checker = new PermissionChecker(new PermissionRepository(db));
 
-            var result = await checker.CheckAsync(adminUserId, SystemPermissions.SecurePing, CancellationToken.None);
+            var result = await checker.CheckAsync(adminUserId, PlatformPermissions.SecurePing, CancellationToken.None);
 
             Assert.Equal(PermissionCheckResult.UserDisabled, result);
         }
@@ -88,7 +89,7 @@ public sealed class PermissionRepositoryTests : PerTestDatabaseResetBase
                 new SugarParameter("@deletedAt", DateTime.UtcNow),
                 new SugarParameter("@userId", adminUserId));
 
-            var result = await checker.CheckAsync(adminUserId, SystemPermissions.SecurePing, CancellationToken.None);
+            var result = await checker.CheckAsync(adminUserId, PlatformPermissions.SecurePing, CancellationToken.None);
 
             Assert.Equal(PermissionCheckResult.UserDisabled, result);
         }

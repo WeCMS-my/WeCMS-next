@@ -31,7 +31,7 @@ WeCMS Next 一期已完成：
 - 不做旧 ThinkPHP runtime compatibility。
 - 不做旧数据迁移或旧密码 hash 兼容。
 - 不复制旧 AdminGate。
-- 数据库访问只能在 `WeCms.Persistence`。
+- 数据库/ORM/连接器只能在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内。
 - 业务模块只能依赖接口和 `WeCms.Shared` 抽象。
 - 所有写接口必须具备明确 HTTP Method、权限码、DTO 校验和 Audit Log。
 - 高风险操作必须补充 Security Event，必要时要求当前密码、2FA 或 challenge。

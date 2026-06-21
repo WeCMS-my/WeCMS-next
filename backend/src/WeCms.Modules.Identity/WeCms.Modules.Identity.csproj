@@ -1,6 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\WeCms.EventBus\WeCms.EventBus.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.AccessControl\WeCms.Modules.AccessControl.csproj" />
+    <ProjectReference Include="..\WeCms.Modules.Organization\WeCms.Modules.Organization.csproj" />
     <ProjectReference Include="..\WeCms.Shared\WeCms.Shared.csproj" />
   </ItemGroup>
 

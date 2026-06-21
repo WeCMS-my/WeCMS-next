@@ -1,0 +1,48 @@
+# S12 EventBus And Outbox Upgrade Checklist
+
+- [x] Spec trio exists before Sprint 12 production code changes.
+- [x] Sprint 12 boundary is documented: S12 owns EventBus, Outbox, dispatcher, idempotency, and system foundation events only.
+- [x] Current `WeCms.EventBus` baseline is documented.
+- [x] `IIntegrationEvent` exists in `WeCms.EventBus`.
+- [x] `IntegrationEventBase` exists in `WeCms.EventBus`.
+- [x] `IEventHandler<TEvent>` exists in `WeCms.EventBus`.
+- [x] `IEventBus` exists in `WeCms.EventBus`.
+- [x] `IOutboxWriter` exists in `WeCms.EventBus`.
+- [x] `IOutboxDispatcher` exists in `WeCms.EventBus`.
+- [x] Events include id, type, occurredAt, traceId, and tenantId.
+- [x] Handler and publish APIs support `CancellationToken`.
+- [x] `WeCms.EventBus` does not reference SqlSugar, SQL text, database connection types, or repository implementations.
+- [x] In-memory EventBus publishes to matching handlers.
+- [x] Handler failure behavior is explicit and tested.
+- [x] EventBus does not scan Minimal API endpoints at runtime.
+- [x] `sys_outbox_message` table exists in baseline or migration.
+- [x] Outbox entity exists under the data infrastructure boundary.
+- [x] Outbox repository abstraction exists.
+- [x] Outbox repository implementation exists under the data infrastructure boundary.
+- [x] Outbox writer writes event messages.
+- [x] Outbox supports pending, processing, processed, and failed states.
+- [x] Outbox supports retry count and available time.
+- [x] Outbox locking prevents double-processing.
+- [x] Outbox persistence does not use distributed transactions.
+- [x] Dispatcher processes pending messages by batch size.
+- [x] Dispatcher retries failed messages after delay.
+- [x] Dispatcher does not double-process locked messages.
+- [x] Handler idempotency is enforced and tested.
+- [x] `UserCreatedEvent` exists.
+- [x] `UserDisabledEvent` exists.
+- [x] `RolePermissionsChangedEvent` exists.
+- [x] `MenuChangedEvent` exists.
+- [x] `SettingChangedEvent` exists.
+- [x] `DictChangedEvent` exists.
+- [x] `I18nChangedEvent` exists.
+- [x] `SecurityBanCreatedEvent` exists.
+- [x] System foundation events are published by Application Services.
+- [x] Permission changes can trigger access-profile cache invalidation.
+- [x] Setting, dict, and i18n changes can trigger cache invalidation.
+- [x] S12 does not implement CMS content publishing events or CMS runtime behavior.
+- [x] S12 does not implement external brokers, distributed transactions, or `System.Transactions`.
+- [x] S12 does not implement S13 Swagger, Scalar, MiniProfiler UI changes, or OpenAPI UI work.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No EF Core, dynamic query/return type, silent legacy fallback, or AI runtime capability is introduced.
+- [x] Full backend quality gate passes with MySQL for each completed Sprint 12 implementation task.
+- [x] Final Sprint 12 total audit passes.

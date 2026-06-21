@@ -3,7 +3,7 @@ using System.Data.Common;
 using System.Text.Json;
 using MySqlConnector;
 using SqlSugar;
-using WeCms.Persistence.Data;
+using WeCms.Data.SqlSugar;
 using Xunit;
 
 namespace WeCms.Tests.Integration;

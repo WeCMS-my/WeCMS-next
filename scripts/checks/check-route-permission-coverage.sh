@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STATIC_ROUTES="${ROOT_DIR}/frontend/soybean-admin/src/router/static-routes.ts"
 FRONTEND_SRC_DIR="${ROOT_DIR}/frontend/soybean-admin/src"
-PERMISSION_SEED="${ROOT_DIR}/database/seeds/000003_seed_m1_system_permissions.sql"
+PERMISSION_SEED="${ROOT_DIR}/database/seeds/000002_seed_system_permissions.sql"
 OPENAPI_FILE="${ROOT_DIR}/artifacts/openapi/wecms-api-v1.json"
 
 if [[ ! -f "${STATIC_ROUTES}" ]]; then

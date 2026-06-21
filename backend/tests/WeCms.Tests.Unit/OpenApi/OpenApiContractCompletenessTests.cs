@@ -1,14 +1,13 @@
 using System.Text.Json;
 using WeCms.Api.Extensions;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.I18n;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.AccessControl.Roles;
 
 namespace WeCms.Tests.Unit.OpenApi;
 
@@ -29,7 +28,7 @@ public sealed class OpenApiContractCompletenessTests
             AssertSchemaProperties(
                 schemas.GetProperty(nameof(CreateUserRequest)),
                 required: ["username", "displayName", "password"],
-                optional: ["email", "phone", "deptId", "roleIds", "postIds"]);
+                optional: ["email", "phone", "deptId", "roleIds", "positionIds"]);
 
             AssertSchemaProperties(
                 schemas.GetProperty(nameof(CreateRoleRequest)),
@@ -72,12 +71,12 @@ public sealed class OpenApiContractCompletenessTests
                 optional: ["parentId"]);
 
             AssertSchemaProperties(
-                schemas.GetProperty(nameof(CreatePostRequest)),
+                schemas.GetProperty(nameof(CreatePositionRequest)),
                 required: ["code", "name", "sortOrder", "status"],
                 optional: []);
 
             AssertSchemaProperties(
-                schemas.GetProperty(nameof(UpdatePostRequest)),
+                schemas.GetProperty(nameof(UpdatePositionRequest)),
                 required: ["name", "sortOrder", "status"],
                 optional: []);
 
@@ -164,7 +163,7 @@ public sealed class OpenApiContractCompletenessTests
     }
 
     [Fact]
-    public void SystemCoverageScript_DoesNotRequireRequestBodyForBodylessCommandPosts()
+    public void SystemCoverageScript_DoesNotRequireRequestBodyForBodylessCommandPositions()
     {
         var openApiCoverage = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "checks", "check-system-openapi-coverage.sh"));
 

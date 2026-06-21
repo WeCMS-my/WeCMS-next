@@ -1,18 +1,17 @@
 using System.Text.Json.Serialization;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.I18n;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
-using WeCms.Modules.System.System;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.Identity.Contracts;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.Audit.Logs;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.Configuration.Settings;
+using WeCms.Modules.Platform.System;
 using WeCms.Shared;
 
 namespace WeCms.Api.Json;
@@ -21,6 +20,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<object>))]
 [JsonSerializable(typeof(ApiResult<LoginResponse>))]
 [JsonSerializable(typeof(ApiResult<AuthMeResponse>))]
+[JsonSerializable(typeof(ApiResult<AccessProfileDto>))]
 [JsonSerializable(typeof(ApiResult<AccountTwoFactorStatusResponse>))]
 [JsonSerializable(typeof(ApiResult<AccountTwoFactorSetupResponse>))]
 [JsonSerializable(typeof(ApiResult<AccountTwoFactorRecoveryCodesResponse>))]
@@ -52,9 +52,9 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ApiResult<IReadOnlyList<DepartmentTreeDto>>))]
 [JsonSerializable(typeof(ApiResult<DepartmentDetailDto>))]
 [JsonSerializable(typeof(ApiResult<DepartmentMutationResponse>))]
-[JsonSerializable(typeof(ApiResult<PagedResult<PostSummaryDto>>))]
-[JsonSerializable(typeof(ApiResult<PostDetailDto>))]
-[JsonSerializable(typeof(ApiResult<PostMutationResponse>))]
+[JsonSerializable(typeof(ApiResult<PagedResult<PositionSummaryDto>>))]
+[JsonSerializable(typeof(ApiResult<PositionDetailDto>))]
+[JsonSerializable(typeof(ApiResult<PositionMutationResponse>))]
 [JsonSerializable(typeof(ApiResult<PagedResult<DictTypeSummaryDto>>))]
 [JsonSerializable(typeof(ApiResult<DictTypeDetailDto>))]
 [JsonSerializable(typeof(ApiResult<IReadOnlyList<DictValueDto>>))]
@@ -93,6 +93,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(AccountAvatarUploadRequest))]
 [JsonSerializable(typeof(LoginResponse))]
 [JsonSerializable(typeof(AuthMeResponse))]
+[JsonSerializable(typeof(AccessProfileDto))]
 [JsonSerializable(typeof(AccountTwoFactorStatusResponse))]
 [JsonSerializable(typeof(AccountTwoFactorSetupResponse))]
 [JsonSerializable(typeof(AccountTwoFactorRecoveryCodesResponse))]
@@ -115,7 +116,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(ResetUserPasswordRequest))]
 [JsonSerializable(typeof(ResetUserTwoFactorRequest))]
 [JsonSerializable(typeof(AssignUserRolesRequest))]
-[JsonSerializable(typeof(AssignUserPostsRequest))]
+[JsonSerializable(typeof(AssignUserPositionsRequest))]
 [JsonSerializable(typeof(UserMutationResponse))]
 [JsonSerializable(typeof(PagedResult<RoleSummaryDto>))]
 [JsonSerializable(typeof(RoleSummaryDto))]
@@ -145,12 +146,12 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(CreateDepartmentRequest))]
 [JsonSerializable(typeof(UpdateDepartmentRequest))]
 [JsonSerializable(typeof(DepartmentMutationResponse))]
-[JsonSerializable(typeof(PagedResult<PostSummaryDto>))]
-[JsonSerializable(typeof(PostSummaryDto))]
-[JsonSerializable(typeof(PostDetailDto))]
-[JsonSerializable(typeof(CreatePostRequest))]
-[JsonSerializable(typeof(UpdatePostRequest))]
-[JsonSerializable(typeof(PostMutationResponse))]
+[JsonSerializable(typeof(PagedResult<PositionSummaryDto>))]
+[JsonSerializable(typeof(PositionSummaryDto))]
+[JsonSerializable(typeof(PositionDetailDto))]
+[JsonSerializable(typeof(CreatePositionRequest))]
+[JsonSerializable(typeof(UpdatePositionRequest))]
+[JsonSerializable(typeof(PositionMutationResponse))]
 [JsonSerializable(typeof(PagedResult<DictTypeSummaryDto>))]
 [JsonSerializable(typeof(DictTypeSummaryDto))]
 [JsonSerializable(typeof(DictTypeDetailDto))]
@@ -200,6 +201,8 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(CreateFileRequest))]
 [JsonSerializable(typeof(FileMutationResponse))]
 [JsonSerializable(typeof(AuthUserDto))]
+[JsonSerializable(typeof(AuthMenuTreeDto))]
+[JsonSerializable(typeof(IReadOnlyList<AuthMenuTreeDto>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(IReadOnlyList<UserSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<RoleSummaryDto>))]
@@ -209,7 +212,7 @@ namespace WeCms.Api.Json;
 [JsonSerializable(typeof(IReadOnlyList<PermissionTreeDto>))]
 [JsonSerializable(typeof(IReadOnlyList<DepartmentSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<DepartmentTreeDto>))]
-[JsonSerializable(typeof(IReadOnlyList<PostSummaryDto>))]
+[JsonSerializable(typeof(IReadOnlyList<PositionSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<DictTypeSummaryDto>))]
 [JsonSerializable(typeof(IReadOnlyList<DictValueDto>))]
 [JsonSerializable(typeof(IReadOnlyList<SettingSummaryDto>))]

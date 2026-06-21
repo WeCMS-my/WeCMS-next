@@ -20,7 +20,7 @@ const RolesView = () => import("@/views/system/roles/RolesView.vue");
 const PermissionsView = () => import("@/views/system/permissions/PermissionsView.vue");
 const MenusView = () => import("@/views/system/menus/MenusView.vue");
 const DepartmentsView = () => import("@/views/system/depts/DepartmentsView.vue");
-const PostsView = () => import("@/views/system/posts/PostsView.vue");
+const PositionsView = () => import("@/views/system/positions/PositionsView.vue");
 const DictsView = () => import("@/views/system/dicts/DictsView.vue");
 const SettingsView = () => import("@/views/system/settings/SettingsView.vue");
 const I18nMessagesView = () => import("@/views/system/i18n/I18nMessagesView.vue");
@@ -125,12 +125,12 @@ export const staticRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: "/system/posts",
-    component: PostsView,
+    path: "/system/positions",
+    component: PositionsView,
     meta: {
       title: "岗位管理",
       requiresAuth: true,
-      permissions: ["sys:post:list"]
+      permissions: ["sys:position:list"]
     }
   },
   {

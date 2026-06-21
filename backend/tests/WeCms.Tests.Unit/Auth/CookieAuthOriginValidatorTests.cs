@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Menus;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.AccessControl.Menus;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Auth;

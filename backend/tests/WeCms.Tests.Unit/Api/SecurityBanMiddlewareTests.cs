@@ -2,8 +2,8 @@ using System.Net;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using WeCms.Api.Middleware;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Security;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Api;

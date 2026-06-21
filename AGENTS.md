@@ -129,10 +129,10 @@ WeCms.Shared
   -> 不得引用其它生产工程
 ```
 
-迁移期说明：
+最终期说明：
 
-- `WeCms.Modules.System 最终删除`，迁移期间只作为 allow-list 暂存。
-- `WeCms.Persistence 最终删除`，迁移期间只作为 allow-list 暂存。
+- `WeCms.Modules.System` 已从 active source 删除；不得重新引入。
+- `WeCms.Persistence` 已从 active source 删除；不得重新引入。
 - `WeCms.Modules.Cms` / CMS 模块暂不实现，不参与系统基础升级 API、OpenAPI 或质量门禁功能覆盖。
 
 ### 3.4 拒绝隐式兼容
@@ -221,12 +221,12 @@ WeCms.Shared
 11. 分页参数必须校验，最大 `pageSize` 不超过 100。
 12. 写操作必须检查 affected rows。
 13. 批量操作必须限制最大数量。
-14. Repository interface 只能定义在模块层或 `WeCms.Shared`，Repository implementation 迁移期可存在于 `WeCms.Persistence`，最终只能存在于 `WeCms.Modules.*.SqlSugar`。
+14. Repository interface 只能定义在模块层或 `WeCms.Shared`，Repository implementation 只能存在于 `WeCms.Modules.*.SqlSugar`。
 15. Service / UseCase 获取 Repository、UnitOfWork、时钟、密码、Token、随机数等有副作用依赖时，必须通过接口 + DI，不得依赖具体实现。
 
 ### DB-BOUNDARY
 
-1. 迁移期 `WeCms.Persistence` 可继续暂存数据库/ORM/连接器代码；最终只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器。
+1. `WeCms.Persistence` 不再是合法 active source；只允许 `WeCms.Data.SqlSugar` 和 `WeCms.Modules.*.SqlSugar` 直接引用数据库/ORM/连接器。
 2. `WeCms.Modules.*` 不得包含 SQL 文本。
 3. `WeCms.Modules.*` 不得直接引用 `SqlSugar ORM`、`MySqlConnector`。
 4. `WeCms.Modules.*` 不得依赖 `WeCms.Persistence`、`WeCms.Data.SqlSugar` 或 `WeCms.Modules.*.SqlSugar` 的具体实现。

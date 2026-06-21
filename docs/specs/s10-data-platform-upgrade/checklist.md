@@ -1,0 +1,49 @@
+# S10 Data Platform Upgrade Checklist
+
+- [x] Spec trio exists before Sprint 10 production code changes.
+- [x] S9-to-S10 boundary is documented: S9 removed old System/Persistence and reset baseline; S10 owns data-platform upgrades.
+- [x] Entity interfaces are placed in `WeCms.Shared` only when module-layer visibility is required.
+- [x] Concrete entity base classes are placed in `WeCms.Data.SqlSugar`.
+- [x] System-foundation entity classes exist in the owning module `.SqlSugar` adapters.
+- [x] Entity metadata explicitly defines table, column, nullable, length, and index rules.
+- [x] Business modules do not reference SqlSugar, MySqlConnector, `.SqlSugar` adapters, database connections, or SQL text.
+- [x] Each data-backed `.SqlSugar` adapter exposes an `ICodeFirstModelProvider`.
+- [x] CodeFirst model registry aggregates providers centrally in `WeCms.Data.SqlSugar`.
+- [x] CodeFirstRunner validates registered models in development/test without enabling production auto-DDL.
+- [x] Duplicate table names fail fast.
+- [x] Missing `SugarTable` metadata fails fast.
+- [x] CMS remains excluded from CodeFirst providers unless a later CMS task explicitly enables it.
+- [x] Schema validator detects missing tables.
+- [x] Schema validator detects missing columns.
+- [x] Schema validator detects nullable mismatches.
+- [x] Schema validator detects length mismatches.
+- [x] Schema validator detects index mismatches.
+- [x] MigrationScaffold produces reviewable migration diffs.
+- [x] CI migration smoke test remains wired to the migration baseline.
+- [x] Production DDL remains disabled by default.
+- [x] Clean MySQL schema validation passes against the Sprint 9 baseline.
+- [x] Soft-delete QueryFilter hides deleted rows by default.
+- [x] Tenant QueryFilter isolates tenant rows.
+- [x] Data-scope QueryFilter filters rows by actor scope.
+- [x] QueryFilter bypass requires a non-empty reason.
+- [x] QueryFilter bypass writes audit evidence.
+- [x] Raw SQL QueryFilter limitations are documented and guarded by explicit audited bypass/builder rules.
+- [x] Main, log, audit, file, and tenant connection roles resolve correctly.
+- [x] Shared tenant database plus `tenant_id` is the default tenant mode.
+- [x] Dedicated tenant database mode is available only through explicit configuration.
+- [x] UnitOfWork manages one connection per scope by default.
+- [x] Distributed transactions are not introduced.
+- [x] SQL audit records slow SQL.
+- [x] SQL audit records failed SQL.
+- [x] SQL audit redacts sensitive parameters.
+- [x] SQL audit redacts password, password_hash, token, refresh_token, access_token, secret, two_factor, recovery_code, private_key, and connection_string.
+- [x] SQL audit includes TraceId, UserId, Username, TenantId, ConnectionName, RepositoryName, OperationType, SqlHash, SqlTemplate, ParametersRedacted, ElapsedMs, AffectedRows, IsSlowSql, ErrorMessage, and CreatedAt.
+- [x] Production SQL audit defaults to slow SQL and failed SQL only.
+- [x] SQL audit prevents recursive self-audit.
+- [x] S10 does not implement S11 cache/AOP runtime work.
+- [x] S10 does not implement S12 EventBus/Outbox dispatcher or distributed transaction work.
+- [x] S10 does not implement S13 Swagger/Scalar/MiniProfiler UI work.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No EF Core, dynamic query/return type, silent legacy fallback, or AI runtime capability is introduced.
+- [x] Full backend quality gate passes with MySQL for each completed Sprint 10 implementation task.
+- [x] Final Sprint 10 total audit passes.

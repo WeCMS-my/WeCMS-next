@@ -1,5 +1,8 @@
-using WeCms.Modules.System.Settings;
+using WeCms.Modules.Configuration;
+using WeCms.Modules.Configuration.Events;
+using WeCms.Modules.Configuration.Settings;
 using WeCms.Shared;
+using WeCms.Shared.Data;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Unit.Settings;
@@ -106,6 +109,43 @@ public sealed class SettingServiceTests
     }
 
     [Fact]
+    public async Task UpdateAsync_InvalidatesSettingsCache()
+    {
+        var cacheInvalidator = new FakeConfigurationCacheInvalidator();
+        var service = CreateService(new FakeSettingRepository(), cacheInvalidator: cacheInvalidator);
+
+        await service.UpdateAsync("security.passwordPepper", new UpdateSettingRequest("changed"), Context(), CancellationToken.None);
+
+        Assert.Equal(1, cacheInvalidator.SettingsInvalidationCalls);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WritesSettingChangedEventBeforeCommit()
+    {
+        var operations = new List<string>();
+        var outbox = new WeCms.Tests.Unit.RecordingOutboxWriter(operations);
+        var service = CreateService(new FakeSettingRepository(), unitOfWork: new FakeUnitOfWork(operations), outboxWriter: outbox);
+
+        await service.UpdateAsync("security.passwordPepper", new UpdateSettingRequest("changed"), Context(), CancellationToken.None);
+
+        var evt = Assert.IsType<SettingChangedEvent>(Assert.Single(outbox.Events));
+        Assert.Equal(SettingChangedEvent.EventType, evt.Type);
+        Assert.Equal("security.passwordPepper", evt.SettingKey);
+        AssertWriteWasInsideTransaction(operations, SettingChangedEvent.EventType);
+    }
+
+    [Fact]
+    public async Task SettingChangedEvent_EvictsSettingCache()
+    {
+        var cacheInvalidator = new FakeConfigurationCacheInvalidator();
+        var handler = new SettingChangedCacheHandler(cacheInvalidator);
+
+        await handler.HandleAsync(new SettingChangedEvent(Guid.Parse("00000000-0000-0000-0000-000000000001"), Context().Now, "trace", null, "security.passwordPepper"), CancellationToken.None);
+
+        Assert.Equal(1, cacheInvalidator.SettingsInvalidationCalls);
+    }
+
+    [Fact]
     public async Task ValidateIpRulesAsync_AcceptsExactCidrAndIpv6Rules()
     {
         var service = CreateService(new FakeSettingRepository());
@@ -128,13 +168,13 @@ public sealed class SettingServiceTests
     [Fact]
     public async Task ReloadCacheAsync_RefreshesCacheAndAudits()
     {
-        var cache = new FakeSettingCache();
+        var cacheInvalidator = new FakeConfigurationCacheInvalidator();
         var repository = new FakeSettingRepository();
-        var service = CreateService(repository, cache: cache);
+        var service = CreateService(repository, cacheInvalidator: cacheInvalidator);
 
         await service.ReloadCacheAsync(Context(), CancellationToken.None);
 
-        Assert.Equal(1, cache.RefreshCalls);
+        Assert.Equal(1, cacheInvalidator.SettingsInvalidationCalls);
         Assert.True(repository.AuditRecorded);
     }
 
@@ -143,14 +183,31 @@ public sealed class SettingServiceTests
     private static SettingService CreateService(
         FakeSettingRepository repository,
         ISettingSecretProtector? protector = null,
-        ISettingCache? cache = null)
+        IConfigurationCacheInvalidator? cacheInvalidator = null,
+        FakeUnitOfWork? unitOfWork = null,
+        WeCms.Tests.Unit.RecordingOutboxWriter? outboxWriter = null)
     {
         return new SettingService(
             repository,
             new SettingDefinitionProvider(),
             protector ?? new FakeSettingSecretProtector(),
             new IpRuleMatcher(),
-            cache ?? new FakeSettingCache());
+            cacheInvalidator ?? new FakeConfigurationCacheInvalidator(),
+            unitOfWork ?? new FakeUnitOfWork(),
+            outboxWriter ?? new WeCms.Tests.Unit.RecordingOutboxWriter(),
+            new WeCms.Tests.Unit.FixedTestIdGenerator());
+    }
+
+    private static void AssertWriteWasInsideTransaction(IReadOnlyList<string> operations, string eventType)
+    {
+        var orderedOperations = operations.ToList();
+        var begin = orderedOperations.IndexOf("begin");
+        var outbox = orderedOperations.IndexOf($"outbox:{eventType}");
+        var commit = orderedOperations.IndexOf("commit");
+
+        Assert.True(begin >= 0, string.Join(", ", operations));
+        Assert.True(outbox > begin, string.Join(", ", operations));
+        Assert.True(commit > outbox, string.Join(", ", operations));
     }
 
     private sealed class FakeSettingRepository : ISettingRepository
@@ -206,14 +263,51 @@ public sealed class SettingServiceTests
         public string Unprotect(string protectedValue) => protectedValue.StartsWith("protected:", StringComparison.Ordinal) ? protectedValue["protected:".Length..] : protectedValue;
     }
 
-    private sealed class FakeSettingCache : ISettingCache
+    private sealed class FakeUnitOfWork : IUnitOfWork
     {
-        public int RefreshCalls { get; private set; }
+        private readonly List<string>? _operations;
 
-        public Task RefreshAsync(CancellationToken cancellationToken)
+        public FakeUnitOfWork(List<string>? operations = null)
         {
-            RefreshCalls++;
+            _operations = operations;
+        }
+
+        public Task<ITransactionContext> BeginTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            _operations?.Add("begin");
+            return Task.FromResult<ITransactionContext>(new FakeTransactionContext(_operations));
+        }
+
+        private sealed class FakeTransactionContext(List<string>? operations) : ITransactionContext
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public Task CommitAsync(CancellationToken cancellationToken = default)
+            {
+                operations?.Add("commit");
+                return Task.CompletedTask;
+            }
+
+            public Task RollbackAsync(CancellationToken cancellationToken = default)
+            {
+                operations?.Add("rollback");
+                return Task.CompletedTask;
+            }
+        }
+    }
+
+    private sealed class FakeConfigurationCacheInvalidator : IConfigurationCacheInvalidator
+    {
+        public int SettingsInvalidationCalls { get; private set; }
+
+        public Task InvalidateSettingsAsync(CancellationToken cancellationToken)
+        {
+            SettingsInvalidationCalls++;
             return Task.CompletedTask;
         }
+
+        public Task InvalidateDictsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task InvalidateI18nAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -66,6 +66,21 @@ dotnet run --project backend/src/WeCms.Api -- --migrate
 
 The command runs `database/migrations` and `database/seeds`. Outside Development, `Database:SeedAdminPassword` must be configured and strong.
 
+## CodeFirst And Baseline Updates
+
+CodeFirst metadata is allowed only in `WeCms.Data.SqlSugar` and `WeCms.Modules.*.SqlSugar`. It is a modeling and validation path, not a production automatic-DDL policy.
+
+When a database shape changes:
+
+1. Create or update the required `docs/specs/<change-id>/` spec trio before changing schema files.
+2. Update the owning module SqlSugar entity and CodeFirst model provider.
+3. Update reviewed SQL under `database/migrations`.
+4. Update idempotent seed SQL under `database/seeds` only when required.
+5. Run MySQL integration tests against `127.0.0.1`.
+6. Run `bash scripts/quality-gate-backend.sh`.
+
+Migration scripts must remain compatible with the repository migration runner: standard SQL statements split by line-ending semicolons, with no `DELIMITER`, stored procedures, functions, triggers, or function bodies that rely on internal semicolons.
+
 ## Pending Migrations
 
 PH-3 readiness health reports migration dependency unavailable when `Database:LatestRequiredMigration` is missing from `sys_schema_migration`. This prevents a database with only the migration table or only early migrations from reporting ready.

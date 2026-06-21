@@ -18,15 +18,11 @@ allowed_globs=(
   '--glob' '!**/bin/**'
   '--glob' '!**/obj/**'
   '--glob' '!**/WeCms.Data.SqlSugar/**'
+  '--glob' '!**/WeCms.EventBus.SqlSugar/**'
   '--glob' '!**/WeCms.Modules.*.SqlSugar/**'
 )
 
-if [[ "${WECMS_ARCHITECTURE_FINAL_SQLSUGAR_PLATFORM:-false}" == "true" ]]; then
-  [[ ! -e "$src_root/WeCms.Persistence/WeCms.Persistence.csproj" ]] || fail 'final mode does not allow WeCms.Persistence'
-else
-  allowed_globs+=( '--glob' '!**/WeCms.Persistence/**' )
-  rg -q --fixed-strings '旧 WeCms.Persistence 不作为长期合法项目' "$adr" || fail 'ADR does not document Persistence removal'
-fi
+[[ ! -e "$src_root/WeCms.Persistence/WeCms.Persistence.csproj" ]] || fail 'final mode does not allow WeCms.Persistence'
 
 if rg -n "$database_tokens" "$src_root" "${allowed_globs[@]}"; then
   fail 'database/ORM tokens found outside allowed data projects'

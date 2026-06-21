@@ -66,6 +66,12 @@ expected_references: dict[str, set[str]] = {
 for module in business_modules:
     expected_references[f"WeCms.Modules.{module}"] = {"WeCms.Shared"}
 
+expected_references["WeCms.Modules.Identity"] = {
+    "WeCms.Shared",
+    "WeCms.Modules.AccessControl",
+    "WeCms.Modules.Organization",
+}
+
 for module in adapter_modules:
     expected_references[f"WeCms.Modules.{module}.SqlSugar"] = {
         "WeCms.Shared",

@@ -5,7 +5,7 @@ public sealed class SettingApiScanTests
     [Fact]
     public void SettingEndpoints_AreExplicitAndPermissionProtected()
     {
-        var source = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Settings", "SettingEndpoints.cs"));
+        var source = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Configuration", "Settings", "SettingEndpoints.cs"));
 
         Assert.Contains("MapGroup(\"/api/v1/system\")", source);
         Assert.Contains(".RequireAuthorization()", source);
@@ -14,17 +14,17 @@ public sealed class SettingApiScanTests
         Assert.Contains("MapPut(\"/settings/{key}\"", source);
         Assert.Contains("MapPost(\"/settings/validate-ip-rules\"", source);
         Assert.Contains("MapPost(\"/settings/reload-cache\"", source);
-        Assert.Contains("RequirePermission(SettingPermissions.List)", source);
-        Assert.Contains("RequirePermission(SettingPermissions.Detail)", source);
-        Assert.Contains("RequirePermission(SettingPermissions.Update)", source);
-        Assert.Contains("RequirePermission(SettingPermissions.ValidateIpRules)", source);
-        Assert.Contains("RequirePermission(SettingPermissions.ReloadCache)", source);
+        Assert.Contains("RequireEndpointPermission(SettingPermissions.List)", source);
+        Assert.Contains("RequireEndpointPermission(SettingPermissions.Detail)", source);
+        Assert.Contains("RequireEndpointPermission(SettingPermissions.Update)", source);
+        Assert.Contains("RequireEndpointPermission(SettingPermissions.ValidateIpRules)", source);
+        Assert.Contains("RequireEndpointPermission(SettingPermissions.ReloadCache)", source);
     }
 
     [Fact]
     public void SettingModule_DoesNotContainSqlOrOrmReferences()
     {
-        var moduleRoot = Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.System", "Settings");
+        var moduleRoot = Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Modules.Configuration", "Settings");
         var sources = Directory.GetFiles(moduleRoot, "*.cs", SearchOption.AllDirectories)
             .Select(File.ReadAllText)
             .ToArray();

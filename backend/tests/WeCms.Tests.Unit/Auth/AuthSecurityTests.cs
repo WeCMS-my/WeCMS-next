@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using WeCms.Modules.System.Auth;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Auth;

@@ -110,9 +110,9 @@ for (method, route), metadata in sorted(account_permission_allowlist.items()):
         if not isinstance(value, str) or not value.strip():
             violations.append(f"{method.upper()} {route} account permission allowlist missing {field}")
 
-auth_endpoint_source = repo / "backend/src/WeCms.Modules.System/Auth/AuthEndpoints.cs"
+auth_endpoint_source = repo / "backend/src/WeCms.Modules.Identity/Endpoints/AuthEndpointDefinition.cs"
 if not auth_endpoint_source.is_file():
-    violations.append("AuthEndpoints.cs missing for anonymous cookie auth validation evidence")
+    violations.append("AuthEndpointDefinition.cs missing for anonymous cookie auth validation evidence")
 else:
     source = auth_endpoint_source.read_text(encoding="utf-8")
     for route_fragment in ('MapPost("/refresh"', 'MapPost("/logout"', 'MapPost("/2fa/verify"', 'MapPost("/2fa/recovery-code"'):

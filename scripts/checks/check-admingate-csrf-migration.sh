@@ -27,7 +27,7 @@ else:
         "`IIpRuleMatcher` + IpAccessControlMiddleware",
         "SecurityBanService + SecurityBanMiddleware",
         "Audit middleware / AuditLogService",
-        "SettingService + SettingCache",
+        "SettingService + ConfigurationCacheInvalidator",
         "Rate limiting + SecurityBanService",
         "SecureHeadersMiddleware",
         "Origin / Referer / SameSite checks",
@@ -50,19 +50,19 @@ else:
             violations.append(f"legacy reference missing non-compatibility token {token!r}")
 
 component_tokens = {
-    "backend/src/WeCms.Modules.System/Auth/AccessTokenAuthenticationHandler.cs": ["AuthenticationHandler"],
-    "backend/src/WeCms.Modules.System/Auth/RefreshTokenRotationService.cs": ["RevokeRefreshTokenFamilyAsync"],
-    "backend/src/WeCms.Modules.System/Permissions/PermissionEndpointFilter.cs": ["PermissionEndpointFilter"],
-    "backend/src/WeCms.Modules.System/Auth/AuthTwoFactorChallengeService.cs": ["AuthTwoFactorChallengeService"],
+    "backend/src/WeCms.Modules.Identity/Services/AccessTokenAuthenticationHandler.cs": ["AuthenticationHandler"],
+    "backend/src/WeCms.Modules.Identity/Services/RefreshTokenRotationService.cs": ["RevokeRefreshTokenFamilyAsync"],
+    "backend/src/WeCms.Modules.AccessControl/Permissions/PermissionEndpointFilter.cs": ["PermissionEndpointFilter"],
+    "backend/src/WeCms.Modules.Identity/Services/AuthTwoFactorChallengeService.cs": ["AuthTwoFactorChallengeService"],
     "backend/src/WeCms.Shared/Security/SecurityEventClassifier.cs": ["csrf_origin_rejected", "permission_denied"],
     "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": ["IIpRuleMatcher", "security.ip_rejected"],
-    "backend/src/WeCms.Modules.System/Security/SecurityBanService.cs": ["SecurityBanService"],
+    "backend/src/WeCms.Modules.Security/SecurityBanService.cs": ["SecurityBanService"],
     "backend/src/WeCms.Api/Middleware/SecurityBanMiddleware.cs": ["SecurityBanMiddleware"],
-    "backend/src/WeCms.Modules.System/Logs/AuditLogEndpoints.cs": ["AuditLog"],
-    "backend/src/WeCms.Modules.System/Settings/SettingService.cs": ["SettingService"],
+    "backend/src/WeCms.Modules.Audit/Logs/AuditLogEndpoints.cs": ["AuditLog"],
+    "backend/src/WeCms.Modules.Configuration/Settings/SettingService.cs": ["SettingService"],
     "backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs": ["RateLimitPolicyNames"],
     "backend/src/WeCms.Api/Middleware/SecureHeadersMiddleware.cs": ["SecureHeadersMiddleware"],
-    "backend/src/WeCms.Modules.System/Auth/CookieAuthOriginValidation.cs": ["TryReadNormalizedRefererOrigin", "auth.cookie_origin_rejected"],
+    "backend/src/WeCms.Modules.Identity/Services/CookieAuthOriginValidation.cs": ["TryReadNormalizedRefererOrigin", "auth.cookie_origin_rejected"],
 }
 
 for relative_path, tokens in component_tokens.items():

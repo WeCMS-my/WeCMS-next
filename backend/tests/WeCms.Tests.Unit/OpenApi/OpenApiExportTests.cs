@@ -1,18 +1,17 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using WeCms.Api.Extensions;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Audit.Logs;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.AccessControl.Roles;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
 
 namespace WeCms.Tests.Unit.OpenApi;
 
@@ -234,8 +233,8 @@ public sealed partial class OpenApiExportTests
                 ("/api/v1/system/permissions/{id:long}/disable", "post"),
                 ("/api/v1/system/depts/{id:long}/enable", "post"),
                 ("/api/v1/system/depts/{id:long}/disable", "post"),
-                ("/api/v1/system/posts/{id:long}/enable", "post"),
-                ("/api/v1/system/posts/{id:long}/disable", "post")
+                ("/api/v1/system/positions/{id:long}/enable", "post"),
+                ("/api/v1/system/positions/{id:long}/disable", "post")
             };
 
             foreach (var operationKey in bodylessOperations)
@@ -270,7 +269,7 @@ public sealed partial class OpenApiExportTests
             {
                 ["/api/v1/system/users"] = ["page", "pageSize", "keyword", "status"],
                 ["/api/v1/system/roles"] = ["page", "pageSize", "keyword", "status"],
-                ["/api/v1/system/posts"] = ["page", "pageSize", "keyword", "status"],
+                ["/api/v1/system/positions"] = ["page", "pageSize", "keyword", "status"],
                 ["/api/v1/system/dict-types"] = ["page", "pageSize", "keyword", "status"],
                 ["/api/v1/system/settings"] = ["page", "pageSize", "keyword", "groupCode"],
                 ["/api/v1/system/login-logs"] = ["page", "pageSize", "username", "ip", "result", "from", "to"],
@@ -418,76 +417,6 @@ public sealed partial class OpenApiExportTests
                 }
             }
         }
-    }
-
-    private static HashSet<(string Path, string Method)> CollectSourceMappedEndpoints()
-    {
-        var mappedEndpoints = new HashSet<(string Path, string Method)>();
-
-        foreach (var filePath in EnumerateEndpointSourceFiles())
-        {
-            mappedEndpoints.UnionWith(CollectSourceMappedEndpointsFromFile(filePath));
-        }
-
-        return mappedEndpoints;
-    }
-
-    private static string SourceRoot
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
-                {
-                    return Path.Combine(directory.FullName, "backend", "src");
-                }
-
-                directory = directory.Parent;
-            }
-
-            throw new DirectoryNotFoundException("Could not locate repository root.");
-        }
-    }
-
-    private static HashSet<(string Path, string Method)> CollectSourceMappedEndpointsFromFile(string filePath)
-    {
-        var source = File.ReadAllText(filePath);
-        var result = new HashSet<(string Path, string Method)>();
-
-        var groupPrefix = Regex.Match(source, @"\b(?<groupName>\w+)\s*=\s*endpoints\.MapGroup\(""(?<prefix>[^""]+)""\)");
-        var routePrefix = groupPrefix.Success
-            ? groupPrefix.Groups["prefix"].Value
-            : string.Empty;
-        var groupName = groupPrefix.Success ? groupPrefix.Groups["groupName"].Value : null;
-
-        const string endpointPattern =
-            @"(?<receiver>\w+)\.Map(?<method>Get|Post|Put|Patch|Delete)\(\s*""(?<path>[^""\\]*)""\s*,";
-
-        foreach (Match match in Regex.Matches(source, endpointPattern))
-        {
-            var method = match.Groups["method"].Value.ToLowerInvariant();
-            var rawPath = match.Groups["path"].Value;
-            var receiver = match.Groups["receiver"].Value;
-            var path = receiver == groupName && !string.IsNullOrWhiteSpace(routePrefix)
-                ? $"{routePrefix}{rawPath}"
-                : rawPath;
-
-            result.Add((path, method));
-        }
-
-        return result;
-    }
-
-    private static IEnumerable<string> EnumerateEndpointSourceFiles()
-    {
-        return Directory
-            .EnumerateFiles(Path.Combine(SourceRoot, "WeCms.Modules.System"), "*.cs", SearchOption.AllDirectories)
-            .Where(filePath =>
-                filePath.EndsWith("Endpoints.cs", StringComparison.Ordinal)
-                || filePath.EndsWith("EndpointExtensions.cs", StringComparison.Ordinal))
-            .OrderBy(filePath => filePath, StringComparer.Ordinal);
     }
 
     private static HashSet<(string Path, string Method)> CollectOpenApiOperations(JsonElement paths)

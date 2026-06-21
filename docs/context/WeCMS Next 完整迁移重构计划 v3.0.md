@@ -195,7 +195,8 @@ CRUD 开发效率更高
 但 SqlSugar 必须严格限制在：
 
 ```text
-WeCms.Persistence
+WeCms.Data.SqlSugar
+WeCms.Modules.*.SqlSugar
 ```
 
 业务模块不得感知 SqlSugar。
@@ -274,8 +275,8 @@ backend/
       Extensions/
         InfrastructureServiceCollectionExtensions.cs
 
-    WeCms.Persistence/
-      WeCms.Persistence.csproj
+    WeCms.Data.SqlSugar/
+      WeCms.Data.SqlSugar.csproj
 
       Data/
         SqlSugarClientFactory.cs
@@ -319,11 +320,15 @@ backend/
           Media/
             MediaRepository.cs
 
-    WeCms.Modules.System/
-      Auth/
-        AuthEndpoints.cs
+    WeCms.Modules.Identity/
+      Endpoints/
+        AuthEndpointDefinition.cs
+        UserEndpointDefinition.cs
+      Services/
         AuthService.cs
+      Contracts/
         AuthDtos.cs
+      Repositories/
         IAuthRepository.cs
 
       Users/
@@ -383,23 +388,25 @@ scripts/
 
 ```text
 WeCms.Api
-  -> WeCms.Modules.System
-  -> WeCms.Modules.Cms
+  -> WeCms.Modules.Identity / WeCms.Modules.AccessControl
+  -> WeCms.Modules.Organization / WeCms.Modules.Configuration
+  -> WeCms.Modules.Audit / WeCms.Modules.Security
+  -> WeCms.Modules.FileCenter / WeCms.Modules.Platform
   -> WeCms.Infrastructure
-  -> WeCms.Persistence
+  -> WeCms.Data.SqlSugar
+  -> WeCms.Modules.*.SqlSugar
   -> WeCms.Shared
 
-WeCms.Modules.System
+WeCms.Modules.*
   -> WeCms.Shared
 
-WeCms.Modules.Cms
+WeCms.Modules.*.SqlSugar
+  -> 对应 WeCms.Modules.*
+  -> WeCms.Data.SqlSugar
   -> WeCms.Shared
 
-WeCms.Persistence
+WeCms.Data.SqlSugar
   -> WeCms.Shared
-  -> WeCms.Modules.System
-  -> WeCms.Modules.Cms
-  -> SqlSugarCore
 
 WeCms.Infrastructure
   -> WeCms.Shared
@@ -413,13 +420,13 @@ WeCms.Shared
 ## 4.2 禁止依赖
 
 ```text
-WeCms.Modules.System -> WeCms.Persistence
-WeCms.Modules.Cms -> WeCms.Persistence
+WeCms.Modules.* -> WeCms.Data.SqlSugar
+WeCms.Modules.* -> WeCms.Modules.*.SqlSugar
 WeCms.Modules.* -> SqlSugarCore
 WeCms.Modules.* -> MySqlConnector
 WeCms.Modules.* -> 数据库连接对象
 WeCms.Modules.* -> ORM Client
-WeCms.Infrastructure -> WeCms.Persistence
+WeCms.Infrastructure -> WeCms.Data.SqlSugar / WeCms.Modules.*.SqlSugar
 WeCms.Shared -> 任何生产工程
 ```
 
@@ -427,15 +434,18 @@ WeCms.Shared -> 任何生产工程
 
 # 5. 数据库访问边界
 
+> S14 更新：早期计划中的 `WeCms.Persistence` 已被 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 最终边界取代。
+
 ## 5.1 唯一数据库访问层
 
-所有数据库访问只能在：
+S14 后数据库/ORM/连接器只能在：
 
 ```text
-WeCms.Persistence
+WeCms.Data.SqlSugar
+WeCms.Modules.*.SqlSugar
 ```
 
-只有 `WeCms.Persistence` 可以：
+只有上述数据平台与模块持久化适配层可以：
 
 ```text
 引用 SqlSugarCore
@@ -491,17 +501,17 @@ Shared 抽象
 Repository interface 放在模块层：
 
 ```text
-WeCms.Modules.System/Auth/IAuthRepository.cs
-WeCms.Modules.System/Users/IUserRepository.cs
-WeCms.Modules.Cms/Articles/IArticleRepository.cs
+WeCms.Modules.Identity/Repositories/IAuthRepository.cs
+WeCms.Modules.Identity/Repositories/IUserRepository.cs
+WeCms.Modules.AccessControl/Repositories/IRoleRepository.cs
 ```
 
-Repository implementation 放在 Persistence：
+Repository implementation 放在对应模块 `.SqlSugar` 项目：
 
 ```text
-WeCms.Persistence/Modules/System/Auth/AuthRepository.cs
-WeCms.Persistence/Modules/System/Users/UserRepository.cs
-WeCms.Persistence/Modules/Cms/Articles/ArticleRepository.cs
+WeCms.Modules.Identity.SqlSugar/Repositories/AuthRepository.cs
+WeCms.Modules.Identity.SqlSugar/Repositories/UserRepository.cs
+WeCms.Modules.AccessControl.SqlSugar/Repositories/RoleRepository.cs
 ```
 
 Repository 返回：
@@ -644,8 +654,16 @@ backend/WeCms.slnx
 WeCms.Api
 WeCms.Shared
 WeCms.Infrastructure
-WeCms.Persistence
-WeCms.Modules.System
+WeCms.Data.SqlSugar
+WeCms.Modules.Identity
+WeCms.Modules.AccessControl
+WeCms.Modules.Organization
+WeCms.Modules.Configuration
+WeCms.Modules.Audit
+WeCms.Modules.Security
+WeCms.Modules.FileCenter
+WeCms.Modules.Platform
+WeCms.Modules.*.SqlSugar
 WeCms.Modules.Cms
 WeCms.Tests.Unit
 WeCms.Tests.Integration
@@ -711,7 +729,7 @@ PersistenceServiceCollectionExtensions
 验收：
 
 ```text
-只有 WeCms.Persistence 引用 SqlSugarCore
+只有 WeCms.Data.SqlSugar 与 WeCms.Modules.*.SqlSugar 引用 SqlSugarCore
 Modules 中无数据库操作
 SqlSugar 连接 MySQL 成功
 ```
@@ -1092,7 +1110,7 @@ Codex 每轮只做一个小任务。
 3. 后端使用 .NET 10 + ASP.NET Core Minimal APIs + SqlSugar + MySQL。
 4. 不采用 Native AOT。
 5. 不使用 Dapper / Dapper.AOT。
-6. 数据库访问只能在 WeCms.Persistence。
+6. 数据库/ORM/连接器只能在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内。
 7. WeCms.Modules.* 不得引用 SqlSugar。
 8. 业务代码必须通过接口 + DI。
 9. 不修改 frontend/**。

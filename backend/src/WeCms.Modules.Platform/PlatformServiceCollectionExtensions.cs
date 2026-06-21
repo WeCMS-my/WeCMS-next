@@ -6,6 +6,8 @@ public static class PlatformServiceCollectionExtensions
 {
     public static IServiceCollection AddWeCmsPlatform(this IServiceCollection services)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         return services;
     }
 }

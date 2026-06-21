@@ -1,15 +1,9 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Users;
-using WeCms.Modules.System.Permissions;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Auth;
-using WeCms.Persistence.Modules.System.Permissions;
-using WeCms.Persistence.Modules.System.Security;
-using WeCms.Persistence.Modules.System.TwoFactor;
-using WeCms.Persistence.Modules.System.Users;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.TwoFactor;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.SqlSugar.Repositories;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Security.SqlSugar.Repositories;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 using SqlSugar;
@@ -406,7 +400,7 @@ public sealed partial class AuthIntegrationTests : PerTestDatabaseResetBase
             Assert.Equal(ApiCodes.Unauthorized, meAfterDelete.Code);
 
             var checker = new PermissionChecker(new PermissionRepository(db));
-            var permissionResult = await checker.CheckAsync(targetUserId, SystemPermissions.SecurePing, CancellationToken.None);
+            var permissionResult = await checker.CheckAsync(targetUserId, PlatformPermissions.SecurePing, CancellationToken.None);
             Assert.Equal(PermissionCheckResult.UserDisabled, permissionResult);
         }
         finally

@@ -100,6 +100,10 @@ SQL 审计不得递归审计自身。
 - `WeCms.Modules.*.SqlSugar` 只能依赖对应模块、`WeCms.Data.SqlSugar` 和 `WeCms.Shared`。
 - SQL 审计脱敏测试必须覆盖 password/token/secret/2FA 等敏感字段。
 
+## S14 最终状态
+
+S14 最终清理验收时，`WeCms.Persistence` 已从 active source 和 solution/project references 中移除。SqlSugar 平台能力由 `WeCms.Data.SqlSugar` 承载，模块 Repository implementation 与实体由各 `WeCms.Modules.*.SqlSugar` 项目承载。
+
 ## 关联
 
 - `docs/context/WeCMS_next_系统基础破坏性升级技术书_v3_不引入Controller.md`

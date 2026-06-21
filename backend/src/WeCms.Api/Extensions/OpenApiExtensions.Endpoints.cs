@@ -1,17 +1,24 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.I18n;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
-using WeCms.Modules.System.System;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.Identity.Contracts;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.Audit.Logs;
+using AuditLogPermissions = WeCms.Modules.Audit.Logs.LogPermissions;
+using SecurityEventPermissions = WeCms.Modules.Security.Events.SecurityEventPermissions;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.AccessControl.Roles;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
+using WeCms.Modules.Platform.System;
+using WeCms.Modules.Identity.Permissions;
 
 namespace WeCms.Api.Extensions;
 
@@ -21,7 +28,7 @@ public static partial class OpenApiExtensions
     [
         new OpenApiEndpointDescriptor("get", "/health/live", false, null, null, nameof(SystemLiveResponse)),
         new OpenApiEndpointDescriptor("get", "/health/ready", false, null, null, nameof(SystemReadyResponse)),
-        new OpenApiEndpointDescriptor("get", "/health/dependencies", true, SystemPermissions.SecurePing, null, nameof(SystemDependenciesResponse)),
+        new OpenApiEndpointDescriptor("get", "/health/dependencies", true, PlatformPermissions.SecurePing, null, nameof(SystemDependenciesResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/db-check", false, null, null, nameof(SystemDbCheckResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/ping", false, null, null, nameof(SystemPingResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/version", false, null, null, nameof(SystemVersionResponse)),
@@ -29,7 +36,7 @@ public static partial class OpenApiExtensions
             "get",
             "/api/v1/system/secure-ping",
             true,
-            SystemPermissions.SecurePing,
+            PlatformPermissions.SecurePing,
             null,
             nameof(SecurePingResponse)),
         new OpenApiEndpointDescriptor(
@@ -85,17 +92,17 @@ public static partial class OpenApiExtensions
         new OpenApiEndpointDescriptor("post", "/api/v1/account/avatar", true, null, nameof(AccountAvatarUploadRequest), nameof(AccountAvatarResponse)),
         new OpenApiEndpointDescriptor("get", "/api/v1/account/avatar/content", true, null, null, "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/account/security", true, null, null, nameof(AccountSecurityResponse)),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/users", true, UserPermissions.List, null, "PagedUserSummary"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/users/{id:long}", true, UserPermissions.Detail, null, nameof(UserDetailDto)),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/users", true, UserPermissions.Create, nameof(CreateUserRequest), nameof(UserMutationResponse)),
-        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}", true, UserPermissions.Update, nameof(UpdateUserRequest), nameof(UserMutationResponse)),
-        new OpenApiEndpointDescriptor("delete", "/api/v1/system/users/{id:long}", true, UserPermissions.Delete, null, "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/enable", true, UserPermissions.Enable, null, "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/disable", true, UserPermissions.Disable, null, "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-password", true, UserPermissions.ResetPassword, nameof(ResetUserPasswordRequest), "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-2fa", true, UserPermissions.ResetTwoFactor, nameof(ResetUserTwoFactorRequest), "Object"),
-        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/roles", true, UserPermissions.AssignRole, nameof(AssignUserRolesRequest), "Object"),
-        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/posts", true, UserPermissions.AssignPost, nameof(AssignUserPostsRequest), "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/users", true, IdentityUserPermissions.List, null, "PagedUserSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/users/{id:long}", true, IdentityUserPermissions.Detail, null, nameof(UserDetailDto)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users", true, IdentityUserPermissions.Create, nameof(CreateUserRequest), nameof(UserMutationResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}", true, IdentityUserPermissions.Update, nameof(UpdateUserRequest), nameof(UserMutationResponse)),
+        new OpenApiEndpointDescriptor("delete", "/api/v1/system/users/{id:long}", true, IdentityUserPermissions.Delete, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/enable", true, IdentityUserPermissions.Enable, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/disable", true, IdentityUserPermissions.Disable, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-password", true, IdentityUserPermissions.ResetPassword, nameof(ResetUserPasswordRequest), "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/users/{id:long}/reset-2fa", true, IdentityUserPermissions.ResetTwoFactor, nameof(ResetUserTwoFactorRequest), "Object"),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/roles", true, IdentityUserPermissions.AssignRole, nameof(AssignUserRolesRequest), "Object"),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/users/{id:long}/positions", true, IdentityUserPermissions.AssignPosition, nameof(AssignUserPositionsRequest), "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/roles", true, RolePermissions.List, null, "PagedRoleSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/roles/{id:long}", true, RolePermissions.Detail, null, nameof(RoleDetailDto)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/roles", true, RolePermissions.Create, nameof(CreateRoleRequest), nameof(RoleMutationResponse)),
@@ -130,13 +137,13 @@ public static partial class OpenApiExtensions
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/depts/{id:long}", true, DepartmentPermissions.Delete, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/depts/{id:long}/enable", true, DepartmentPermissions.Enable, null, "Object"),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/depts/{id:long}/disable", true, DepartmentPermissions.Disable, null, "Object"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/posts", true, PostPermissions.List, null, "PagedPostSummary"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/posts/{id:long}", true, PostPermissions.Detail, null, nameof(PostDetailDto)),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/posts", true, PostPermissions.Create, nameof(CreatePostRequest), nameof(PostMutationResponse)),
-        new OpenApiEndpointDescriptor("put", "/api/v1/system/posts/{id:long}", true, PostPermissions.Update, nameof(UpdatePostRequest), nameof(PostMutationResponse)),
-        new OpenApiEndpointDescriptor("delete", "/api/v1/system/posts/{id:long}", true, PostPermissions.Delete, null, "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/posts/{id:long}/enable", true, PostPermissions.Enable, null, "Object"),
-        new OpenApiEndpointDescriptor("post", "/api/v1/system/posts/{id:long}/disable", true, PostPermissions.Disable, null, "Object"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/positions", true, PositionPermissions.List, null, "PagedPositionSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/positions/{id:long}", true, PositionPermissions.Detail, null, nameof(PositionDetailDto)),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/positions", true, PositionPermissions.Create, nameof(CreatePositionRequest), nameof(PositionMutationResponse)),
+        new OpenApiEndpointDescriptor("put", "/api/v1/system/positions/{id:long}", true, PositionPermissions.Update, nameof(UpdatePositionRequest), nameof(PositionMutationResponse)),
+        new OpenApiEndpointDescriptor("delete", "/api/v1/system/positions/{id:long}", true, PositionPermissions.Delete, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/positions/{id:long}/enable", true, PositionPermissions.Enable, null, "Object"),
+        new OpenApiEndpointDescriptor("post", "/api/v1/system/positions/{id:long}/disable", true, PositionPermissions.Disable, null, "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/dict-types", true, DictPermissions.TypeList, null, "PagedDictTypeSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/dict-types/{id:long}", true, DictPermissions.TypeList, null, nameof(DictTypeDetailDto)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/dict-types", true, DictPermissions.TypeCreate, nameof(CreateDictTypeRequest), nameof(DictMutationResponse)),
@@ -162,17 +169,17 @@ public static partial class OpenApiExtensions
         new OpenApiEndpointDescriptor("delete", "/api/v1/system/i18n/messages/{id:long}", true, I18nPermissions.Delete, null, "Object"),
         new OpenApiEndpointDescriptor("get", "/api/v1/i18n/messages", false, null, null, nameof(I18nMessagesResponse)),
         new OpenApiEndpointDescriptor("post", "/api/v1/account/i18n/switch", true, I18nPermissions.AccountSwitch, nameof(SwitchAccountLocaleRequest), nameof(AccountI18nSwitchResponse)),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs", true, LogPermissions.LoginLogList, null, "PagedLoginLogSummary"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs/{id:long}", true, LogPermissions.LoginLogDetail, null, nameof(LoginLogDetailDto)),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs", true, LogPermissions.AuditLogList, null, "PagedAuditLogSummary"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs/{id:long}", true, LogPermissions.AuditLogDetail, null, nameof(AuditLogDetailDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs", true, AuditLogPermissions.LoginLogList, null, "PagedLoginLogSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/login-logs/{id:long}", true, AuditLogPermissions.LoginLogDetail, null, nameof(LoginLogDetailDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs", true, AuditLogPermissions.AuditLogList, null, "PagedAuditLogSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/audit-logs/{id:long}", true, AuditLogPermissions.AuditLogDetail, null, nameof(AuditLogDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security/status", true, SecurityPermissions.Status, null, nameof(SecurityStatusDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security/bans", true, SecurityPermissions.BanList, null, "PagedSecurityBanSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/security/bans/{id:long}", true, SecurityPermissions.BanDetail, null, nameof(SecurityBanDetailDto)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/security/bans/{id:long}/unban", true, SecurityPermissions.BanUnban, nameof(UnbanSecurityBanRequest), nameof(SecurityBanMutationResponse)),
         new OpenApiEndpointDescriptor("post", "/api/v1/system/security/bans/batch-unban", true, SecurityPermissions.BanBatchUnban, nameof(BatchUnbanSecurityBansRequest), nameof(BatchUnbanSecurityBansResponse)),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events", true, LogPermissions.SecurityEventList, null, "PagedSecurityEventSummary"),
-        new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events/{id:long}", true, LogPermissions.SecurityEventDetail, null, nameof(SecurityEventDetailDto)),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events", true, SecurityEventPermissions.SecurityEventList, null, "PagedSecurityEventSummary"),
+        new OpenApiEndpointDescriptor("get", "/api/v1/system/security-events/{id:long}", true, SecurityEventPermissions.SecurityEventDetail, null, nameof(SecurityEventDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files", true, FilePermissions.List, null, "PagedFileSummary"),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files/{id:long}", true, FilePermissions.Detail, null, nameof(FileDetailDto)),
         new OpenApiEndpointDescriptor("get", "/api/v1/system/files/{id:long}/download", true, FilePermissions.Download, null, "Object"),

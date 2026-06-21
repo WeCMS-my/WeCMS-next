@@ -49,34 +49,35 @@ assert_refs() {
 }
 
 api_refs=(WeCms.Infrastructure WeCms.Shared)
-project_exists WeCms.Modules.System && api_refs+=(WeCms.Modules.System)
-project_exists WeCms.Persistence && api_refs+=(WeCms.Persistence)
 for project in \
-  WeCms.Data.SqlSugar WeCms.Caching WeCms.EventBus WeCms.Aop \
+  WeCms.Data.SqlSugar WeCms.Caching WeCms.EventBus WeCms.EventBus.SqlSugar WeCms.Aop \
   WeCms.Modules.Identity WeCms.Modules.Identity.SqlSugar \
   WeCms.Modules.AccessControl WeCms.Modules.AccessControl.SqlSugar \
   WeCms.Modules.Organization WeCms.Modules.Organization.SqlSugar \
   WeCms.Modules.Configuration WeCms.Modules.Configuration.SqlSugar \
-  WeCms.Modules.Audit WeCms.Modules.Audit.SqlSugar \
-  WeCms.Modules.Security WeCms.Modules.Security.SqlSugar \
-  WeCms.Modules.FileCenter WeCms.Modules.FileCenter.SqlSugar \
-  WeCms.Modules.Platform; do
+	  WeCms.Modules.Audit WeCms.Modules.Audit.SqlSugar \
+	  WeCms.Modules.Security WeCms.Modules.Security.SqlSugar \
+	  WeCms.Modules.FileCenter WeCms.Modules.FileCenter.SqlSugar \
+	  WeCms.Modules.Platform WeCms.Modules.Platform.SqlSugar; do
   project_exists "$project" && api_refs+=("$project")
 done
 
 assert_refs WeCms.Api "${api_refs[@]}"
 assert_refs WeCms.Infrastructure WeCms.Shared
 assert_refs WeCms.Modules.Cms WeCms.Shared
-assert_refs WeCms.Modules.System WeCms.Shared
-assert_refs WeCms.Persistence WeCms.Modules.System WeCms.Shared
 assert_refs WeCms.Data.SqlSugar WeCms.Shared
 assert_refs WeCms.Caching WeCms.Shared
 assert_refs WeCms.EventBus WeCms.Shared
+assert_refs WeCms.EventBus.SqlSugar WeCms.Data.SqlSugar WeCms.EventBus WeCms.Shared
 assert_refs WeCms.Aop WeCms.Caching WeCms.EventBus WeCms.Shared
-for module in Identity AccessControl Organization Configuration Audit Security FileCenter Platform; do
+assert_refs WeCms.Modules.Identity WeCms.EventBus WeCms.Modules.AccessControl WeCms.Modules.Organization WeCms.Shared
+assert_refs WeCms.Modules.AccessControl WeCms.EventBus WeCms.Shared
+assert_refs WeCms.Modules.Configuration WeCms.EventBus WeCms.Shared
+assert_refs WeCms.Modules.Security WeCms.EventBus WeCms.Shared
+for module in Organization Audit FileCenter Platform; do
   assert_refs "WeCms.Modules.$module" WeCms.Shared
 done
-for module in Identity AccessControl Organization Configuration Audit Security FileCenter; do
+for module in Identity AccessControl Organization Configuration Audit Security FileCenter Platform; do
   assert_refs "WeCms.Modules.$module.SqlSugar" "WeCms.Modules.$module" WeCms.Data.SqlSugar WeCms.Shared
 done
 assert_refs WeCms.Shared

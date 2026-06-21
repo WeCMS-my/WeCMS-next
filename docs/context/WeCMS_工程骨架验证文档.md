@@ -68,9 +68,17 @@ wecms-next/
       WeCms.Api/
       WeCms.Shared/
       WeCms.Infrastructure/
-      WeCms.Persistence/
-      WeCms.Modules.System/
-      WeCms.Modules.Cms/
+      WeCms.Data.SqlSugar/
+      WeCms.Modules.Identity/
+      WeCms.Modules.AccessControl/
+      WeCms.Modules.Organization/
+      WeCms.Modules.Configuration/
+      WeCms.Modules.Audit/
+      WeCms.Modules.Security/
+      WeCms.Modules.FileCenter/
+      WeCms.Modules.Platform/
+      WeCms.Modules.*.SqlSugar/
+      WeCms.Modules.Cms/   # 二期内容模块占位，系统基础升级期间不启用
     tests/
       WeCms.Tests.Unit/
       WeCms.Tests.Integration/
@@ -93,7 +101,7 @@ wecms-next/
 2. `CreateSlimBuilder`
 3. Endpoint 显式注册
 4. OpenAPI 契约优先
-5. SqlSugar ORM 只允许在 `WeCms.Persistence`
+5. SqlSugar ORM 只允许在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
 6. `WeCms.Modules.*` 不得包含 SQL 文本、`SqlSugarClient`、`ISqlSugarClient`、`MySqlConnector`
 7. 禁止 `dynamic`
 8. 禁止 `SELECT *`
@@ -127,7 +135,7 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 [ ] OpenAPI 可生成
 [ ] JIT publish 通过
 [ ] 数据库边界规则通过
-[ ] 所有数据库访问集中在 `WeCms.Persistence`
+[ ] 数据库/ORM/连接器集中在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
 [ ] Repository interface / implementation 与接口 + DI 规则通过
 [ ] `frontend/**` 无改动，未运行 `pnpm`
 ```

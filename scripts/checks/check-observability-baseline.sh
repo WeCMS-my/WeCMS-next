@@ -17,9 +17,9 @@ required_files = [
     "docs/ops/logging-observability.md",
     "docs/ops/security-alerting.md",
     "backend/src/WeCms.Api/Middleware/RequestLoggingMiddleware.cs",
-    "backend/src/WeCms.Modules.System/Security/SecurityAlerting.cs",
-    "backend/src/WeCms.Persistence/Modules/System/System/SystemMigrationProbe.cs",
-    "backend/src/WeCms.Modules.System/System/ISystemMigrationProbe.cs",
+    "backend/src/WeCms.Modules.Security/SecurityAlerting.cs",
+    "backend/src/WeCms.Modules.Platform.SqlSugar/System/SystemMigrationProbe.cs",
+    "backend/src/WeCms.Modules.Platform/System/ISystemMigrationProbe.cs",
 ]
 
 for relative in required_files:
@@ -53,30 +53,30 @@ for forbidden in ["Authorization", "Cookie", "ReadFromJsonAsync", "EnableBufferi
     if forbidden in request_logging:
         violations.append(f"RequestLoggingMiddleware must not reference {forbidden}")
 
-system_endpoints = read("backend/src/WeCms.Modules.System/System/SystemEndpointExtensions.cs")
+system_endpoints = read("backend/src/WeCms.Modules.Platform/System/PlatformSystemEndpointExtensions.cs")
 for token in ['MapGet("/health/live"', 'MapGet("/health/ready"', 'MapGet("/health/dependencies"', "ISystemDatabaseProbe", "ISystemMigrationProbe"]:
     if token not in system_endpoints:
-        violations.append(f"SystemEndpointExtensions missing {token}")
+        violations.append(f"PlatformSystemEndpointExtensions missing {token}")
 live_start = system_endpoints.find('MapGet("/health/live"')
 ready_start = system_endpoints.find('MapGet("/health/ready"')
 if live_start < 0 or ready_start < 0 or "ISystemDatabaseProbe" in system_endpoints[live_start:ready_start]:
     violations.append("/health/live must not depend on database probe")
 dependencies_start = system_endpoints.find('MapGet("/health/dependencies"')
-ping_start = system_endpoints.find('MapGet("/api/v1/system/ping"', dependencies_start)
-dependencies_block = system_endpoints[dependencies_start:ping_start] if dependencies_start >= 0 and ping_start >= 0 else ""
+version_start = system_endpoints.find('MapGet("/api/v1/system/version"', dependencies_start)
+dependencies_block = system_endpoints[dependencies_start:version_start] if dependencies_start >= 0 and version_start >= 0 else ""
 if "RequireAuthorization()" not in dependencies_block:
     violations.append("/health/dependencies must be protected")
-if "RequirePermission(SystemPermissions.SecurePing)" not in dependencies_block:
+if "RequireEndpointPermission(PlatformPermissions.SecurePing)" not in dependencies_block:
     violations.append("/health/dependencies must require sys:system:secure-ping permission")
 if ".Message" in system_endpoints:
     violations.append("health endpoints must not expose exception messages")
 
-records = read("backend/src/WeCms.Modules.System/System/SystemRecords.cs")
+records = read("backend/src/WeCms.Modules.Platform/System/SystemRecords.cs")
 for token in ["SystemDependenciesResponse", "SystemDependencyStatus", "SystemMigrationProbeResult", "LatencyMs", "FailureCode"]:
     if token not in records:
         violations.append(f"SystemRecords missing {token}")
 
-migration_probe = read("backend/src/WeCms.Persistence/Modules/System/System/SystemMigrationProbe.cs")
+migration_probe = read("backend/src/WeCms.Modules.Platform.SqlSugar/System/SystemMigrationProbe.cs")
 for token in ["Database:LatestRequiredMigration", "WHERE version = @version", "latest_required_migration_missing"]:
     if token not in migration_probe:
         violations.append(f"SystemMigrationProbe missing {token}")
@@ -90,22 +90,26 @@ openapi = read_glob("backend/src/WeCms.Api/Extensions/OpenApiExtensions*.cs")
 if '"/health/dependencies"' not in openapi:
     violations.append("OpenAPI endpoints missing /health/dependencies")
 
-alerts = read("backend/src/WeCms.Modules.System/Security/SecurityAlerting.cs")
+alerts = read("backend/src/WeCms.Modules.Security/SecurityAlerting.cs")
 for token in ["ISecurityAlertSink", "LoggingSecurityAlertSink", "ISecurityAlertService", '"critical"', '"high"']:
     if token not in alerts:
         violations.append(f"SecurityAlerting missing {token}")
 
 alert_sources = {
-    "backend/src/WeCms.Modules.System/Security/RateLimitRecords.cs": "rate limit alert routing",
-    "backend/src/WeCms.Modules.System/Auth/AuthSecurityEventWriter.cs": "auth security alert routing",
-    "backend/src/WeCms.Modules.System/Auth/LoginFailureLimiter.cs": "login failure alert routing",
-    "backend/src/WeCms.Modules.System/Auth/AuthTwoFactorChallengeService.cs": "2FA alert routing",
-    "backend/src/WeCms.Modules.System/Security/SecurityBanService.cs": "security ban alert routing",
+    "backend/src/WeCms.Modules.Security/RateLimitRecords.cs": "rate limit alert routing",
+    "backend/src/WeCms.Modules.Identity/Services/AuthSecurityEventWriter.cs": "auth security alert routing",
+    "backend/src/WeCms.Modules.Identity/Services/LoginFailureLimiter.cs": "login failure alert routing",
+    "backend/src/WeCms.Modules.Identity/Services/AuthTwoFactorChallengeService.cs": "2FA alert routing",
+    "backend/src/WeCms.Modules.Security/SecurityBanService.cs": "security ban alert routing",
     "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": "IP access alert routing",
 }
 for relative, label in alert_sources.items():
     source = read(relative)
-    for token in ["ISecurityAlertService", "PublishIfRequiredAsync", "SecurityAlertRecord"]:
+    if relative.startswith("backend/src/WeCms.Modules.Identity/Services/"):
+        tokens = ["IIdentitySecurityAlertService", "PublishIfRequiredAsync"]
+    else:
+        tokens = ["ISecurityAlertService", "PublishIfRequiredAsync", "SecurityAlertRecord"]
+    for token in tokens:
         if token not in source:
             violations.append(f"{label} missing {token}")
 

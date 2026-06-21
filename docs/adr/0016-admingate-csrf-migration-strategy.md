@@ -36,7 +36,7 @@ Legacy AdminGate / CSRF responsibilities must be decomposed into explicit WeCMS 
 | IP allow/deny rules | `IIpRuleMatcher` + IpAccessControlMiddleware |
 | Security ban | SecurityBanService + SecurityBanMiddleware |
 | Operation log | Audit middleware / AuditLogService |
-| Settings lookup | SettingService + SettingCache |
+| Settings lookup | SettingService + ConfigurationCacheInvalidator |
 | Login failure limit | Rate limiting + SecurityBanService |
 | Security headers | SecureHeadersMiddleware |
 | Cookie-auth CSRF protection | Origin / Referer / SameSite checks, with double-submit token only when needed |

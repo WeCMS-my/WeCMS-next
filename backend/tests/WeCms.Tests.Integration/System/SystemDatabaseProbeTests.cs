@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Modules.System.System;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.Platform.SqlSugar.System;
 using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.SystemApi;

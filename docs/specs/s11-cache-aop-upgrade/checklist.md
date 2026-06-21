@@ -1,0 +1,56 @@
+# S11 Cache And AOP Upgrade Checklist
+
+- [x] Spec trio exists before Sprint 11 production code changes.
+- [x] Sprint 11 boundary is documented: S11 owns unified cache and Application Service AOP only.
+- [x] `ICache` exists in `WeCms.Caching`.
+- [x] `ICacheSerializer` exists in `WeCms.Caching`.
+- [x] `ICacheKeyBuilder` exists in `WeCms.Caching`.
+- [x] `ICacheInvalidator` exists in `WeCms.Caching`.
+- [x] `CacheOptions` and `CacheEntryOptions` exist.
+- [x] Cache APIs are async-first.
+- [x] Cache keys include app, environment, tenant, module, resource, and version.
+- [x] Cache serializer uses `System.Text.Json` first.
+- [x] Prefix invalidation is supported.
+- [x] MemoryCache provider supports get, set, and remove.
+- [x] MemoryCache provider supports expiration.
+- [x] MemoryCache provider supports null value caching policy.
+- [x] MemoryCache get-or-create is single-flight per key.
+- [x] `AddWeCmsCaching` registers cache services.
+- [x] MemoryCache package adoption is documented with license, maintenance, compatibility, and alternatives.
+- [x] Redis options are explicit.
+- [x] Redis provider is disabled or unsupported until explicitly configured.
+- [x] Business code does not directly reference Redis.
+- [x] Redis package is not introduced without ADR, license, maintenance, compatibility, and alternatives review.
+- [x] `[UnitOfWork]` exists in `WeCms.Aop`.
+- [x] `[Cacheable]` exists in `WeCms.Aop`.
+- [x] `[CacheEvict]` exists in `WeCms.Aop`.
+- [x] `[Audited]` exists in `WeCms.Aop`.
+- [x] AOP attributes are only used on Application Service interfaces or implementation methods.
+- [x] Repository types are not annotated for AOP.
+- [x] Endpoint handlers are not annotated for AOP.
+- [x] TransactionInterceptor supports async `Task`.
+- [x] TransactionInterceptor supports async `Task<T>`.
+- [x] TransactionInterceptor supports `CancellationToken`.
+- [x] TransactionInterceptor commits on success.
+- [x] TransactionInterceptor rolls back and rethrows on exception.
+- [x] TransactionInterceptor does not use sync blocking.
+- [x] TransactionInterceptor does not introduce distributed transactions.
+- [x] CacheInterceptor returns cached values.
+- [x] CacheInterceptor writes on miss.
+- [x] CacheInterceptor evicts after mutation.
+- [x] CacheInterceptor does not cache exceptions.
+- [x] CacheInterceptor uses tenant-aware parameter-hash keys.
+- [x] CacheInterceptor honors null cache policy.
+- [x] Autofac package adoption is documented with license, maintenance, compatibility, and alternatives.
+- [x] Autofac service provider factory is wired.
+- [x] Interceptors are registered centrally.
+- [x] Only Application Service interfaces are intercepted.
+- [x] Repository types are not intercepted.
+- [x] Endpoint handlers are not intercepted.
+- [x] Runtime endpoint scanning is not introduced.
+- [x] S11 does not implement S12 EventBus, Outbox dispatcher, idempotent handlers, or distributed transactions.
+- [x] S11 does not implement S13 Swagger, Scalar, MiniProfiler UI changes, or OpenAPI UI work.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No EF Core, dynamic query/return type, silent legacy fallback, or AI runtime capability is introduced.
+- [x] Full backend quality gate passes with MySQL for each completed Sprint 11 implementation task.
+- [x] Final Sprint 11 total audit passes.

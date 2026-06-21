@@ -1,0 +1,34 @@
+# S6 Organization Migration Checklist
+
+- [x] Spec trio exists before Sprint 6 production code changes.
+- [x] Development-plan S6 is treated as Organization migration; technical-book Audit/Security/FileCenter/Platform numbering drift is documented as S8 scope.
+- [x] `PostDtos` is renamed to `PositionDtos`.
+- [x] `PostService` is renamed to `PositionService`.
+- [x] `IPostRepository` is renamed to `IPositionRepository`.
+- [x] `PostRepository` is renamed to `PositionRepository`.
+- [x] `PostPermissions` is renamed to `PositionPermissions`.
+- [x] `/api/v1/system/posts` is replaced with `/api/v1/system/positions`.
+- [x] `sys_post` is replaced with `sys_position`.
+- [x] `sys_user_post` is replaced with `sys_user_position`.
+- [x] Backend source, tests, scripts, and seeds have no old system-position `Post` naming residuals.
+- [x] Department DTOs and records live in `WeCms.Modules.Organization`.
+- [x] Department permissions live in `WeCms.Modules.Organization`.
+- [x] Department service and repository interface live in `WeCms.Modules.Organization`.
+- [x] Department repository implementation lives in `WeCms.Modules.Organization.SqlSugar`.
+- [x] Department tree behavior is preserved.
+- [x] Department delete dependency checks are preserved.
+- [x] Department write audit metadata is preserved.
+- [x] Position DTOs and records live in `WeCms.Modules.Organization`.
+- [x] Position permissions live in `WeCms.Modules.Organization`.
+- [x] Position service and repository interface live in `WeCms.Modules.Organization`.
+- [x] Position repository implementation lives in `WeCms.Modules.Organization.SqlSugar`.
+- [x] Position enable, disable, and delete behavior is preserved.
+- [x] Position write audit metadata is preserved.
+- [x] `IOrganizationLookupService` exists in `WeCms.Modules.Organization`.
+- [x] Identity user create/update uses the Organization lookup abstraction for department and position validation.
+- [x] Identity does not depend on Organization repositories or Organization.SqlSugar.
+- [x] AccessControl, Configuration, Audit, Security, FileCenter, Platform, CMS, caching, AOP, and EventBus are not migrated in S6.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No AI runtime capability is introduced.
+- [x] Role, permission, menu, department, position, user validation, OpenAPI, and coverage tests pass.
+- [x] Full backend quality gate passes for each completed S6 task.

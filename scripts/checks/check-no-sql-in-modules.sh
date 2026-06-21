@@ -11,7 +11,14 @@ fail() {
 
 command -v rg >/dev/null 2>&1 || fail 'rg is required. Install ripgrep before running this check.'
 
-if rg -n -i '\b(SELECT[[:space:]]+.+[[:space:]]+FROM|INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[[:alnum:]_]+|DELETE[[:space:]]+FROM)\b' "$src_root/WeCms.Modules.System" "$src_root/WeCms.Modules.Cms" \
+module_dirs=()
+for module_dir in "$src_root"/WeCms.Modules.*; do
+  [[ -d "$module_dir" ]] || continue
+  [[ "$module_dir" != *.SqlSugar ]] || continue
+  module_dirs+=("$module_dir")
+done
+
+if [[ "${#module_dirs[@]}" -gt 0 ]] && rg -n -i '\b(SELECT[[:space:]]+.+[[:space:]]+FROM|INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[[:alnum:]_]+|DELETE[[:space:]]+FROM)\b' "${module_dirs[@]}" \
   --glob '!**/bin/**' --glob '!**/obj/**'; then
   fail 'SQL keywords found in WeCms.Modules.*'
 fi

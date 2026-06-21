@@ -5,6 +5,7 @@
     <Project Path="src/WeCms.Caching/WeCms.Caching.csproj" />
     <Project Path="src/WeCms.Data.SqlSugar/WeCms.Data.SqlSugar.csproj" />
     <Project Path="src/WeCms.EventBus/WeCms.EventBus.csproj" />
+    <Project Path="src/WeCms.EventBus.SqlSugar/WeCms.EventBus.SqlSugar.csproj" />
     <Project Path="src/WeCms.Infrastructure/WeCms.Infrastructure.csproj" />
     <Project Path="src/WeCms.Modules.AccessControl/WeCms.Modules.AccessControl.csproj" />
     <Project Path="src/WeCms.Modules.AccessControl.SqlSugar/WeCms.Modules.AccessControl.SqlSugar.csproj" />
@@ -20,10 +21,9 @@
     <Project Path="src/WeCms.Modules.Organization/WeCms.Modules.Organization.csproj" />
     <Project Path="src/WeCms.Modules.Organization.SqlSugar/WeCms.Modules.Organization.SqlSugar.csproj" />
     <Project Path="src/WeCms.Modules.Platform/WeCms.Modules.Platform.csproj" />
+    <Project Path="src/WeCms.Modules.Platform.SqlSugar/WeCms.Modules.Platform.SqlSugar.csproj" />
     <Project Path="src/WeCms.Modules.Security/WeCms.Modules.Security.csproj" />
     <Project Path="src/WeCms.Modules.Security.SqlSugar/WeCms.Modules.Security.SqlSugar.csproj" />
-    <Project Path="src/WeCms.Modules.System/WeCms.Modules.System.csproj" />
-    <Project Path="src/WeCms.Persistence/WeCms.Persistence.csproj" />
     <Project Path="src/WeCms.Shared/WeCms.Shared.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -9,7 +9,7 @@ public sealed class PermissionApiScanTests
             TestPaths.RepoRoot,
             "backend",
             "src",
-            "WeCms.Modules.System",
+            "WeCms.Modules.AccessControl",
             "Permissions",
             "PermissionManagementEndpoints.cs"), TestContext.Current.CancellationToken);
 
@@ -23,23 +23,23 @@ public sealed class PermissionApiScanTests
         Assert.Contains("MapDelete(\"/{id:long}\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/enable\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/{id:long}/disable\"", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.List)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Tree)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Detail)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Create)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Update)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Delete)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Enable)", source, StringComparison.Ordinal);
-        Assert.Contains("RequirePermission(PermissionManagementPermissions.Disable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.List)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Tree)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Detail)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Create)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Update)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Delete)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Enable)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireEndpointPermission(PermissionManagementPermissions.Disable)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Program_RegistersPermissionManagementEndpoints()
     {
-        var source = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var programSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Program.cs"), TestContext.Current.CancellationToken);
+        var endpointMapSource = await File.ReadAllTextAsync(Path.Combine(TestPaths.RepoRoot, "backend", "src", "WeCms.Api", "Endpoints", "WeCmsApiEndpointRouteBuilderExtensions.cs"), TestContext.Current.CancellationToken);
 
-        Assert.Contains("builder.Services.AddWeCmsSystemPermissions();", source, StringComparison.Ordinal);
-        Assert.Contains("app.MapPermissionManagementEndpoints();", source, StringComparison.Ordinal);
+        Assert.Contains("builder.Services.AddScoped<IAccessControlPermissionVersionService>", programSource, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapAccessControlEndpoints();", endpointMapSource, StringComparison.Ordinal);
     }
 }
-

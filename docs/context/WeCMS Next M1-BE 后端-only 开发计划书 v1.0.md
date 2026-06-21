@@ -3,12 +3,13 @@
 ## 0. 文档定位
 
 文档类型：M1-BE 后端-only 开发执行计划
+当前状态：历史阶段计划；S14 后当前系统基础边界以 `docs/dirs/system-foundation-development-guide.md`、ADR-0018 和 ADR-0019 为准
 上级文档：WeCMS Next 完整迁移重构计划 v3.0
 前置阶段：M0-BE 后端底座已完成
 执行方式：Codex / Codex CLI / Codex App
 后端技术栈：.NET 10 + ASP.NET Core Minimal APIs + SqlSugarCore + MySQL
 编译模式：普通 JIT，不采用 Native AOT
-数据库访问：只允许在 `WeCms.Persistence`
+数据库访问：S14 后只允许在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 边界内
 前端策略：前端后移，M1-BE 不开发 SoybeanAdmin
 旧系统策略：旧 ThinkPHP 仅作为业务参考，不迁移数据、不做兼容
 阶段目标：完成系统管理核心 API，不做 CMS 内容 API，不做前端页面
@@ -47,7 +48,7 @@ M1-BE 仍然不做前端，不进入 SoybeanAdmin。
 
 ```text
 [ ] backend solution 可 build
-[ ] SqlSugarCore 只存在于 WeCms.Persistence
+[ ] SqlSugarCore 只存在于 WeCms.Data.SqlSugar 与 WeCms.Modules.*.SqlSugar
 [ ] Modules 无 SQL / ORM
 [ ] Auth login / refresh / logout / me 可用
 [ ] Refresh Token rotation 可用
@@ -131,23 +132,23 @@ Clean Architecture 风格分层
 
 ## 4.2 数据库访问边界
 
-所有数据库访问仍然只能在：
+S14 后数据库/ORM/连接器只能在：
 
 ```text
-WeCms.Persistence
+WeCms.Data.SqlSugar
+WeCms.Modules.*.SqlSugar
 ```
 
 禁止在以下项目中出现数据库操作：
 
 ```text
 WeCms.Api
-WeCms.Modules.System
 WeCms.Modules.Cms
 WeCms.Infrastructure
 WeCms.Shared
 ```
 
-`WeCms.Modules.System` 只能包含：
+`WeCms.Modules.*` 只能包含：
 
 ```text
 Endpoints
@@ -159,7 +160,7 @@ Validation rules
 Business rules
 ```
 
-`WeCms.Persistence` 才能包含：
+`WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar` 才能包含：
 
 ```text
 SqlSugarCore
@@ -206,10 +207,10 @@ new ApiResult
 
 # 5. M1-BE 目标项目结构
 
-M1-BE 完成后，系统模块建议结构如下：
+M1-BE 历史阶段完成后曾使用聚合 System 模块；S14 后当前建议结构如下：
 
 ```text
-backend/src/WeCms.Modules.System/
+backend/src/WeCms.Modules.Identity/
   Users/
     UserEndpoints.cs
     UserService.cs
@@ -283,8 +284,8 @@ backend/src/WeCms.Modules.System/
     IFileRepository.cs
     FilePermissions.cs
 
-backend/src/WeCms.Persistence/
-  Entities/System/
+backend/src/WeCms.Modules.*.SqlSugar/
+  Entities/
     SysUserEntity.cs
     SysRoleEntity.cs
     SysUserRoleEntity.cs

@@ -1,0 +1,33 @@
+# S9 System and Persistence Removal Checklist
+
+- [x] Spec trio exists before Sprint 9 production code changes.
+- [x] S8-to-S9 boundary is documented: S8 ownership migration is complete; S9 deletes old System/Persistence globally.
+- [x] `WeCms.Modules.System` remaining compatibility surfaces are identified before deletion.
+- [x] Solution, project references, Program registration/mapping, OpenAPI descriptors, JSON source generation, tests, and scripts are updated away from `WeCms.Modules.System`.
+- [x] `WeCms.Modules.System` project and namespace are removed from backend production/test code.
+- [x] Menu, role, and permission endpoint behavior is preserved after System removal or intentionally updated by a documented breaking contract.
+- [x] Permission metadata, permission constants, permission-version contracts, JSON source generation, OpenAPI descriptors, and tests no longer depend on `WeCms.Modules.System`.
+- [x] `rg "WeCms.Modules.System" backend/src backend/tests` has no disallowed result.
+- [x] `WeCms.Persistence` remaining implementations and registrations are identified before deletion.
+- [x] Solution, project references, Program registration, DI extensions, tests, and scripts are updated away from `WeCms.Persistence`.
+- [x] `PermissionVersionRepository` is moved or replaced in an allowed `.SqlSugar` adapter boundary.
+- [x] Platform database and migration probe implementations are moved or replaced in an allowed data/infrastructure boundary.
+- [x] `WeCms.Persistence` project and namespace are removed from backend production/test code.
+- [x] `rg "WeCms.Persistence" backend/src backend/tests` has no disallowed result.
+- [x] SqlSugar, MySqlConnector, ORM clients, database connections, and SQL text appear only in `WeCms.Data.SqlSugar`, `WeCms.Modules.*.SqlSugar`, and `database/**`.
+- [x] `WeCms.Modules.*` projects do not depend on data platform implementations or persistence adapters.
+- [x] Old migration and seed chains are replaced by the new system baseline.
+- [x] Latest-required-migration config, migration smoke counts, seed counts, and permission seed coverage scripts are reset to the new baseline.
+- [x] Baseline schema includes required system tables, permission endpoint/button structures, and organization position naming.
+- [x] Baseline seeds include system permissions, menus, locked-role behavior, and super-admin bootstrap.
+- [x] `sys_post`, `sys_user_post`, and system-position `Post*` production names are removed or explicitly documented as historical-only.
+- [x] Migration and seed smoke tests pass against a clean MySQL database.
+- [x] Final quality-gate scripts close System/Persistence transition allow-lists.
+- [x] Final no-System/no-Persistence enforcement does not require optional environment flags.
+- [x] Layer, DB, SqlSugar, database-governance, observability, ThinkPHP delta, rate-limit, permission, and OpenAPI scripts no longer depend on old System/Persistence paths.
+- [x] No Controller/MVC/Razor endpoint surface is introduced.
+- [x] No EF Core, dynamic query/return type, silent legacy fallback, or AI runtime capability is introduced.
+- [x] S9 does not implement S10+ cache/AOP/EventBus/Outbox/CMS/platform-upgrade work.
+- [x] S9 does not add QueryFilter, tenant provisioning, data-scope filters, SQL audit runtime hooks, CMS APIs, frontend features, AI runtime, or legacy fallback behavior.
+- [x] Full backend quality gate passes with MySQL for each completed Sprint 9 implementation task.
+- [x] Final Sprint 9 total audit passes.

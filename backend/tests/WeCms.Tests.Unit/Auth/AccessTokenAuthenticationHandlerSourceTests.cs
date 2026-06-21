@@ -8,8 +8,8 @@ public sealed class AccessTokenAuthenticationHandlerSourceTests
         var source = await File.ReadAllTextAsync(RepoPath(
             "backend",
             "src",
-            "WeCms.Modules.System",
-            "Auth",
+            "WeCms.Modules.Identity",
+            "Services",
             "AccessTokenAuthenticationHandler.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("protected override Task HandleChallengeAsync", source, StringComparison.Ordinal);

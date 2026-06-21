@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using WeCms.Shared.Endpoints;
 
 namespace WeCms.Api.Extensions;
 
@@ -79,6 +80,7 @@ public static partial class OpenApiExtensions
     private static JsonObject CreateDocument()
     {
         var endpoints = DiscoverEndpoints();
+        var endpointMetadata = DiscoverEndpointMetadata();
         return new JsonObject
         {
             ["openapi"] = "3.1.0",
@@ -87,7 +89,7 @@ public static partial class OpenApiExtensions
                 ["title"] = "WeCMS API",
                 ["version"] = "v1"
             },
-            ["paths"] = Paths(endpoints),
+            ["paths"] = Paths(endpoints, endpointMetadata),
             ["components"] = Components()
         };
     }
@@ -100,7 +102,9 @@ public static partial class OpenApiExtensions
             .ToList();
     }
 
-    private static JsonObject Paths(IEnumerable<OpenApiEndpointDescriptor> endpoints)
+    private static JsonObject Paths(
+        IEnumerable<OpenApiEndpointDescriptor> endpoints,
+        IReadOnlyDictionary<OpenApiOperationKey, OpenApiRuntimeEndpointMetadata> endpointMetadata)
     {
         var paths = new JsonObject();
         foreach (var endpoint in endpoints)
@@ -111,6 +115,7 @@ public static partial class OpenApiExtensions
                 paths[endpoint.Path] = pathObject;
             }
 
+            endpointMetadata.TryGetValue(new OpenApiOperationKey(endpoint.Path, endpoint.Method), out var metadata);
             pathObject[endpoint.Method] = Operation(
                 path: endpoint.Path,
                 method: endpoint.Method,
@@ -119,7 +124,7 @@ public static partial class OpenApiExtensions
                 responseRef: endpoint.ResponseType,
                 requestRef: endpoint.RequestBodyType,
                 security: endpoint.Security,
-                permission: endpoint.Permission);
+                metadata: metadata);
         }
 
         return paths;
@@ -143,9 +148,9 @@ public static partial class OpenApiExtensions
             return "Departments";
         }
 
-        if (path.StartsWith("/api/v1/system/posts", StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith("/api/v1/system/positions", StringComparison.OrdinalIgnoreCase))
         {
-            return "Posts";
+            return "Positions";
         }
 
         if (path.StartsWith("/api/v1/system/dict", StringComparison.OrdinalIgnoreCase))
@@ -219,7 +224,7 @@ public static partial class OpenApiExtensions
         string? requestRef = null,
         string? failureStatus = null,
         bool security = false,
-        string? permission = null)
+        OpenApiRuntimeEndpointMetadata? metadata = null)
     {
         var operation = new JsonObject
         {
@@ -252,9 +257,29 @@ public static partial class OpenApiExtensions
             };
         }
 
-        if (permission is not null)
+        if (metadata?.Module is not null)
         {
-            operation["x-wecms-permission"] = permission;
+            operation[EndpointOpenApiExtensionNames.Module] = metadata.Module;
+        }
+
+        if (metadata?.Permission is not null)
+        {
+            operation[EndpointOpenApiExtensionNames.Permission] = metadata.Permission;
+        }
+
+        if (metadata?.Audit is not null)
+        {
+            operation[EndpointOpenApiExtensionNames.Audit] = new JsonObject
+            {
+                ["module"] = metadata.Audit.Module,
+                ["resource"] = metadata.Audit.Resource,
+                ["action"] = metadata.Audit.Action
+            };
+        }
+
+        if (metadata?.RateLimitPolicy is not null)
+        {
+            operation[EndpointOpenApiExtensionNames.RateLimit] = metadata.RateLimitPolicy;
         }
 
         var queryParameters = QueryParameters(path, method);
@@ -277,7 +302,7 @@ public static partial class OpenApiExtensions
         {
             "/api/v1/system/users" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
             "/api/v1/system/roles" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
-            "/api/v1/system/posts" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
+            "/api/v1/system/positions" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
             "/api/v1/system/dict-types" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("status", "string")),
             "/api/v1/system/settings" => Parameters(("page", "integer"), ("pageSize", "integer"), ("keyword", "string"), ("groupCode", "string")),
             "/api/v1/system/i18n/messages" => Parameters(("page", "integer"), ("pageSize", "integer"), ("locale", "string"), ("module", "string"), ("keyword", "string"), ("status", "string")),

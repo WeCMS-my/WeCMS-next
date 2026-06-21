@@ -1,7 +1,7 @@
 import { requestJson } from "@/api/request";
 import type {
   ApiResult,
-  AssignUserPostsRequest,
+  AssignUserPositionsRequest,
   AssignUserRolesRequest,
   CreateUserRequest,
   PagedUserSummary,
@@ -90,11 +90,11 @@ export function assignUserRolesApi(
   });
 }
 
-export function assignUserPostsApi(
+export function assignUserPositionsApi(
   id: number,
-  request: AssignUserPostsRequest
+  request: AssignUserPositionsRequest
 ): Promise<ApiResult<unknown>> {
-  return requestJson<unknown>(`/api/v1/system/users/${id}/posts`, {
+  return requestJson<unknown>(`/api/v1/system/users/${id}/positions`, {
     method: "PUT",
     body: JSON.stringify(request)
   });

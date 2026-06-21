@@ -1,4 +1,8 @@
-using WeCms.Modules.System.Permissions;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Records;
+using WeCms.Modules.AccessControl.Repositories;
+using WeCms.Modules.Platform.Permissions;
 
 namespace WeCms.Tests.Unit.Permissions;
 
@@ -10,7 +14,7 @@ public sealed class PermissionCheckerTests
         var repository = new FakePermissionRepository(null, hasPermission: true);
         var checker = new PermissionChecker(repository);
 
-        var result = await checker.CheckAsync(42, SystemPermissions.SecurePing, CancellationToken.None);
+        var result = await checker.CheckAsync(42, PlatformPermissions.SecurePing, CancellationToken.None);
 
         Assert.Equal(PermissionCheckResult.UserDisabled, result);
     }
@@ -21,7 +25,7 @@ public sealed class PermissionCheckerTests
         var repository = new FakePermissionRepository(new PermissionUserRecord(42, "disabled"), hasPermission: true);
         var checker = new PermissionChecker(repository);
 
-        var result = await checker.CheckAsync(42, SystemPermissions.SecurePing, CancellationToken.None);
+        var result = await checker.CheckAsync(42, PlatformPermissions.SecurePing, CancellationToken.None);
 
         Assert.Equal(PermissionCheckResult.UserDisabled, result);
     }
@@ -32,7 +36,7 @@ public sealed class PermissionCheckerTests
         var repository = new FakePermissionRepository(new PermissionUserRecord(42, "enabled"), hasPermission: false);
         var checker = new PermissionChecker(repository);
 
-        var result = await checker.CheckAsync(42, SystemPermissions.SecurePing, CancellationToken.None);
+        var result = await checker.CheckAsync(42, PlatformPermissions.SecurePing, CancellationToken.None);
 
         Assert.Equal(PermissionCheckResult.Forbidden, result);
     }
@@ -43,10 +47,10 @@ public sealed class PermissionCheckerTests
         var repository = new FakePermissionRepository(new PermissionUserRecord(42, "enabled"), hasPermission: true);
         var checker = new PermissionChecker(repository);
 
-        var result = await checker.CheckAsync(42, SystemPermissions.SecurePing, CancellationToken.None);
+        var result = await checker.CheckAsync(42, PlatformPermissions.SecurePing, CancellationToken.None);
 
         Assert.Equal(PermissionCheckResult.Allowed, result);
-        Assert.Equal(SystemPermissions.SecurePing, repository.LastPermissionCode);
+        Assert.Equal(PlatformPermissions.SecurePing, repository.LastPermissionCode);
     }
 
     private sealed class FakePermissionRepository : IPermissionRepository

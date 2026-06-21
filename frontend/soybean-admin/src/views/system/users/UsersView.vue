@@ -16,10 +16,10 @@ import {
 import type { FormInst, FormRules } from "naive-ui";
 import PermissionButton from "@/components/PermissionButton.vue";
 import { getDepartmentTreeApi } from "@/api/system/depts";
-import { getPostsApi } from "@/api/system/posts";
+import { getPositionsApi } from "@/api/system/positions";
 import { getRolesApi } from "@/api/system/roles";
 import {
-  assignUserPostsApi,
+  assignUserPositionsApi,
   assignUserRolesApi,
   createUserApi,
   deleteUserApi,
@@ -31,7 +31,7 @@ import {
   resetUserTwoFactorApi,
   updateUserApi
 } from "@/api/system/users";
-import type { DepartmentTreeDto, PostSummaryDto, RoleSummaryDto, UserDetailDto, UserSummaryDto } from "@/api/types/generated";
+import type { DepartmentTreeDto, PositionSummaryDto, RoleSummaryDto, UserDetailDto, UserSummaryDto } from "@/api/types/generated";
 import { apiErrorMessage } from "@/utils/api-error";
 
 interface UserFormState {
@@ -43,7 +43,7 @@ interface UserFormState {
   phone: string;
   deptId?: number;
   roleIds: number[];
-  postIds: number[];
+  positionIds: number[];
 }
 
 const message = useMessage();
@@ -54,11 +54,11 @@ const total = ref(0);
 const page = ref(1);
 const pageSize = ref(20);
 const roles = ref<RoleSummaryDto[]>([]);
-const posts = ref<PostSummaryDto[]>([]);
+const positions = ref<PositionSummaryDto[]>([]);
 const departments = ref<DepartmentTreeDto[]>([]);
 const formVisible = ref(false);
 const assignRolesVisible = ref(false);
-const assignPostsVisible = ref(false);
+const assignPositionsVisible = ref(false);
 const activeUser = ref<UserDetailDto | null>(null);
 const filters = reactive({
   keyword: "",
@@ -67,7 +67,7 @@ const filters = reactive({
 });
 const form = reactive<UserFormState>(createEmptyForm());
 const assignedRoleIds = ref<number[]>([]);
-const assignedPostIds = ref<number[]>([]);
+const assignedPositionIds = ref<number[]>([]);
 const formRef = ref<FormInst | null>(null);
 const formRules: FormRules = {
   username: [{ required: true, message: "请输入用户名", trigger: ["input", "blur"] }],
@@ -79,9 +79,9 @@ const roleOptions = computed(() => roles.value.map((role) => ({
   label: role.name,
   value: role.id
 })));
-const postOptions = computed(() => posts.value.map((post) => ({
-  label: post.name,
-  value: post.id
+const positionOptions = computed(() => positions.value.map((position) => ({
+  label: position.name,
+  value: position.id
 })));
 const departmentOptions = computed(() => flattenDepartments(departments.value));
 
@@ -153,8 +153,8 @@ const columns = computed(() => [
           }, { default: () => "分配角色" }),
           h(PermissionButton, {
             secondary: true,
-            permissions: ["sys:user:assign-post"],
-            onClick: () => void openAssignPosts(row)
+            permissions: ["sys:user:assign-position"],
+            onClick: () => void openAssignPositions(row)
           }, { default: () => "分配岗位" })
         ]
       }
@@ -186,13 +186,13 @@ async function loadUsers(): Promise<void> {
 }
 
 async function loadLookups(): Promise<void> {
-  const [roleResult, postResult, deptResult] = await Promise.all([
+  const [roleResult, positionResult, deptResult] = await Promise.all([
     getRolesApi(),
-    getPostsApi(),
+    getPositionsApi(),
     getDepartmentTreeApi()
   ]);
   roles.value = roleResult.data.records;
-  posts.value = postResult.data.records;
+  positions.value = positionResult.data.records;
   departments.value = deptResult.data;
 }
 
@@ -213,7 +213,7 @@ async function openEdit(row: UserSummaryDto): Promise<void> {
     phone: detail.phone ?? "",
     deptId: detail.deptId ?? undefined,
     roleIds: detail.roleIds,
-    postIds: detail.postIds
+    positionIds: detail.positionIds
   });
   formVisible.value = true;
 }
@@ -243,7 +243,7 @@ async function submitForm(): Promise<void> {
         phone: form.phone || null,
         deptId: form.deptId ?? null,
         roleIds: form.roleIds,
-        postIds: form.postIds
+        positionIds: form.positionIds
       });
     }
 
@@ -352,22 +352,22 @@ async function submitAssignRoles(): Promise<void> {
   }
 }
 
-async function openAssignPosts(row: UserSummaryDto): Promise<void> {
+async function openAssignPositions(row: UserSummaryDto): Promise<void> {
   const result = await getUserApi(row.id);
   activeUser.value = result.data;
-  assignedPostIds.value = result.data.postIds;
-  assignPostsVisible.value = true;
+  assignedPositionIds.value = result.data.positionIds;
+  assignPositionsVisible.value = true;
 }
 
-async function submitAssignPosts(): Promise<void> {
+async function submitAssignPositions(): Promise<void> {
   if (!activeUser.value) {
     return;
   }
   submitting.value = true;
   try {
-    await assignUserPostsApi(activeUser.value.id, { postIds: assignedPostIds.value });
+    await assignUserPositionsApi(activeUser.value.id, { positionIds: assignedPositionIds.value });
     message.success("岗位已分配。");
-    assignPostsVisible.value = false;
+    assignPositionsVisible.value = false;
   } catch (error) {
     message.error(apiErrorMessage(error));
   } finally {
@@ -384,7 +384,7 @@ function createEmptyForm(): UserFormState {
     phone: "",
     deptId: undefined,
     roleIds: [],
-    postIds: []
+    positionIds: []
   };
 }
 
@@ -464,7 +464,7 @@ function findDepartmentName(deptId?: number | null): string {
           <NSelect v-model:value="form.roleIds" multiple :options="roleOptions" />
         </NFormItem>
         <NFormItem v-if="!form.id" label="岗位">
-          <NSelect v-model:value="form.postIds" multiple :options="postOptions" />
+          <NSelect v-model:value="form.positionIds" multiple :options="positionOptions" />
         </NFormItem>
         <NSpace justify="end">
           <NButton :disabled="submitting" @click="formVisible = false">取消</NButton>
@@ -481,11 +481,11 @@ function findDepartmentName(deptId?: number | null): string {
       </NSpace>
     </NModal>
 
-    <NModal v-model:show="assignPostsVisible" preset="card" title="分配岗位" class="max-w-lg">
-      <NSelect v-model:value="assignedPostIds" multiple :options="postOptions" />
+    <NModal v-model:show="assignPositionsVisible" preset="card" title="分配岗位" class="max-w-lg">
+      <NSelect v-model:value="assignedPositionIds" multiple :options="positionOptions" />
       <NSpace class="mt-4" justify="end">
-        <NButton :disabled="submitting" @click="assignPostsVisible = false">取消</NButton>
-        <NButton type="primary" :loading="submitting" @click="submitAssignPosts">保存</NButton>
+        <NButton :disabled="submitting" @click="assignPositionsVisible = false">取消</NButton>
+        <NButton type="primary" :loading="submitting" @click="submitAssignPositions">保存</NButton>
       </NSpace>
     </NModal>
   </main>

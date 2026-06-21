@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-M0-BE established the backend-only foundation: .NET 10 Minimal APIs, JIT publish/runtime, SqlSugar isolated in `WeCms.Persistence`, Auth, permission metadata, OpenAPI export, and backend quality gate.
+M0-BE established the backend-only foundation: .NET 10 Minimal APIs, JIT publish/runtime, Auth, permission metadata, OpenAPI export, and backend quality gate. S14 later moved SqlSugar isolation to `WeCms.Data.SqlSugar` and `WeCms.Modules.*.SqlSugar`.
 
 `docs/context/WeCMS Next M1-BE 后端-only 开发计划书 v1.0.md` defines the next phase as backend-only system management API development. The plan requested an ADR named `0011-m1-system-management-api-scope.md`, but ADR-0011 already exists for the JIT + SqlSugar Persistence decision. This ADR therefore uses the next available number to avoid an ADR collision.
 
@@ -34,9 +34,9 @@ M1-BE must not deliver:
 - ASP.NET Core Minimal APIs only; no MVC Controller or Razor.
 - `.NET 10 JIT publish/runtime` remains the runtime baseline.
 - `WebApplication.CreateSlimBuilder(args)` remains the host baseline.
-- All database access remains isolated in `WeCms.Persistence`.
+- Database access remains isolated in `WeCms.Data.SqlSugar` and `WeCms.Modules.*.SqlSugar`.
 - `WeCms.Modules.*` may define endpoint, DTO, service/use-case, validation, permission constants, and repository interfaces only.
-- Repository implementations, SQL, SqlSugar entities, migrations, seeds, and transaction adapters remain in `WeCms.Persistence` or `database/**`.
+- Repository implementations and SqlSugar entities remain in `WeCms.Modules.*.SqlSugar`; platform migration, seed, and transaction adapters remain in `WeCms.Data.SqlSugar` and reviewed SQL under `database/**`.
 - Every business endpoint must require JWT authorization and a permission code unless explicitly documented as `AllowAnonymous`.
 - Every write path must record audit evidence.
 - New public API, permission code, menu, database table, migration, authentication/security change, or OpenAPI contract change must have `docs/specs/<change-id>/{spec.md,tasks.md,checklist.md}` before implementation.

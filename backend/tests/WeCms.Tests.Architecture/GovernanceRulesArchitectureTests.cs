@@ -12,8 +12,9 @@ public sealed class GovernanceRulesArchitectureTests
         Assert.Contains("CodeFirst 建模", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Data.SqlSugar", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
-        Assert.Contains("WeCms.Modules.System 最终删除", source, StringComparison.Ordinal);
-        Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains(LegacyBoundaryNames.SystemModule + "` 已从 active source 删除", source, StringComparison.Ordinal);
+        Assert.Contains(LegacyBoundaryNames.Persistence + "` 已从 active source 删除", source, StringComparison.Ordinal);
+        Assert.Contains("不得重新引入", source, StringComparison.Ordinal);
         Assert.Contains("无生产环境，允许重置数据库 baseline", source, StringComparison.Ordinal);
         Assert.Contains("CMS 模块暂不实现", source, StringComparison.Ordinal);
         Assert.Contains("允许 Swagger / Scalar / MiniProfiler", source, StringComparison.Ordinal);
@@ -44,8 +45,8 @@ public sealed class GovernanceRulesArchitectureTests
         Assert.Contains("CodeFirst 建模", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Data.SqlSugar", source, StringComparison.Ordinal);
         Assert.Contains("WeCms.Modules.*.SqlSugar", source, StringComparison.Ordinal);
-        Assert.Contains("WeCms.Modules.System 最终删除", source, StringComparison.Ordinal);
-        Assert.Contains("WeCms.Persistence 最终删除", source, StringComparison.Ordinal);
+        Assert.Contains(LegacyBoundaryNames.SystemModule + "` 与 `" + LegacyBoundaryNames.Persistence + "` 已退出 active source", source, StringComparison.Ordinal);
+        Assert.Contains("不得重新引入", source, StringComparison.Ordinal);
         Assert.Contains("允许 Swagger / Scalar / MiniProfiler", source, StringComparison.Ordinal);
     }
 

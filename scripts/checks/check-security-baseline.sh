@@ -61,7 +61,7 @@ for token in ["WithOrigins(origins)", "AllowCredentials", "Security:AllowedOrigi
     if token not in cors:
         violations.append(f"CORS policy missing {token}")
 
-auth = (repo / "backend/src/WeCms.Modules.System/Auth/AuthEndpoints.cs").read_text(encoding="utf-8")
+auth = (repo / "backend/src/WeCms.Modules.Identity/Endpoints/AuthEndpointDefinition.cs").read_text(encoding="utf-8")
 for token in [
     "RefreshCookieOptionsFactory",
     "CreateAppendOptions(session)",
@@ -72,7 +72,7 @@ for token in [
     "Path = \"/\"",
 ]:
     if token not in auth:
-        violations.append(f"AuthEndpoints refresh cookie policy missing {token}")
+        violations.append(f"AuthEndpointDefinition refresh cookie policy missing {token}")
 if "Domain =" in auth:
     violations.append("Refresh cookie must not set Domain")
 

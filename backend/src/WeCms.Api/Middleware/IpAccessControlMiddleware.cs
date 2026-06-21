@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using WeCms.Api.Json;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Identity.Records;
+using WeCms.Modules.Identity.Repositories;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Security;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 

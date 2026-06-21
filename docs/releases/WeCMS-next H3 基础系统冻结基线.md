@@ -30,8 +30,8 @@ H3 总体验收以基础系统后台和 SoybeanAdmin 管理端为冻结对象。
 
 - OpenAPI：`artifacts/openapi/wecms-api-v1.json`
 - H3 spec：`docs/specs/h3-final-acceptance/{spec.md,tasks.md,checklist.md}`
-- 数据库迁移：`database/migrations/000001_init_identity.sql` 至 `database/migrations/000019_h2_security_event_classifier.sql`
-- Seed：`database/seeds/000001_seed_base_permissions.sql` 至 `database/seeds/000010_seed_h2_setting_hardening_permissions.sql`
+- 数据库迁移：`database/migrations/000001_baseline_system_schema.sql`
+- Seed：`database/seeds/000002_seed_system_permissions.sql`、`database/seeds/000003_seed_super_admin.sql`
 - 后端门禁：`scripts/quality-gate-backend.sh`
 - 前端门禁：`scripts/quality-gate-frontend.sh`
 - 差异复核：

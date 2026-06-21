@@ -1,5 +1,13 @@
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
+using Microsoft.Extensions.DependencyInjection;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.AccessControl.SqlSugar;
+using WeCms.Modules.Audit.SqlSugar;
+using WeCms.Modules.Configuration.SqlSugar;
+using WeCms.Modules.FileCenter.SqlSugar;
+using WeCms.Modules.Identity.SqlSugar;
+using WeCms.Modules.Organization.SqlSugar;
+using WeCms.Modules.Platform.SqlSugar;
+using WeCms.Modules.Security.SqlSugar;
 using WeCms.Tests.Integration;
 
 namespace WeCms.Tests.Integration.Persistence;
@@ -7,6 +15,116 @@ namespace WeCms.Tests.Integration.Persistence;
 [Collection(nameof(SharedMySqlCollection))]
 public sealed class MigrationAndSeedSmokeTests : PerTestDatabaseResetBase
 {
+    [DbFact]
+    public async Task DbMigrationRunner_AppliesNewMigration()
+    {
+        using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
+        var migrationsDirectory = Directory.CreateTempSubdirectory("wecms-migrations-");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(migrationsDirectory.FullName, "000001_create_s3_t05_probe.sql"),
+                "CREATE TABLE s3_t05_probe (id BIGINT NOT NULL PRIMARY KEY);",
+                TestContext.Current.CancellationToken);
+
+            var applied = await new DbMigrationRunner(db).MigrateAsync(migrationsDirectory.FullName, TestContext.Current.CancellationToken);
+
+            Assert.Equal(["000001_create_s3_t05_probe"], applied);
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 's3_t05_probe'"));
+        }
+        finally
+        {
+            migrationsDirectory.Delete(recursive: true);
+        }
+    }
+
+    [DbFact]
+    public async Task DbMigrationRunner_SkipsAppliedMigration()
+    {
+        using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
+        var migrationsDirectory = Directory.CreateTempSubdirectory("wecms-migrations-");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(migrationsDirectory.FullName, "000001_create_s3_t05_probe.sql"),
+                "CREATE TABLE s3_t05_probe (id BIGINT NOT NULL PRIMARY KEY);",
+                TestContext.Current.CancellationToken);
+            var runner = new DbMigrationRunner(db);
+
+            await runner.MigrateAsync(migrationsDirectory.FullName, TestContext.Current.CancellationToken);
+            var applied = await runner.MigrateAsync(migrationsDirectory.FullName, TestContext.Current.CancellationToken);
+
+            Assert.Empty(applied);
+        }
+        finally
+        {
+            migrationsDirectory.Delete(recursive: true);
+        }
+    }
+
+    [DbFact]
+    public async Task DbMigrationRunner_FailsOnChecksumDrift()
+    {
+        using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
+        var migrationsDirectory = Directory.CreateTempSubdirectory("wecms-migrations-");
+        var migrationFile = Path.Combine(migrationsDirectory.FullName, "000001_create_s3_t05_probe.sql");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                migrationFile,
+                "CREATE TABLE s3_t05_probe (id BIGINT NOT NULL PRIMARY KEY);",
+                TestContext.Current.CancellationToken);
+            var runner = new DbMigrationRunner(db);
+            await runner.MigrateAsync(migrationsDirectory.FullName, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(
+                migrationFile,
+                "CREATE TABLE s3_t05_probe (id BIGINT NOT NULL PRIMARY KEY, code VARCHAR(32) NULL);",
+                TestContext.Current.CancellationToken);
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => runner.MigrateAsync(migrationsDirectory.FullName, TestContext.Current.CancellationToken));
+
+            Assert.Equal("Migration checksum drift detected for 000001_create_s3_t05_probe.", exception.Message);
+        }
+        finally
+        {
+            migrationsDirectory.Delete(recursive: true);
+        }
+    }
+
+    [DbFact]
+    public async Task SeedRunner_ReplacesAdminPasswordHashSafely()
+    {
+        using var db = new SqlSugarClientFactory(RequiredConnectionString()).Create();
+        var seedsDirectory = Directory.CreateTempSubdirectory("wecms-seeds-");
+
+        try
+        {
+            db.Ado.ExecuteCommand("CREATE TABLE s3_t05_seed_probe (password_hash VARCHAR(255) NOT NULL, must_change_password BOOLEAN NOT NULL)");
+            await File.WriteAllTextAsync(
+                Path.Combine(seedsDirectory.FullName, "000001_seed_probe.sql"),
+                "INSERT INTO s3_t05_seed_probe (password_hash, must_change_password) VALUES ('{{ADMIN_PASSWORD_HASH}}', {{ADMIN_MUST_CHANGE_PASSWORD}});",
+                TestContext.Current.CancellationToken);
+
+            await new SeedRunner(db).SeedAsync(
+                seedsDirectory.FullName,
+                new SeedRunnerOptions("Production", "AdminRotation123!"),
+                TestContext.Current.CancellationToken);
+
+            var passwordHash = Scalar<string>(db, "SELECT password_hash FROM s3_t05_seed_probe LIMIT 1");
+            Assert.StartsWith("wecms.pbkdf2-sha256.v1.600000.", passwordHash, StringComparison.Ordinal);
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM s3_t05_seed_probe WHERE must_change_password = TRUE"));
+            Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM s3_t05_seed_probe WHERE password_hash LIKE '%{{%'"));
+        }
+        finally
+        {
+            seedsDirectory.Delete(recursive: true);
+        }
+    }
+
     [DbFact]
     public async Task MigrationAndSeed_CanRunTwiceAgainstEmptyDatabase()
     {
@@ -25,9 +143,9 @@ public sealed class MigrationAndSeedSmokeTests : PerTestDatabaseResetBase
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
             await seedRunner.SeedAsync(RepoPath("database", "seeds"), new SeedRunnerOptions("Development", null));
 
-            Assert.Equal(19, firstMigrationRun.Count);
+            Assert.Single(firstMigrationRun);
             Assert.Empty(secondMigrationRun);
-            Assert.Equal(19, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
+            Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_schema_migration"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_audit_log"));
             Assert.Equal(1, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin'"));
             Assert.Equal(0, Scalar<int>(db, "SELECT COUNT(1) FROM sys_user WHERE username = 'admin' AND must_change_password = TRUE"));
@@ -75,6 +193,36 @@ public sealed class MigrationAndSeedSmokeTests : PerTestDatabaseResetBase
         {
         }
     }
+
+    [DbFact]
+    public async Task SchemaValidator_PassesAgainstSprint9Baseline()
+    {
+        var baseConnectionString = RequiredConnectionString();
+
+        using var db = new SqlSugarClientFactory(baseConnectionString).Create();
+        var migrationRunner = new DbMigrationRunner(db);
+
+        await migrationRunner.MigrateAsync(RepoPath("database", "migrations"));
+
+        var services = new ServiceCollection();
+        services.AddWeCmsAccessControlSqlSugar();
+        services.AddWeCmsAuditSqlSugar();
+        services.AddWeCmsConfigurationSqlSugar();
+        services.AddWeCmsFileCenterSqlSugar();
+        services.AddWeCmsIdentitySqlSugar();
+        services.AddWeCmsOrganizationSqlSugar();
+        services.AddWeCmsPlatformSqlSugar();
+        services.AddWeCmsSecuritySqlSugar();
+
+        using var provider = services.BuildServiceProvider();
+        var registry = new CodeFirstModelRegistry(provider.GetServices<ICodeFirstModelProvider>());
+        var validator = new SqlSugarSchemaValidator(registry, db);
+
+        var result = await validator.ValidateAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsValid, new MigrationScaffold().CreateReviewableDiff(result));
+    }
+
     [DbFact]
     public async Task Migration_FailsWhenTargetTableExistsWithoutMigrationRecord()
     {
@@ -117,7 +265,7 @@ public sealed class MigrationAndSeedSmokeTests : PerTestDatabaseResetBase
 
             var migrationRunner = new DbMigrationRunner(verifyDb);
             var migrationRun = await migrationRunner.MigrateAsync(RepoPath("database", "migrations"));
-            Assert.Equal(19, migrationRun.Count);
+            Assert.Single(migrationRun);
         }
     }
     private static T Scalar<T>(SqlSugar.ISqlSugarClient db, string sql)

@@ -81,7 +81,7 @@ WeCMS Next 是前后端分离 API 架构，CSRF 按接口类型处理：
 - 不新增旧 ThinkPHP Session / token runtime compatibility。
 - 不复制旧 PHP WAF 作为主要业务安全边界。
 - 不把 CMS 内容 API、AI runtime、旧数据迁移混入一期补齐。
-- 不让业务模块直接访问 SqlSugar、MySQL 或 `WeCms.Persistence` 具体实现。
+- 不让业务模块直接访问 SqlSugar、MySQL、`WeCms.Data.SqlSugar` 或 `WeCms.Modules.*.SqlSugar` 具体实现。
 
 ## 7. 后续实现要求
 

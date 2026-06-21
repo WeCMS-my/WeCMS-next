@@ -1,13 +1,14 @@
 using System.Text.Json.Nodes;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
+using WeCms.Modules.AccessControl.Contracts;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Audit.Logs;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
 
 namespace WeCms.Api.Extensions;
 
@@ -182,7 +183,7 @@ public static partial class OpenApiExtensions
         return new JsonObject { ["type"] = "object", ["required"] = includeTimestamps ? Required("id", "code", "name", "isSystem", "status", "sortOrder", "createdAt", "updatedAt") : Required("id", "code", "name", "isSystem", "status", "sortOrder", "createdAt"), ["properties"] = properties };
     }
 
-    private static JsonObject PostSchema(bool includeTimestamps)
+    private static JsonObject PositionSchema(bool includeTimestamps)
     {
         var properties = new JsonObject { ["id"] = IntegerSchema(), ["code"] = StringSchema(), ["name"] = StringSchema(), ["sortOrder"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" }, ["status"] = StringSchema(), ["createdAt"] = DateTimeSchema() };
         if (includeTimestamps) properties["updatedAt"] = DateTimeSchema();
@@ -285,7 +286,7 @@ public static partial class OpenApiExtensions
         };
     }
 
-    private static JsonObject PostMutationSchema(bool includeCode)
+    private static JsonObject PositionMutationSchema(bool includeCode)
     {
         var properties = new JsonObject
         {

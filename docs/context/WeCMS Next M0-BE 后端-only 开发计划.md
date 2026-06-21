@@ -3,6 +3,7 @@
 ## 0. 文档定位
 
 文档类型：M0-BE 后端-only 开发执行计划
+当前状态：历史阶段计划；S14 后当前系统基础边界以 `docs/dirs/system-foundation-development-guide.md`、ADR-0018 和 ADR-0019 为准
 上级文档：WeCMS Next 完整迁移重构计划 v3.0
 执行方式：推倒重建，从 0 开始开发
 开发工具：Codex / Codex CLI / Codex App
@@ -23,7 +24,7 @@ M0-BE 需要完成：
 ```text id="thejn4"
 1. 从 0 初始化后端工程结构。
 2. 建立模块化单体 + Clean Architecture 风格分层。
-3. 建立 WeCms.Persistence 独立数据库操作层。
+3. 建立 `WeCms.Data.SqlSugar` 数据平台与 `WeCms.Modules.*.SqlSugar` 模块持久化适配层。
 4. 接入 SqlSugarCore + MySQL。
 5. 建立 Migration / Seed 机制。
 6. 建立统一响应、异常、TraceId。
@@ -107,9 +108,12 @@ backend/
     WeCms.Api/
     WeCms.Shared/
     WeCms.Infrastructure/
-    WeCms.Persistence/
-    WeCms.Modules.System/
-    WeCms.Modules.Cms/
+    WeCms.Data.SqlSugar/
+    WeCms.Modules.Identity/
+    WeCms.Modules.AccessControl/
+    WeCms.Modules.Platform/
+    WeCms.Modules.*.SqlSugar/
+    WeCms.Modules.Cms/   # 二期内容模块占位，系统基础升级期间不启用
 
   tests/
     WeCms.Tests.Unit/
@@ -124,9 +128,10 @@ backend/
 | `WeCms.Api`                | API Host、DI Composition Root、Middleware、OpenAPI export、Endpoint 注册 |
 | `WeCms.Shared`             | 公共契约、接口、错误码、异常、时间/ID/安全抽象                                          |
 | `WeCms.Infrastructure`     | 非数据库基础设施实现，例如 Token、密码、时间、ID                                       |
-| `WeCms.Persistence`        | 唯一数据库操作层，SqlSugar、Repository 实现、Migration、Seed                     |
-| `WeCms.Modules.System`     | 系统模块业务逻辑、Auth、权限、系统探针、Repository 接口                                |
-| `WeCms.Modules.Cms`        | CMS 模块空壳或最小占位，M0-BE 不实现业务                                          |
+| `WeCms.Data.SqlSugar`      | SqlSugar 数据平台、Migration、Seed、UnitOfWork、CodeFirst、SQL 审计              |
+| `WeCms.Modules.*.SqlSugar` | 模块持久化适配层、SqlSugar Entity、Repository implementation                    |
+| `WeCms.Modules.Identity` / `AccessControl` / `Platform` | 系统基础模块业务逻辑、Endpoint、Repository interface |
+| `WeCms.Modules.Cms`        | CMS 二期内容模块占位，系统基础升级期间不实现业务                                      |
 | `WeCms.Tests.Unit`         | 单元测试                                                               |
 | `WeCms.Tests.Integration`  | 集成测试                                                               |
 | `WeCms.Tests.Architecture` | 架构边界测试                                                             |
@@ -139,23 +144,22 @@ backend/
 
 ```text id="sfaq4o"
 WeCms.Api
-  -> WeCms.Modules.System
-  -> WeCms.Modules.Cms
+  -> WeCms.Modules.Identity / WeCms.Modules.AccessControl / WeCms.Modules.Platform
   -> WeCms.Infrastructure
-  -> WeCms.Persistence
+  -> WeCms.Data.SqlSugar
+  -> WeCms.Modules.*.SqlSugar
   -> WeCms.Shared
 
-WeCms.Modules.System
+WeCms.Modules.*
   -> WeCms.Shared
 
-WeCms.Modules.Cms
+WeCms.Modules.*.SqlSugar
+  -> 对应 WeCms.Modules.*
+  -> WeCms.Data.SqlSugar
   -> WeCms.Shared
 
-WeCms.Persistence
+WeCms.Data.SqlSugar
   -> WeCms.Shared
-  -> WeCms.Modules.System
-  -> WeCms.Modules.Cms
-  -> SqlSugarCore
 
 WeCms.Infrastructure
   -> WeCms.Shared
@@ -167,13 +171,14 @@ WeCms.Shared
 ## 4.2 禁止依赖
 
 ```text id="7x6tfr"
-WeCms.Modules.System -> WeCms.Persistence
-WeCms.Modules.Cms -> WeCms.Persistence
+WeCms.Modules.* -> WeCms.Data.SqlSugar
+WeCms.Modules.* -> WeCms.Modules.*.SqlSugar
 WeCms.Modules.* -> SqlSugarCore
 WeCms.Modules.* -> MySqlConnector
 WeCms.Modules.* -> ORM Client
 WeCms.Modules.* -> SQL 字符串
-WeCms.Infrastructure -> WeCms.Persistence
+WeCms.Infrastructure -> WeCms.Data.SqlSugar
+WeCms.Infrastructure -> WeCms.Modules.*.SqlSugar
 WeCms.Shared -> 任意生产项目
 ```
 
@@ -183,13 +188,14 @@ WeCms.Shared -> 任意生产项目
 
 ## 5.1 唯一数据库访问层
 
-所有数据库访问只能在：
+S14 后数据库/ORM/连接器只能在：
 
 ```text id="f3mcw8"
-WeCms.Persistence
+WeCms.Data.SqlSugar
+WeCms.Modules.*.SqlSugar
 ```
 
-只有 `WeCms.Persistence` 可以：
+只有上述数据平台与模块持久化适配层可以：
 
 ```text id="0rmcf4"
 引用 SqlSugarCore
@@ -230,19 +236,19 @@ SQL 字符串
 Repository interface 放模块层：
 
 ```text id="qlh7i4"
-WeCms.Modules.System/Auth/IAuthRepository.cs
-WeCms.Modules.System/Users/IUserRepository.cs
-WeCms.Modules.System/Roles/IRoleRepository.cs
-WeCms.Modules.System/Menus/IMenuRepository.cs
+WeCms.Modules.Identity/Repositories/IAuthRepository.cs
+WeCms.Modules.Identity/Repositories/IUserRepository.cs
+WeCms.Modules.AccessControl/Repositories/IRoleRepository.cs
+WeCms.Modules.AccessControl/Repositories/IMenuRepository.cs
 ```
 
-Repository implementation 放 Persistence：
+Repository implementation 放对应模块 `.SqlSugar` 项目：
 
 ```text id="42t476"
-WeCms.Persistence/Modules/System/Auth/AuthRepository.cs
-WeCms.Persistence/Modules/System/Users/UserRepository.cs
-WeCms.Persistence/Modules/System/Roles/RoleRepository.cs
-WeCms.Persistence/Modules/System/Menus/MenuRepository.cs
+WeCms.Modules.Identity.SqlSugar/Repositories/AuthRepository.cs
+WeCms.Modules.Identity.SqlSugar/Repositories/UserRepository.cs
+WeCms.Modules.AccessControl.SqlSugar/Repositories/RoleRepository.cs
+WeCms.Modules.AccessControl.SqlSugar/Repositories/MenuRepository.cs
 ```
 
 Repository 返回：
@@ -414,9 +420,12 @@ backend/WeCms.slnx
 backend/src/WeCms.Api
 backend/src/WeCms.Shared
 backend/src/WeCms.Infrastructure
-backend/src/WeCms.Persistence
-backend/src/WeCms.Modules.System
-backend/src/WeCms.Modules.Cms
+backend/src/WeCms.Data.SqlSugar
+backend/src/WeCms.Modules.Identity
+backend/src/WeCms.Modules.AccessControl
+backend/src/WeCms.Modules.Platform
+backend/src/WeCms.Modules.*.SqlSugar
+backend/src/WeCms.Modules.Cms   # 二期内容模块占位，系统基础升级期间不启用
 backend/tests/WeCms.Tests.Unit
 backend/tests/WeCms.Tests.Integration
 backend/tests/WeCms.Tests.Architecture
@@ -509,7 +518,7 @@ bash scripts/checks/check-di-boundary.sh
 
 ## 目标
 
-建立唯一数据库访问层 `WeCms.Persistence`。
+建立 SqlSugar 数据平台 `WeCms.Data.SqlSugar` 与模块持久化适配层 `WeCms.Modules.*.SqlSugar`。
 
 ## 需要引入
 
@@ -522,10 +531,10 @@ bash scripts/checks/check-di-boundary.sh
 ## 需要创建
 
 ```text id="0y8wpx"
-WeCms.Persistence/Data/SqlSugarClientFactory.cs
-WeCms.Persistence/Data/SqlSugarUnitOfWork.cs
-WeCms.Persistence/Data/SqlSugarTransactionContext.cs
-WeCms.Persistence/Data/PersistenceServiceCollectionExtensions.cs
+WeCms.Data.SqlSugar/Connections/SqlSugarClientFactory.cs
+WeCms.Data.SqlSugar/Transactions/SqlSugarUnitOfWork.cs
+WeCms.Data.SqlSugar/Transactions/SqlSugarTransactionContext.cs
+WeCms.Data.SqlSugar/SqlSugarDataServiceCollectionExtensions.cs
 ```
 
 ## DI 注册
@@ -540,8 +549,8 @@ services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
 ## 验收标准
 
 ```text id="4443k3"
-[ ] 只有 WeCms.Persistence 引用 SqlSugarCore
-[ ] WeCms.Api 通过 AddWeCmsPersistence() 注册数据库层
+[ ] 只有 WeCms.Data.SqlSugar 与 WeCms.Modules.*.SqlSugar 引用 SqlSugarCore
+[ ] WeCms.Api 通过 AddWeCmsSqlSugarData() 和模块 .SqlSugar registration 注册数据库层
 [ ] WeCms.Modules.* 不引用 SqlSugarCore
 [ ] 数据库连接串缺失时 fail-fast
 [ ] 数据库连接测试通过
@@ -602,8 +611,8 @@ database/migrations/000002_init_permission.sql
 database/migrations/000003_init_auth_security.sql
 database/seeds/000001_seed_base_permissions.sql
 database/seeds/000002_seed_super_admin.sql
-WeCms.Persistence/Migration/DbMigrationRunner.cs
-WeCms.Persistence/Migration/SeedRunner.cs
+WeCms.Data.SqlSugar/Migration/DbMigrationRunner.cs
+WeCms.Data.SqlSugar/Migration/SeedRunner.cs
 ```
 
 ## 验收标准
@@ -686,11 +695,11 @@ GET  /api/v1/auth/me
 ## 交付物
 
 ```text id="56v7ad"
-WeCms.Modules.System/Auth/AuthEndpoints.cs
-WeCms.Modules.System/Auth/AuthService.cs
-WeCms.Modules.System/Auth/AuthDtos.cs
-WeCms.Modules.System/Auth/IAuthRepository.cs
-WeCms.Persistence/Modules/System/Auth/AuthRepository.cs
+WeCms.Modules.Identity/Endpoints/AuthEndpointDefinition.cs
+WeCms.Modules.Identity/Services/AuthService.cs
+WeCms.Modules.Identity/Contracts/AuthDtos.cs
+WeCms.Modules.Identity/Repositories/IAuthRepository.cs
+WeCms.Modules.Identity.SqlSugar/Repositories/AuthRepository.cs
 ```
 
 ## Login 要求
@@ -1039,12 +1048,13 @@ scripts/checks/**
 
 ---
 
-## Codex-004：SqlSugar Persistence
+## Codex-004：SqlSugar Data Platform
 
 允许修改：
 
 ```text id="qji28w"
-backend/src/WeCms.Persistence/**
+backend/src/WeCms.Data.SqlSugar/**
+backend/src/WeCms.Modules.*.SqlSugar/**
 backend/src/WeCms.Shared/Data/**
 backend/src/WeCms.Api/Program.cs
 ```
@@ -1058,7 +1068,7 @@ backend/src/WeCms.Api/Program.cs
 ```text id="jyfhin"
 database/migrations/**
 database/seeds/**
-backend/src/WeCms.Persistence/Migration/**
+backend/src/WeCms.Data.SqlSugar/Migration/**
 ```
 
 ---
@@ -1079,8 +1089,8 @@ backend/src/WeCms.Api/Middleware/**
 允许修改：
 
 ```text id="s84uxp"
-backend/src/WeCms.Modules.System/Auth/**
-backend/src/WeCms.Persistence/Modules/System/Auth/**
+backend/src/WeCms.Modules.Identity/**
+backend/src/WeCms.Modules.Identity.SqlSugar/**
 backend/tests/WeCms.Tests.Unit/Auth/**
 backend/tests/WeCms.Tests.Integration/Auth/**
 ```
@@ -1092,8 +1102,8 @@ backend/tests/WeCms.Tests.Integration/Auth/**
 允许修改：
 
 ```text id="f6jqa3"
-backend/src/WeCms.Modules.System/Permissions/**
-backend/src/WeCms.Persistence/Modules/System/Permissions/**
+backend/src/WeCms.Modules.AccessControl/Permissions/**
+backend/src/WeCms.Modules.AccessControl.SqlSugar/Repositories/**
 backend/tests/WeCms.Tests.Architecture/**
 ```
 
@@ -1104,7 +1114,7 @@ backend/tests/WeCms.Tests.Architecture/**
 允许修改：
 
 ```text id="ss894u"
-backend/src/WeCms.Modules.System/System/**
+backend/src/WeCms.Modules.Platform/System/**
 backend/tests/**
 ```
 
@@ -1116,7 +1126,7 @@ backend/tests/**
 
 ```text id="tp5pew"
 backend/src/WeCms.Api/Extensions/**
-backend/src/WeCms.Modules.System/**/*
+backend/src/WeCms.Modules.*/*
 scripts/checks/check-openapi-*.sh
 ```
 
@@ -1174,7 +1184,7 @@ frontend/**
 [ ] backend solution 从 0 build 成功
 [ ] API Host 使用 WebApplication.CreateSlimBuilder(args)
 [ ] 所有项目依赖矩阵正确
-[ ] SqlSugarCore 只存在于 WeCms.Persistence
+[ ] SqlSugarCore 只存在于 WeCms.Data.SqlSugar 与 WeCms.Modules.*.SqlSugar
 [ ] 全仓无 Dapper
 [ ] 全仓无 Dapper.AOT
 [ ] 全仓无 PublishAot

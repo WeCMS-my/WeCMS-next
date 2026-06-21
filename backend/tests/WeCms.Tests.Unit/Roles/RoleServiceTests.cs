@@ -1,5 +1,6 @@
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Roles;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Repositories;
+using WeCms.Modules.AccessControl.Roles;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -149,7 +150,12 @@ public sealed class RoleServiceTests
         FakeUnitOfWork? unitOfWork = null,
         FakePermissionVersionService? permissionVersionService = null)
     {
-        return new RoleService(repository, unitOfWork ?? new FakeUnitOfWork(), permissionVersionService ?? new FakePermissionVersionService());
+        return new RoleService(
+            repository,
+            unitOfWork ?? new FakeUnitOfWork(),
+            permissionVersionService ?? new FakePermissionVersionService(),
+            new WeCms.Tests.Unit.NullOutboxWriter(),
+            new WeCms.Tests.Unit.FixedTestIdGenerator());
     }
 
     private static RoleDetailDto LockedRole()
@@ -254,7 +260,7 @@ public sealed class RoleServiceTests
         }
     }
 
-    private sealed class FakePermissionVersionService : IPermissionVersionService
+    private sealed class FakePermissionVersionService : IAccessControlPermissionVersionService
     {
         public bool BumpUsersByRoleCalled { get; private set; }
 

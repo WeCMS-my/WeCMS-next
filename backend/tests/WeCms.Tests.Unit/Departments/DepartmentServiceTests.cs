@@ -1,4 +1,4 @@
-using WeCms.Modules.System.Departments;
+using WeCms.Modules.Organization.Departments;
 using WeCms.Shared;
 
 namespace WeCms.Tests.Unit.Departments;

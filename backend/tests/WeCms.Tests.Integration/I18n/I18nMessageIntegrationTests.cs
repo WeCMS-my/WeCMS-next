@@ -1,7 +1,8 @@
 using SqlSugar;
-using WeCms.Modules.System.I18n;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Modules.System.I18n;
+using WeCms.Data.SqlSugar;
+using WeCms.Modules.Configuration;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.Configuration.SqlSugar.Repositories;
 
 namespace WeCms.Tests.Integration.I18n;
 
@@ -17,7 +18,12 @@ public sealed class I18nMessageIntegrationTests : PerTestDatabaseResetBase
 
         db.Ado.ExecuteCommand("DELETE FROM sys_audit_log");
 
-        var service = new I18nMessageService(new I18nMessageRepository(db));
+        var service = new I18nMessageService(
+            new I18nMessageRepository(db),
+            new NoopConfigurationCacheInvalidator(),
+            new SqlSugarUnitOfWork(db),
+            new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
+            new WeCms.Infrastructure.Id.SystemIdGenerator());
         var now = new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero);
         var messageKey = $"unittest.label.{DateTimeOffset.UtcNow.Ticks}";
         var actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
@@ -66,6 +72,44 @@ public sealed class I18nMessageIntegrationTests : PerTestDatabaseResetBase
         Assert.Equal("192.168.101.199", ScalarString(db, "SELECT ip_address FROM sys_audit_log WHERE action = 'update' AND target_id = @targetId LIMIT 1", new SugarParameter("@targetId", createdMessageId)));
         Assert.Equal("192.168.101.199", ScalarString(db, "SELECT ip_address FROM sys_audit_log WHERE action = 'delete' AND target_id = @targetId LIMIT 1", new SugarParameter("@targetId", createdMessageId)));
         Assert.Equal("192.168.101.199", ScalarString(db, "SELECT ip_address FROM sys_audit_log WHERE action = 'switch-locale' LIMIT 1"));
+    }
+
+    [DbFact]
+    public async Task I18nMessageRepository_UsesI18nTableForCrudAndPublicMessages()
+    {
+        var baseConnectionString = IntegrationTestDatabase.GetConnectionString();
+        using var db = new SqlSugarClientFactory(baseConnectionString).Create();
+        await PrepareDatabaseAsync(db);
+
+        var repository = new I18nMessageRepository(db);
+        var now = new DateTimeOffset(2026, 6, 21, 0, 0, 0, TimeSpan.Zero);
+        var messageKey = $"integration.label.{Guid.NewGuid():N}";
+
+        var id = await repository.CreateAsync(
+            new I18nMessageCreateRecord("en-US", "system", messageKey, "Hello", "integration message", "enabled", now),
+            CancellationToken.None);
+
+        var detail = await repository.GetAsync(id, CancellationToken.None);
+        var list = await repository.ListAsync(new I18nMessageListCriteria(1, 20, "en-US", "system", "integration.label", "enabled"), CancellationToken.None);
+        var publicMessages = await repository.ListPublicMessagesAsync("en-US", "enabled", CancellationToken.None);
+
+        Assert.NotNull(detail);
+        Assert.Equal(messageKey, detail.MessageKey);
+        Assert.Contains(list.Records, message => message.Id == id);
+        Assert.Contains(publicMessages, message => message.MessageKey == messageKey && message.MessageValue == "Hello");
+        Assert.True(await repository.ExistsAsync("en-US", messageKey, null, CancellationToken.None));
+        Assert.False(await repository.ExistsAsync("en-US", messageKey, id, CancellationToken.None));
+
+        await repository.UpdateAsync(
+            new I18nMessageUpdateRecord(id, "system", "Hello updated", null, "disabled", now),
+            CancellationToken.None);
+        Assert.Equal("disabled", ScalarString(db, "SELECT status FROM sys_i18n_message WHERE id = @id", new SugarParameter("@id", id)));
+
+        publicMessages = await repository.ListPublicMessagesAsync("en-US", "enabled", CancellationToken.None);
+        Assert.DoesNotContain(publicMessages, message => message.MessageKey == messageKey);
+
+        await repository.SoftDeleteAsync(id, now, CancellationToken.None);
+        Assert.Null(await repository.GetAsync(id, CancellationToken.None));
     }
 
     private static T Scalar<T>(ISqlSugarClient db, string sql, params SugarParameter[] parameters)

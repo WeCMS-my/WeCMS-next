@@ -13,6 +13,7 @@ public sealed class LayerDependencyTests
                 "WeCms.Caching",
                 "WeCms.Data.SqlSugar",
                 "WeCms.EventBus",
+                "WeCms.EventBus.SqlSugar",
                 "WeCms.Infrastructure",
                 "WeCms.Modules.AccessControl",
                 "WeCms.Modules.AccessControl.SqlSugar",
@@ -27,35 +28,34 @@ public sealed class LayerDependencyTests
                 "WeCms.Modules.Organization",
                 "WeCms.Modules.Organization.SqlSugar",
                 "WeCms.Modules.Platform",
+                "WeCms.Modules.Platform.SqlSugar",
                 "WeCms.Modules.Security",
                 "WeCms.Modules.Security.SqlSugar",
-                "WeCms.Modules.System",
-                "WeCms.Persistence",
                 "WeCms.Shared"
             ],
             ["WeCms.Aop"] = ["WeCms.Caching", "WeCms.EventBus", "WeCms.Shared"],
             ["WeCms.Caching"] = ["WeCms.Shared"],
             ["WeCms.Data.SqlSugar"] = ["WeCms.Shared"],
             ["WeCms.EventBus"] = ["WeCms.Shared"],
+            ["WeCms.EventBus.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.EventBus", "WeCms.Shared"],
             ["WeCms.Infrastructure"] = ["WeCms.Shared"],
-            ["WeCms.Modules.AccessControl"] = ["WeCms.Shared"],
+            ["WeCms.Modules.AccessControl"] = ["WeCms.EventBus", "WeCms.Shared"],
             ["WeCms.Modules.AccessControl.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.AccessControl", "WeCms.Shared"],
             ["WeCms.Modules.Audit"] = ["WeCms.Shared"],
             ["WeCms.Modules.Audit.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Audit", "WeCms.Shared"],
             ["WeCms.Modules.Cms"] = ["WeCms.Shared"],
-            ["WeCms.Modules.Configuration"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Configuration"] = ["WeCms.EventBus", "WeCms.Shared"],
             ["WeCms.Modules.Configuration.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Configuration", "WeCms.Shared"],
             ["WeCms.Modules.FileCenter"] = ["WeCms.Shared"],
             ["WeCms.Modules.FileCenter.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.FileCenter", "WeCms.Shared"],
-            ["WeCms.Modules.Identity"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Identity"] = ["WeCms.EventBus", "WeCms.Modules.AccessControl", "WeCms.Modules.Organization", "WeCms.Shared"],
             ["WeCms.Modules.Identity.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Identity", "WeCms.Shared"],
             ["WeCms.Modules.Organization"] = ["WeCms.Shared"],
             ["WeCms.Modules.Organization.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Organization", "WeCms.Shared"],
             ["WeCms.Modules.Platform"] = ["WeCms.Shared"],
-            ["WeCms.Modules.Security"] = ["WeCms.Shared"],
+            ["WeCms.Modules.Platform.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Platform", "WeCms.Shared"],
+            ["WeCms.Modules.Security"] = ["WeCms.EventBus", "WeCms.Shared"],
             ["WeCms.Modules.Security.SqlSugar"] = ["WeCms.Data.SqlSugar", "WeCms.Modules.Security", "WeCms.Shared"],
-            ["WeCms.Modules.System"] = ["WeCms.Shared"],
-            ["WeCms.Persistence"] = ["WeCms.Modules.System", "WeCms.Shared"],
             ["WeCms.Shared"] = []
         };
 
@@ -90,7 +90,7 @@ public sealed class LayerDependencyTests
 
         foreach (var project in moduleProjects)
         {
-            Assert.DoesNotContain("WeCms.Persistence", ProjectReferences(project.Path));
+            Assert.DoesNotContain(LegacyBoundaryNames.Persistence, ProjectReferences(project.Path));
         }
     }
 

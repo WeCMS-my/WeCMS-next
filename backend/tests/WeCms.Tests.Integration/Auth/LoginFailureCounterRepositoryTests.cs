@@ -1,8 +1,5 @@
 using SqlSugar;
-using WeCms.Modules.System.Auth;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Auth;
+using WeCms.Data.SqlSugar;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Auth;

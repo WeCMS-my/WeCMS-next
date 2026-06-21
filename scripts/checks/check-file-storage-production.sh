@@ -54,7 +54,7 @@ program = read("backend/src/WeCms.Api/Program.cs")
 file_storage_ext = read("backend/src/WeCms.Api/Extensions/FileStorageExtensions.cs")
 for token in [
     "AddWeCmsFileStorage",
-    "AddWeCmsSystemFiles",
+    "AddWeCmsFileCenter",
     "CreateFileScanService",
     "IFileScanService",
 ]:
@@ -82,15 +82,19 @@ for token in [
     if token not in validator:
         violations.append(f"ProductionConfigurationValidator missing {token}")
 
-file_service = read("backend/src/WeCms.Modules.System/Files/FileService.cs")
+file_service = read("backend/src/WeCms.Modules.FileCenter/Files/FileService.cs")
 for token in ["IFileScanService", "ScanAsync(file", "FileScanRequest", "file scan rejected uploaded content", "file_upload_rejected"]:
     if token not in file_service:
         violations.append(f"FileService missing scanner/security token {token}")
 
-account_profile = read("backend/src/WeCms.Modules.System/Auth/AccountProfileService.cs")
-for token in ["IFileScanService", "ScanAvatarAsync", "FileScanRequest", "Avatar scan rejected uploaded content", "file_upload_rejected"]:
-    if token not in account_profile:
+account_avatar_file_service = read("backend/src/WeCms.Api/Files/AccountAvatarFileService.cs")
+for token in ["IFileScanService", "ScanAvatarAsync", "FileScanRequest", "Avatar scan rejected uploaded content"]:
+    if token not in account_avatar_file_service:
         violations.append(f"AccountProfileService missing scanner token {token}")
+
+account_profile = read("backend/src/WeCms.Modules.Identity/Services/AccountProfileService.cs")
+if "file_upload_rejected" not in account_profile:
+    violations.append("AccountProfileService missing scanner token file_upload_rejected")
 
 tests = (
     read("backend/tests/WeCms.Tests.Unit/Files/LocalFileStorageTests.cs")

@@ -1,16 +1,20 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Departments;
-using WeCms.Modules.System.Dicts;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.I18n;
-using WeCms.Modules.System.Logs;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.Posts;
-using WeCms.Modules.System.Roles;
-using WeCms.Modules.System.Security;
-using WeCms.Modules.System.Settings;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Organization.Departments;
+using WeCms.Modules.Configuration.Dicts;
+using WeCms.Modules.FileCenter.Files;
+using WeCms.Modules.Configuration.I18n;
+using WeCms.Modules.Audit.Logs;
+using AuditLogPermissions = WeCms.Modules.Audit.Logs.LogPermissions;
+using SecurityEventPermissions = WeCms.Modules.Security.Events.SecurityEventPermissions;
+using WeCms.Modules.Security.Events;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.Platform.Permissions;
+using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.Organization.Positions;
+using WeCms.Modules.AccessControl.Roles;
+using WeCms.Modules.Security;
+using WeCms.Modules.Configuration.Settings;
+using WeCms.Modules.Identity.Permissions;
 
 namespace WeCms.Tests.Unit.OpenApi;
 
@@ -50,17 +54,17 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/account/avatar", "post"), (true, null) },
             { ("/api/v1/account/avatar/content", "get"), (true, null) },
             { ("/api/v1/account/security", "get"), (true, null) },
-            { ("/api/v1/system/users", "get"), (true, UserPermissions.List) },
-            { ("/api/v1/system/users/{id:long}", "get"), (true, UserPermissions.Detail) },
-            { ("/api/v1/system/users", "post"), (true, UserPermissions.Create) },
-            { ("/api/v1/system/users/{id:long}", "put"), (true, UserPermissions.Update) },
-            { ("/api/v1/system/users/{id:long}", "delete"), (true, UserPermissions.Delete) },
-            { ("/api/v1/system/users/{id:long}/enable", "post"), (true, UserPermissions.Enable) },
-            { ("/api/v1/system/users/{id:long}/disable", "post"), (true, UserPermissions.Disable) },
-            { ("/api/v1/system/users/{id:long}/reset-password", "post"), (true, UserPermissions.ResetPassword) },
-            { ("/api/v1/system/users/{id:long}/reset-2fa", "post"), (true, UserPermissions.ResetTwoFactor) },
-            { ("/api/v1/system/users/{id:long}/roles", "put"), (true, UserPermissions.AssignRole) },
-            { ("/api/v1/system/users/{id:long}/posts", "put"), (true, UserPermissions.AssignPost) },
+            { ("/api/v1/system/users", "get"), (true, IdentityUserPermissions.List) },
+            { ("/api/v1/system/users/{id:long}", "get"), (true, IdentityUserPermissions.Detail) },
+            { ("/api/v1/system/users", "post"), (true, IdentityUserPermissions.Create) },
+            { ("/api/v1/system/users/{id:long}", "put"), (true, IdentityUserPermissions.Update) },
+            { ("/api/v1/system/users/{id:long}", "delete"), (true, IdentityUserPermissions.Delete) },
+            { ("/api/v1/system/users/{id:long}/enable", "post"), (true, IdentityUserPermissions.Enable) },
+            { ("/api/v1/system/users/{id:long}/disable", "post"), (true, IdentityUserPermissions.Disable) },
+            { ("/api/v1/system/users/{id:long}/reset-password", "post"), (true, IdentityUserPermissions.ResetPassword) },
+            { ("/api/v1/system/users/{id:long}/reset-2fa", "post"), (true, IdentityUserPermissions.ResetTwoFactor) },
+            { ("/api/v1/system/users/{id:long}/roles", "put"), (true, IdentityUserPermissions.AssignRole) },
+            { ("/api/v1/system/users/{id:long}/positions", "put"), (true, IdentityUserPermissions.AssignPosition) },
             { ("/api/v1/system/roles", "get"), (true, RolePermissions.List) },
             { ("/api/v1/system/roles/{id:long}", "get"), (true, RolePermissions.Detail) },
             { ("/api/v1/system/roles", "post"), (true, RolePermissions.Create) },
@@ -95,13 +99,13 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/depts/{id:long}", "delete"), (true, DepartmentPermissions.Delete) },
             { ("/api/v1/system/depts/{id:long}/enable", "post"), (true, DepartmentPermissions.Enable) },
             { ("/api/v1/system/depts/{id:long}/disable", "post"), (true, DepartmentPermissions.Disable) },
-            { ("/api/v1/system/posts", "get"), (true, PostPermissions.List) },
-            { ("/api/v1/system/posts/{id:long}", "get"), (true, PostPermissions.Detail) },
-            { ("/api/v1/system/posts", "post"), (true, PostPermissions.Create) },
-            { ("/api/v1/system/posts/{id:long}", "put"), (true, PostPermissions.Update) },
-            { ("/api/v1/system/posts/{id:long}", "delete"), (true, PostPermissions.Delete) },
-            { ("/api/v1/system/posts/{id:long}/enable", "post"), (true, PostPermissions.Enable) },
-            { ("/api/v1/system/posts/{id:long}/disable", "post"), (true, PostPermissions.Disable) },
+            { ("/api/v1/system/positions", "get"), (true, PositionPermissions.List) },
+            { ("/api/v1/system/positions/{id:long}", "get"), (true, PositionPermissions.Detail) },
+            { ("/api/v1/system/positions", "post"), (true, PositionPermissions.Create) },
+            { ("/api/v1/system/positions/{id:long}", "put"), (true, PositionPermissions.Update) },
+            { ("/api/v1/system/positions/{id:long}", "delete"), (true, PositionPermissions.Delete) },
+            { ("/api/v1/system/positions/{id:long}/enable", "post"), (true, PositionPermissions.Enable) },
+            { ("/api/v1/system/positions/{id:long}/disable", "post"), (true, PositionPermissions.Disable) },
             { ("/api/v1/system/dict-types", "get"), (true, DictPermissions.TypeList) },
             { ("/api/v1/system/dict-types/{id:long}", "get"), (true, DictPermissions.TypeList) },
             { ("/api/v1/system/dict-types", "post"), (true, DictPermissions.TypeCreate) },
@@ -127,17 +131,17 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/i18n/messages/{id:long}", "delete"), (true, I18nPermissions.Delete) },
             { ("/api/v1/i18n/messages", "get"), (false, null) },
             { ("/api/v1/account/i18n/switch", "post"), (true, I18nPermissions.AccountSwitch) },
-            { ("/api/v1/system/login-logs", "get"), (true, LogPermissions.LoginLogList) },
-            { ("/api/v1/system/login-logs/{id:long}", "get"), (true, LogPermissions.LoginLogDetail) },
-            { ("/api/v1/system/audit-logs", "get"), (true, LogPermissions.AuditLogList) },
-            { ("/api/v1/system/audit-logs/{id:long}", "get"), (true, LogPermissions.AuditLogDetail) },
+            { ("/api/v1/system/login-logs", "get"), (true, AuditLogPermissions.LoginLogList) },
+            { ("/api/v1/system/login-logs/{id:long}", "get"), (true, AuditLogPermissions.LoginLogDetail) },
+            { ("/api/v1/system/audit-logs", "get"), (true, AuditLogPermissions.AuditLogList) },
+            { ("/api/v1/system/audit-logs/{id:long}", "get"), (true, AuditLogPermissions.AuditLogDetail) },
             { ("/api/v1/system/security/status", "get"), (true, SecurityPermissions.Status) },
             { ("/api/v1/system/security/bans", "get"), (true, SecurityPermissions.BanList) },
             { ("/api/v1/system/security/bans/{id:long}", "get"), (true, SecurityPermissions.BanDetail) },
             { ("/api/v1/system/security/bans/{id:long}/unban", "post"), (true, SecurityPermissions.BanUnban) },
             { ("/api/v1/system/security/bans/batch-unban", "post"), (true, SecurityPermissions.BanBatchUnban) },
-            { ("/api/v1/system/security-events", "get"), (true, LogPermissions.SecurityEventList) },
-            { ("/api/v1/system/security-events/{id:long}", "get"), (true, LogPermissions.SecurityEventDetail) },
+            { ("/api/v1/system/security-events", "get"), (true, SecurityEventPermissions.SecurityEventList) },
+            { ("/api/v1/system/security-events/{id:long}", "get"), (true, SecurityEventPermissions.SecurityEventDetail) },
             { ("/api/v1/system/files", "get"), (true, FilePermissions.List) },
             { ("/api/v1/system/files/{id:long}", "get"), (true, FilePermissions.Detail) },
             { ("/api/v1/system/files", "post"), (true, FilePermissions.Upload) },
@@ -193,11 +197,11 @@ public sealed partial class OpenApiExportTests
     [
         new RegisteredEndpoint("/health/live", "get", null, false, null),
         new RegisteredEndpoint("/health/ready", "get", null, false, null),
-        new RegisteredEndpoint("/health/dependencies", "get", SystemPermissions.SecurePing, true, null),
+        new RegisteredEndpoint("/health/dependencies", "get", PlatformPermissions.SecurePing, true, null),
         new RegisteredEndpoint("/api/v1/system/ping", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/system/version", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/system/db-check", "get", null, false, null),
-        new RegisteredEndpoint("/api/v1/system/secure-ping", "get", SystemPermissions.SecurePing, true, null),
+        new RegisteredEndpoint("/api/v1/system/secure-ping", "get", PlatformPermissions.SecurePing, true, null),
         new RegisteredEndpoint("/api/v1/auth/login", "post", null, false, nameof(LoginRequest)),
         new RegisteredEndpoint("/api/v1/auth/refresh", "post", null, false, null),
         new RegisteredEndpoint("/api/v1/auth/logout", "post", null, false, null),
@@ -215,17 +219,17 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/account/avatar", "post", null, true, nameof(AccountAvatarUploadRequest)),
         new RegisteredEndpoint("/api/v1/account/avatar/content", "get", null, true, null),
         new RegisteredEndpoint("/api/v1/account/security", "get", null, true, null),
-        new RegisteredEndpoint("/api/v1/system/users", "get", UserPermissions.List, true, null),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "get", UserPermissions.Detail, true, null),
-        new RegisteredEndpoint("/api/v1/system/users", "post", UserPermissions.Create, true, nameof(CreateUserRequest)),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "put", UserPermissions.Update, true, nameof(UpdateUserRequest)),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "delete", UserPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/enable", "post", UserPermissions.Enable, true, null),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/disable", "post", UserPermissions.Disable, true, null),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-password", "post", UserPermissions.ResetPassword, true, nameof(ResetUserPasswordRequest)),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-2fa", "post", UserPermissions.ResetTwoFactor, true, nameof(ResetUserTwoFactorRequest)),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/roles", "put", UserPermissions.AssignRole, true, nameof(AssignUserRolesRequest)),
-        new RegisteredEndpoint("/api/v1/system/users/{id:long}/posts", "put", UserPermissions.AssignPost, true, nameof(AssignUserPostsRequest)),
+        new RegisteredEndpoint("/api/v1/system/users", "get", IdentityUserPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "get", IdentityUserPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/users", "post", IdentityUserPermissions.Create, true, nameof(CreateUserRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "put", IdentityUserPermissions.Update, true, nameof(UpdateUserRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}", "delete", IdentityUserPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/enable", "post", IdentityUserPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/disable", "post", IdentityUserPermissions.Disable, true, null),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-password", "post", IdentityUserPermissions.ResetPassword, true, nameof(ResetUserPasswordRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/reset-2fa", "post", IdentityUserPermissions.ResetTwoFactor, true, nameof(ResetUserTwoFactorRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/roles", "put", IdentityUserPermissions.AssignRole, true, nameof(AssignUserRolesRequest)),
+        new RegisteredEndpoint("/api/v1/system/users/{id:long}/positions", "put", IdentityUserPermissions.AssignPosition, true, nameof(AssignUserPositionsRequest)),
         new RegisteredEndpoint("/api/v1/system/roles", "get", RolePermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/roles/{id:long}", "get", RolePermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/roles", "post", RolePermissions.Create, true, nameof(CreateRoleRequest)),
@@ -260,13 +264,13 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}", "delete", DepartmentPermissions.Delete, true, null),
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}/enable", "post", DepartmentPermissions.Enable, true, null),
         new RegisteredEndpoint("/api/v1/system/depts/{id:long}/disable", "post", DepartmentPermissions.Disable, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts", "get", PostPermissions.List, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "get", PostPermissions.Detail, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts", "post", PostPermissions.Create, true, nameof(CreatePostRequest)),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "put", PostPermissions.Update, true, nameof(UpdatePostRequest)),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}", "delete", PostPermissions.Delete, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/enable", "post", PostPermissions.Enable, true, null),
-        new RegisteredEndpoint("/api/v1/system/posts/{id:long}/disable", "post", PostPermissions.Disable, true, null),
+        new RegisteredEndpoint("/api/v1/system/positions", "get", PositionPermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/positions/{id:long}", "get", PositionPermissions.Detail, true, null),
+        new RegisteredEndpoint("/api/v1/system/positions", "post", PositionPermissions.Create, true, nameof(CreatePositionRequest)),
+        new RegisteredEndpoint("/api/v1/system/positions/{id:long}", "put", PositionPermissions.Update, true, nameof(UpdatePositionRequest)),
+        new RegisteredEndpoint("/api/v1/system/positions/{id:long}", "delete", PositionPermissions.Delete, true, null),
+        new RegisteredEndpoint("/api/v1/system/positions/{id:long}/enable", "post", PositionPermissions.Enable, true, null),
+        new RegisteredEndpoint("/api/v1/system/positions/{id:long}/disable", "post", PositionPermissions.Disable, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types", "get", DictPermissions.TypeList, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types/{id:long}", "get", DictPermissions.TypeList, true, null),
         new RegisteredEndpoint("/api/v1/system/dict-types", "post", DictPermissions.TypeCreate, true, nameof(CreateDictTypeRequest)),
@@ -292,17 +296,17 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/i18n/messages/{id:long}", "delete", I18nPermissions.Delete, true, null),
         new RegisteredEndpoint("/api/v1/i18n/messages", "get", null, false, null),
         new RegisteredEndpoint("/api/v1/account/i18n/switch", "post", I18nPermissions.AccountSwitch, true, nameof(SwitchAccountLocaleRequest)),
-        new RegisteredEndpoint("/api/v1/system/login-logs", "get", LogPermissions.LoginLogList, true, null),
-        new RegisteredEndpoint("/api/v1/system/login-logs/{id:long}", "get", LogPermissions.LoginLogDetail, true, null),
-        new RegisteredEndpoint("/api/v1/system/audit-logs", "get", LogPermissions.AuditLogList, true, null),
-        new RegisteredEndpoint("/api/v1/system/audit-logs/{id:long}", "get", LogPermissions.AuditLogDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/login-logs", "get", AuditLogPermissions.LoginLogList, true, null),
+        new RegisteredEndpoint("/api/v1/system/login-logs/{id:long}", "get", AuditLogPermissions.LoginLogDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/audit-logs", "get", AuditLogPermissions.AuditLogList, true, null),
+        new RegisteredEndpoint("/api/v1/system/audit-logs/{id:long}", "get", AuditLogPermissions.AuditLogDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/security/status", "get", SecurityPermissions.Status, true, null),
         new RegisteredEndpoint("/api/v1/system/security/bans", "get", SecurityPermissions.BanList, true, null),
         new RegisteredEndpoint("/api/v1/system/security/bans/{id:long}", "get", SecurityPermissions.BanDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/security/bans/{id:long}/unban", "post", SecurityPermissions.BanUnban, true, nameof(UnbanSecurityBanRequest)),
         new RegisteredEndpoint("/api/v1/system/security/bans/batch-unban", "post", SecurityPermissions.BanBatchUnban, true, nameof(BatchUnbanSecurityBansRequest)),
-        new RegisteredEndpoint("/api/v1/system/security-events", "get", LogPermissions.SecurityEventList, true, null),
-        new RegisteredEndpoint("/api/v1/system/security-events/{id:long}", "get", LogPermissions.SecurityEventDetail, true, null),
+        new RegisteredEndpoint("/api/v1/system/security-events", "get", SecurityEventPermissions.SecurityEventList, true, null),
+        new RegisteredEndpoint("/api/v1/system/security-events/{id:long}", "get", SecurityEventPermissions.SecurityEventDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/files", "get", FilePermissions.List, true, null),
         new RegisteredEndpoint("/api/v1/system/files/{id:long}", "get", FilePermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/files", "post", FilePermissions.Upload, true, nameof(CreateFileRequest)),

@@ -9,12 +9,12 @@ import sys
 from pathlib import Path
 
 repo = Path(sys.argv[1])
-role_migration = (repo / "database" / "migrations" / "000007_m1_role_management.sql").read_text(encoding="utf-8")
-super_admin_seed = (repo / "database" / "seeds" / "000002_seed_super_admin.sql").read_text(encoding="utf-8")
-role_permission_seed = (repo / "database" / "seeds" / "000005_seed_m1_role_permissions.sql").read_text(encoding="utf-8")
-role_dtos = (repo / "backend" / "src" / "WeCms.Modules.System" / "Roles" / "RoleDtos.cs").read_text(encoding="utf-8")
-role_repository = (repo / "backend" / "src" / "WeCms.Persistence" / "Modules" / "System" / "Roles" / "RoleRepository.cs").read_text(encoding="utf-8")
-user_service = (repo / "backend" / "src" / "WeCms.Modules.System" / "Users" / "UserService.cs").read_text(encoding="utf-8")
+role_migration = (repo / "database" / "migrations" / "000001_baseline_system_schema.sql").read_text(encoding="utf-8")
+super_admin_seed = (repo / "database" / "seeds" / "000003_seed_super_admin.sql").read_text(encoding="utf-8")
+role_permission_seed = super_admin_seed
+role_dtos = (repo / "backend" / "src" / "WeCms.Modules.AccessControl" / "Contracts" / "RoleDtos.cs").read_text(encoding="utf-8")
+role_repository = (repo / "backend" / "src" / "WeCms.Modules.AccessControl.SqlSugar" / "Repositories" / "RoleRepository.cs").read_text(encoding="utf-8")
+user_service = (repo / "backend" / "src" / "WeCms.Modules.Identity" / "Services" / "UserService.cs").read_text(encoding="utf-8")
 
 required_fragments = {
     "migration adds is_locked default false": "ADD COLUMN is_locked BOOLEAN NOT NULL DEFAULT FALSE" in role_migration,

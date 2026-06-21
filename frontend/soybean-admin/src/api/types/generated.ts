@@ -201,7 +201,7 @@ export interface UserDetailDto {
   permissionVersion: number;
   lastLoginAt?: string | null;
   roleIds: number[];
-  postIds: number[];
+  positionIds: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -214,7 +214,7 @@ export interface CreateUserRequest {
   phone?: string | null;
   deptId?: number | null;
   roleIds?: number[] | null;
-  postIds?: number[] | null;
+  positionIds?: number[] | null;
 }
 
 export interface UpdateUserRequest {
@@ -236,8 +236,8 @@ export interface AssignUserRolesRequest {
   roleIds: number[];
 }
 
-export interface AssignUserPostsRequest {
-  postIds: number[];
+export interface AssignUserPositionsRequest {
+  positionIds: number[];
 }
 
 export interface UserMutationResponse {
@@ -511,14 +511,14 @@ export interface DepartmentMutationResponse {
   id: number;
 }
 
-export interface PagedPostSummary {
-  records: PostSummaryDto[];
+export interface PagedPositionSummary {
+  records: PositionSummaryDto[];
   page: number;
   pageSize: number;
   total: number;
 }
 
-export interface PostSummaryDto {
+export interface PositionSummaryDto {
   id: number;
   code: string;
   name: string;
@@ -527,7 +527,7 @@ export interface PostSummaryDto {
   createdAt: string;
 }
 
-export interface PostDetailDto {
+export interface PositionDetailDto {
   id: number;
   code: string;
   name: string;
@@ -537,20 +537,20 @@ export interface PostDetailDto {
   updatedAt: string;
 }
 
-export interface CreatePostRequest {
+export interface CreatePositionRequest {
   name: string;
   sortOrder: number;
   status: string;
   code: string;
 }
 
-export interface UpdatePostRequest {
+export interface UpdatePositionRequest {
   name: string;
   sortOrder: number;
   status: string;
 }
 
-export interface PostMutationResponse {
+export interface PositionMutationResponse {
   id: number;
 }
 
@@ -1366,9 +1366,9 @@ export interface ApiOperations {
       response: ApiResult<SystemPingResponse>;
     };
   };
-  "/api/v1/system/posts": {
+  "/api/v1/system/positions": {
     get: {
-      response: ApiResult<PagedPostSummary>;
+      response: ApiResult<PagedPositionSummary>;
       parameters: {
         query: {
           page?: number;
@@ -1379,28 +1379,28 @@ export interface ApiOperations {
       };
     };
     post: {
-      response: ApiResult<PostMutationResponse>;
-      requestBody: CreatePostRequest;
+      response: ApiResult<PositionMutationResponse>;
+      requestBody: CreatePositionRequest;
     };
   };
-  "/api/v1/system/posts/{id:long}": {
+  "/api/v1/system/positions/{id:long}": {
     get: {
-      response: ApiResult<PostDetailDto>;
+      response: ApiResult<PositionDetailDto>;
     };
     put: {
-      response: ApiResult<PostMutationResponse>;
-      requestBody: UpdatePostRequest;
+      response: ApiResult<PositionMutationResponse>;
+      requestBody: UpdatePositionRequest;
     };
     delete: {
       response: ApiResult<Object>;
     };
   };
-  "/api/v1/system/posts/{id:long}/disable": {
+  "/api/v1/system/positions/{id:long}/disable": {
     post: {
       response: ApiResult<Object>;
     };
   };
-  "/api/v1/system/posts/{id:long}/enable": {
+  "/api/v1/system/positions/{id:long}/enable": {
     post: {
       response: ApiResult<Object>;
     };
@@ -1593,10 +1593,10 @@ export interface ApiOperations {
       response: ApiResult<Object>;
     };
   };
-  "/api/v1/system/users/{id:long}/posts": {
+  "/api/v1/system/users/{id:long}/positions": {
     put: {
       response: ApiResult<Object>;
-      requestBody: AssignUserPostsRequest;
+      requestBody: AssignUserPositionsRequest;
     };
   };
   "/api/v1/system/users/{id:long}/reset-2fa": {

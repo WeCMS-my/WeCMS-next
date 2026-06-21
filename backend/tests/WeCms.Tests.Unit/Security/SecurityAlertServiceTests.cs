@@ -1,4 +1,4 @@
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Security;
 
 namespace WeCms.Tests.Unit.Security;
 

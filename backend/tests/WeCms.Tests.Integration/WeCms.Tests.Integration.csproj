@@ -24,8 +24,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WeCms.Api\WeCms.Api.csproj" />
-    <ProjectReference Include="..\..\src\WeCms.Persistence\WeCms.Persistence.csproj" />
-    <ProjectReference Include="..\..\src\WeCms.Modules.System\WeCms.Modules.System.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.EventBus.SqlSugar\WeCms.EventBus.SqlSugar.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.AccessControl.SqlSugar\WeCms.Modules.AccessControl.SqlSugar.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.Identity\WeCms.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.Identity.SqlSugar\WeCms.Modules.Identity.SqlSugar.csproj" />
+    <ProjectReference Include="..\..\src\WeCms.Modules.Platform.SqlSugar\WeCms.Modules.Platform.SqlSugar.csproj" />
     <ProjectReference Include="..\..\src\WeCms.Infrastructure\WeCms.Infrastructure.csproj" />
   </ItemGroup>
 
@@ -38,4 +41,3 @@
   </ItemGroup>
 
 </Project>
-

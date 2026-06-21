@@ -1,8 +1,8 @@
 ﻿# WeCMS 工程落地执行计划与交付工件
 
-> 说明：本文件已按 JIT 运行时基线更新。  
-> 关联执行文档：`WeCMS_工程骨架验证文档.md`
-> 说明：当前执行阶段为 M0-BE backend-only；涉及 `frontend/**`、`pnpm`、前端 generated 类型的内容仅作为后续阶段预留，不是本阶段必交项。
+> 说明：本文件已按 JIT 运行时基线与 S14 系统基础破坏性升级最终状态更新。
+> 关联执行文档：`WeCMS_工程骨架验证文档.md`、`docs/dirs/system-foundation-development-guide.md`
+> 说明：M0-BE backend-only 是历史阶段边界；当前 active source 已进入系统基础模块拆分后的最终结构。
 
 ---
 
@@ -13,9 +13,9 @@
 当前交付基线：
 
 - 后端：ASP.NET Core Minimal APIs + .NET 10 + JIT publish/runtime
-- 数据访问：SqlSugar ORM
+- 数据访问：SqlSugar ORM + `WeCms.Data.SqlSugar` + `WeCms.Modules.*.SqlSugar`
 - 契约：OpenAPI
-- 前端：SoybeanAdmin（后移）
+- 前端：SoybeanAdmin
 
 ---
 
@@ -27,9 +27,20 @@
 - `WeCms.Api`
 - `WeCms.Shared`
 - `WeCms.Infrastructure`
-- `WeCms.Persistence`
-- `WeCms.Modules.System`
-- `WeCms.Modules.Cms`
+- `WeCms.Data.SqlSugar`
+- `WeCms.Caching`
+- `WeCms.EventBus`
+- `WeCms.Aop`
+- `WeCms.Modules.Identity`
+- `WeCms.Modules.AccessControl`
+- `WeCms.Modules.Organization`
+- `WeCms.Modules.Configuration`
+- `WeCms.Modules.Audit`
+- `WeCms.Modules.Security`
+- `WeCms.Modules.FileCenter`
+- `WeCms.Modules.Platform`
+- `WeCms.Modules.*.SqlSugar`
+- `WeCms.Modules.Cms` 仅保留为二期内容模块占位；不参与系统基础 API、OpenAPI 或质量门禁功能覆盖
 - Json serializer context
 - OpenAPI artifact
 
@@ -83,9 +94,10 @@
 - 建 Json serializer context
 - 建 Health endpoint
 
-### 阶段 B：Persistence / SqlSugar
+### 阶段 B：SqlSugar 数据平台
 
-- 约束 `WeCms.Persistence` 为唯一数据库适配层
+- 约束 `WeCms.Data.SqlSugar` 为 SqlSugar 数据平台层
+- 约束 `WeCms.Modules.*.SqlSugar` 为模块持久化适配层
 - 接入 SqlSugar ORM
 - 建 repository port / adapter 结构
 - 落数据库边界检查
@@ -118,7 +130,7 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 
 - 当前不再使用 Native AOT publish gate
 - 当前发布要求是标准 JIT publish
-- 当前 M0-BE 为 backend-only，不运行 `pnpm`，不修改 `frontend/**`
+- 当前系统基础升级允许已验收的 SoybeanAdmin 前端基础系统进入质量门禁；后端-only 任务仍不得顺带修改 `frontend/**`
 - 规则制定或规则文档修改属于文档治理例外，可不执行本节门禁
 - 上述例外仅适用于规则/流程文档本身；若伴随代码、测试、脚本或生成产物改动，则仍需完整执行门禁
 
@@ -129,10 +141,11 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 - Minimal API Only
 - `CreateSlimBuilder`
 - OpenAPI 契约优先
-- SqlSugar 仅限 `WeCms.Persistence`
+- SqlSugar / MySqlConnector / ORM Client 仅限 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
 - `WeCms.Modules.*` 不得引用 ORM / MySQL 连接器
-- 所有数据库访问只能发生在 `WeCms.Persistence`
-- Repository interface 只保留在模块层或 `WeCms.Shared`，implementation 只允许在 `WeCms.Persistence`
+- `WeCms.Modules.*` 不得持有 SQL 文本或持久化实现依赖
+- Repository interface 只保留在模块层或 `WeCms.Shared`，implementation 只允许在 `WeCms.Modules.*.SqlSugar`
+- `WeCms.Modules.System` 与 `WeCms.Persistence` 已退出 active source，不得重新引入
 - Service / UseCase 获取 Repository、UnitOfWork、Clock、Token、密码、随机数等有副作用依赖时必须通过接口 + DI
 - 禁止 `dynamic`
 - 禁止 `SELECT *`
@@ -150,7 +163,7 @@ dotnet publish backend/src/WeCms.Api/WeCms.Api.csproj -c Release -r linux-x64 --
 | Publish | `dotnet publish` | 成功 |
 | Contract | OpenAPI | 可生成 |
 | ORM | SqlSugar 边界 | 通过 |
-| Boundary | Persistence / DI / Layer Audit | 通过 |
-| Frontend | typecheck / lint / build | 后续前端阶段如涉及再执行 |
+| Boundary | Data.SqlSugar / DI / Layer Audit | 通过 |
+| Frontend | typecheck / lint / build | 涉及前端时必须通过 |
 | Audit | 当前任务审计 | 通过 |
 | Final Audit | 本次改动范围最终总审计 | 通过 |

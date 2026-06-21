@@ -1,8 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Files;
-using WeCms.Modules.System.TwoFactor;
+using WeCms.Api.Files;
+using WeCms.Modules.FileCenter.Files;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -183,14 +182,17 @@ public sealed class AccountProfileServiceTests
         FakeUnitOfWork? unitOfWork = null,
         FakeUserTwoFactorRepository? twoFactorRepository = null)
     {
+        var fileStorage = storage ?? new FakeFileStorage();
+        var fileScanner = scanner ?? new CleanFileScanService();
         return new AccountProfileService(
             repository ?? new FakeAccountProfileRepository(),
             twoFactorRepository ?? new FakeUserTwoFactorRepository(),
             new PasswordHasher(),
-            storage ?? new FakeFileStorage(),
-            scanner ?? new CleanFileScanService(),
-            new FakeObjectKeyGenerator(),
-            new FakeFileUploadPolicyResolver(),
+            new AccountAvatarFileService(
+                fileStorage,
+                fileScanner,
+                new FakeObjectKeyGenerator(),
+                new FakeFileUploadPolicyResolver()),
             unitOfWork ?? new FakeUnitOfWork());
     }
 

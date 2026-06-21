@@ -107,7 +107,7 @@ Run: `rg -n "ExecuteCommandAsync\\(" backend/src/WeCms.Persistence/Modules/Syste
 ### Task 4: P1-002 File preview Content-Disposition hardening
 
 **Files:**
-- Modify: `backend/src/WeCms.Modules.System/Files/FileEndpoints.cs`
+- Modify: `backend/src/WeCms.Modules.FileCenter/Files/FileEndpoints.cs`
 - Modify: related validation/service files if required by existing layering
 - Add/Modify tests: file endpoint/service tests
 
@@ -134,7 +134,7 @@ Run:
 
 **Step 5: Audit**
 
-Run: `rg -n "ContentDisposition|filename\\*" backend/src/WeCms.Modules.System/Files backend/tests -S`
+Run: `rg -n "ContentDisposition|filename\\*" backend/src/WeCms.Modules.FileCenter/Files backend/tests -S`
 
 ### Task 5: P1-003 Local development port consistency
 

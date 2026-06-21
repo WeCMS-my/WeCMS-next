@@ -2,9 +2,9 @@ using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using WeCms.Api.Middleware;
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Menus;
-using WeCms.Modules.System.Security;
+using WeCms.Modules.Identity.Services;
+using WeCms.Modules.AccessControl.Menus;
+using WeCms.Modules.Security;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Unit.Api;

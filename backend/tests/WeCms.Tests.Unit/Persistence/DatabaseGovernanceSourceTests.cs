@@ -54,13 +54,13 @@ public sealed class DatabaseGovernanceSourceTests
     }
 
     [Fact]
-    public async Task PersistenceRegistration_CanUseMigrationConnectionString()
+    public async Task SqlSugarDataRegistration_CanUseMigrationConnectionString()
     {
-        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Persistence", "Data", "PersistenceServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Data.SqlSugar", "SqlSugarDataServiceCollectionExtensions.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("useMigrationConnectionString", source, StringComparison.Ordinal);
         Assert.Contains("GetConnectionString(\"Migration\")", source, StringComparison.Ordinal);
-        Assert.Contains("DatabaseOptions.FromConfiguration", source, StringComparison.Ordinal);
+        Assert.Contains("DatabasePlatformOptions", source, StringComparison.Ordinal);
     }
 
     private static string RepoPath(params string[] segments)

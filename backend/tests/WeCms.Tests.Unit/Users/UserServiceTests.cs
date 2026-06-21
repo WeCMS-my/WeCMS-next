@@ -1,7 +1,5 @@
-using WeCms.Modules.System.Auth;
-using WeCms.Modules.System.Permissions;
-using WeCms.Modules.System.TwoFactor;
-using WeCms.Modules.System.Users;
+using WeCms.Modules.Organization;
+using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Shared;
 using WeCms.Shared.Data;
 
@@ -108,6 +106,47 @@ public sealed class UserServiceTests
         await service.AssignRolesAsync(1, new AssignUserRolesRequest([9]), Context(actorUserId: 2), CancellationToken.None);
 
         Assert.True(repository.RolesWereReplaced);
+    }
+
+    [Fact]
+    public async Task CreateAsync_UsesOrganizationLookupForDepartmentAndPositions()
+    {
+        var lookup = new FakeOrganizationLookupService();
+        var service = CreateService(new FakeUserRepository(), organizationLookupService: lookup);
+
+        await service.CreateAsync(
+            new CreateUserRequest("operator", "Operator", "Password@123", null, null, 7, [], [3, 3, 4]),
+            Context(actorUserId: 2),
+            CancellationToken.None);
+
+        Assert.Equal(new long[] { 7 }, lookup.CheckedDepartmentIds);
+        Assert.Equal(new long[] { 3, 4 }, lookup.CheckedPositionIds);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RejectsUnknownDepartmentFromOrganizationLookup()
+    {
+        var lookup = new FakeOrganizationLookupService { DepartmentExists = false };
+        var service = CreateService(new FakeUserRepository(), organizationLookupService: lookup);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.UpdateAsync(1, new UpdateUserRequest("Operator", null, null, 7), Context(actorUserId: 2), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal(new long[] { 7 }, lookup.CheckedDepartmentIds);
+    }
+
+    [Fact]
+    public async Task AssignPositionsAsync_RejectsUnknownPositionsFromOrganizationLookup()
+    {
+        var lookup = new FakeOrganizationLookupService { ExistingPositionIds = new HashSet<long> { 3 } };
+        var service = CreateService(new FakeUserRepository(), organizationLookupService: lookup);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(
+            () => service.AssignPositionsAsync(1, new AssignUserPositionsRequest([3, 4]), Context(actorUserId: 2), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal(new long[] { 3, 4 }, lookup.CheckedPositionIds);
     }
 
     [Fact]
@@ -219,14 +258,18 @@ public sealed class UserServiceTests
     private static UserService CreateService(
         FakeUserRepository repository,
         FakeTwoFactorService? twoFactorService = null,
-        FakeUnitOfWork? unitOfWork = null)
+        FakeUnitOfWork? unitOfWork = null,
+        IOrganizationLookupService? organizationLookupService = null)
     {
         return new UserService(
             repository,
             new FakePasswordHasher(),
             unitOfWork ?? new FakeUnitOfWork(),
             twoFactorService ?? new FakeTwoFactorService(),
-            new FakePermissionVersionService());
+            new FakePermissionVersionService(),
+            organizationLookupService ?? new FakeOrganizationLookupService(),
+            new WeCms.Tests.Unit.NullOutboxWriter(),
+            new WeCms.Tests.Unit.FixedTestIdGenerator());
     }
 
     private static UserRequestContext Context(long actorUserId)
@@ -319,9 +362,7 @@ public sealed class UserServiceTests
         public Task<bool> UsernameExistsAsync(string username, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> EmailExistsAsync(string email, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> PhoneExistsAsync(string phone, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);
-        public Task<bool> DeptExistsAsync(long deptId, CancellationToken cancellationToken) => Task.FromResult(true);
         public Task<IReadOnlySet<long>> ExistingRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlySet<long>>(roleIds.ToHashSet());
-        public Task<IReadOnlySet<long>> ExistingPostIdsAsync(IReadOnlyList<long> postIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlySet<long>>(postIds.ToHashSet());
         public Task<long> CreateAsync(UserCreateRecord record, CancellationToken cancellationToken) => Task.FromResult(2L);
         public Task UpdateAsync(UserUpdateRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken)
@@ -358,7 +399,7 @@ public sealed class UserServiceTests
             return Task.CompletedTask;
         }
 
-        public Task ReplacePostsAsync(long id, IReadOnlyList<long> postIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ReplacePositionsAsync(long id, IReadOnlyList<long> positionIds, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<IReadOnlyList<long>> ListLockedRoleIdsByUserAsync(long userId, CancellationToken cancellationToken) => Task.FromResult(CurrentLockedRoleIds);
         public Task<IReadOnlySet<long>> ExistingLockedRoleIdsAsync(IReadOnlyList<long> roleIds, CancellationToken cancellationToken) => Task.FromResult(RequestedLockedRoleIds);
         public Task<int> CountEnabledUsersByRoleForUpdateAsync(long roleId, CancellationToken cancellationToken)
@@ -380,6 +421,26 @@ public sealed class UserServiceTests
             LastSecurityEventType = record.EventType;
             LastSecurityEventMessage = record.Message;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeOrganizationLookupService : IOrganizationLookupService
+    {
+        public bool DepartmentExists { get; init; } = true;
+        public IReadOnlySet<long>? ExistingPositionIds { get; init; }
+        public List<long> CheckedDepartmentIds { get; } = [];
+        public IReadOnlyList<long> CheckedPositionIds { get; private set; } = [];
+
+        public Task<bool> DepartmentExistsAsync(long departmentId, CancellationToken cancellationToken)
+        {
+            CheckedDepartmentIds.Add(departmentId);
+            return Task.FromResult(DepartmentExists);
+        }
+
+        public Task<IReadOnlySet<long>> ExistingPositionIdsAsync(IReadOnlyList<long> positionIds, CancellationToken cancellationToken)
+        {
+            CheckedPositionIds = positionIds.ToArray();
+            return Task.FromResult(ExistingPositionIds ?? positionIds.ToHashSet());
         }
     }
 
@@ -419,7 +480,7 @@ public sealed class UserServiceTests
         }
     }
 
-    private sealed class FakePermissionVersionService : IPermissionVersionService
+    private sealed class FakePermissionVersionService : IIdentityPermissionVersionService
     {
         public Task BumpUserAsync(long userId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task BumpUsersByRoleAsync(long roleId, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;

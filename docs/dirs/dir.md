@@ -19,8 +19,20 @@
       WeCms.Api/
       WeCms.Shared/
       WeCms.Infrastructure/
-      WeCms.Modules.System/
-      WeCms.Modules.Cms/
+      WeCms.Data.SqlSugar/
+      WeCms.Caching/
+      WeCms.EventBus/
+      WeCms.Aop/
+      WeCms.Modules.Identity/
+      WeCms.Modules.AccessControl/
+      WeCms.Modules.Organization/
+      WeCms.Modules.Configuration/
+      WeCms.Modules.Audit/
+      WeCms.Modules.Security/
+      WeCms.Modules.FileCenter/
+      WeCms.Modules.Platform/
+      WeCms.Modules.*.SqlSugar/
+      WeCms.Modules.Cms/        # 二期内容模块占位，系统基础升级期间不启用
     tests/
       WeCms.Tests.Unit/
       WeCms.Tests.Integration/
@@ -31,7 +43,7 @@
   database/
     migrations/
     seeds/
-    legacy-migration/
+    legacy-reference/
 
   scripts/
     codex/
@@ -47,5 +59,4 @@
     reports/
       deepseek/
       migration/
-
 

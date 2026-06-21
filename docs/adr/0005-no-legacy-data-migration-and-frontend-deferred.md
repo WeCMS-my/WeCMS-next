@@ -19,7 +19,7 @@ Accepted
 5. 不保留旧密码 hash 登录兼容。
 6. 不实现 `password_migrated_at` 登录升级流程。
 7. 不迁移旧 token、session、2FA secret、backup code、SMTP 密码、auth_key。
-8. `database/legacy-migration` 仅保留 Schema 对照和设计说明，不执行真实数据迁移。
+8. `database/legacy-reference` 仅保留 Schema 对照和设计说明，不执行真实数据迁移。
 
 ## 影响
 
@@ -49,7 +49,7 @@ M0-BE 保留：
 
 补充约束：
 
-- 所有数据库访问必须集中在 `WeCms.Persistence`
+- 数据库/ORM/连接器必须集中在 `WeCms.Data.SqlSugar` 与 `WeCms.Modules.*.SqlSugar`
 - `WeCms.Modules.*` 只保留 repository port / 业务抽象，不保留 SQL、ORM Client、数据库连接或持久化实现依赖
 - 业务服务只能通过接口 + DI 获取 Repository、UnitOfWork、密码、Token、时钟、随机数等有副作用依赖
 
@@ -59,5 +59,3 @@ M0-BE 移除：
 - 旧密码兼容
 - 旧 token 兼容
 - 旧 2FA secret 迁移
-
-

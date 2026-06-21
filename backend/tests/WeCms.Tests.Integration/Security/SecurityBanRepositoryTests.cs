@@ -1,8 +1,7 @@
 using SqlSugar;
-using WeCms.Modules.System.Security;
-using WeCms.Persistence.Data;
-using WeCms.Persistence.Migration;
-using WeCms.Persistence.Modules.System.Security;
+using WeCms.Modules.Security;
+using WeCms.Modules.Security.SqlSugar.Repositories;
+using WeCms.Data.SqlSugar;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Integration.Security;
