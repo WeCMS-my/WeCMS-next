@@ -18,8 +18,8 @@ public sealed class S8AuditMigrationTests
         };
 
         var violations = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(oldSystemRoot, "*.cs", SearchOption.AllDirectories)
-                     .Concat(Directory.EnumerateFiles(oldPersistenceRoot, "*.cs", SearchOption.AllDirectories)))
+        foreach (var file in EnumerateSourceFiles(oldSystemRoot)
+                     .Concat(EnumerateSourceFiles(oldPersistenceRoot)))
         {
             var source = await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken);
             foreach (var token in forbiddenTokens)
@@ -113,5 +113,18 @@ public sealed class S8AuditMigrationTests
             .Select(include => Path.GetFileNameWithoutExtension(include!.Replace('\\', Path.DirectorySeparatorChar)))
             .Order(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static IEnumerable<string> EnumerateSourceFiles(string root)
+    {
+        if (!Directory.Exists(root))
+        {
+            return [];
+        }
+
+        return Directory
+            .EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(filePath => !filePath.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !filePath.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
     }
 }
