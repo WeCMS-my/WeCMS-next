@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Modules.AccessControl.Records;
+using WeCms.Shared.Endpoints;
 using WeCms.Modules.Platform.Permissions;
 using WeCms.Modules.FileCenter.Files;
 using WeCms.Shared;
@@ -70,6 +71,27 @@ public sealed class PermissionEndpointFilterTests
         Assert.Equal("permission_denied", writer.LastRecord?.EventType);
         Assert.Equal(42, writer.LastRecord?.UserId);
         Assert.Equal("trace-test", writer.LastRecord?.TraceId);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CallsNextWithEndpointPermissionMetadata()
+    {
+        var (httpContext, filterContext) = CreateContextWithEndpointPermissionMetadata(PermissionCheckResult.Allowed, userId: 42);
+        var filter = CreateFilter(httpContext);
+        var called = false;
+
+        var result = await filter.InvokeAsync(filterContext, _ =>
+        {
+            called = true;
+
+            return ValueTask.FromResult<object?>("allowed");
+        });
+
+        Assert.True(called);
+        Assert.Equal("allowed", result);
+        var checker = Assert.IsType<FakePermissionChecker>(httpContext.RequestServices.GetRequiredService<IPermissionChecker>());
+        Assert.Equal(42, checker.LastUserId);
+        Assert.Equal(PlatformPermissions.SecurePing, checker.LastPermissionCode);
     }
 
     [Fact]
@@ -154,7 +176,47 @@ public sealed class PermissionEndpointFilterTests
         httpContext.Response.Body = new MemoryStream();
         httpContext.SetEndpoint(new Endpoint(
             _ => Task.CompletedTask,
-            new EndpointMetadataCollection(new PermissionMetadata(permissionCode)),
+            new EndpointMetadataCollection(new EndpointPermissionMetadata(permissionCode, EndpointPermissionKind.Api)),
+            "secure-ping-test"));
+
+        if (userId is not null)
+        {
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))],
+                authenticationType: "unit-test"));
+        }
+
+        return (httpContext, new TestEndpointFilterInvocationContext(httpContext));
+    }
+
+    private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContextWithEndpointPermissionMetadata(
+        PermissionCheckResult result,
+        long? userId)
+    {
+        return CreateContextWithEndpointPermissionMetadata(result, PlatformPermissions.SecurePing, userId);
+    }
+
+    private static (DefaultHttpContext HttpContext, EndpointFilterInvocationContext FilterContext) CreateContextWithEndpointPermissionMetadata(
+        PermissionCheckResult result,
+        string permissionCode,
+        long? userId)
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<IPermissionChecker>(new FakePermissionChecker(result))
+            .AddSingleton<IPermissionSecurityEventWriter, FakePermissionSecurityEventWriter>()
+            .AddSingleton<IAccessControlClock>(new FakeAccessControlClock(new DateTimeOffset(2026, 6, 19, 0, 0, 0, TimeSpan.Zero)))
+            .BuildServiceProvider();
+
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services,
+            TraceIdentifier = "trace-test"
+        };
+        httpContext.Response.Body = new MemoryStream();
+        httpContext.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new EndpointPermissionMetadata(permissionCode, EndpointPermissionKind.Api)),
             "secure-ping-test"));
 
         if (userId is not null)

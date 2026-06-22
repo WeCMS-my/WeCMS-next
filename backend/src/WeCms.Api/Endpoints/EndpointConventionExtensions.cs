@@ -12,4 +12,12 @@ public static class EndpointConventionExtensions
 
         return builder.WithMetadata(new EndpointModuleMetadata(moduleName));
     }
+
+    public static RouteGroupBuilder WithEndpointModule(this RouteGroupBuilder builder, string moduleName)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
+
+        return builder.WithMetadata(new EndpointModuleMetadata(moduleName));
+    }
 }

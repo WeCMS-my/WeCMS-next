@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using WeCms.Modules.AccessControl.Records;
+using WeCms.Shared.Endpoints;
 using WeCms.Shared;
 
 namespace WeCms.Modules.AccessControl.Permissions;
@@ -25,8 +26,19 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
     {
-        var metadata = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<PermissionMetadata>()
-            ?? throw new InvalidOperationException("PermissionMetadata is required.");
+        var endpointMetadata = context.HttpContext.GetEndpoint()?.Metadata;
+        if (endpointMetadata is null)
+        {
+            throw new InvalidOperationException("Endpoint metadata is required.");
+        }
+
+        var metadata = endpointMetadata.GetMetadata<EndpointPermissionMetadata>();
+        if (metadata is null)
+        {
+            throw new InvalidOperationException("EndpointPermissionMetadata is required.");
+        }
+
+        var permissionCode = metadata.PermissionCode;
         var userIdValue = context.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!long.TryParse(userIdValue, out var userId))
         {
@@ -35,13 +47,13 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
                 statusCode: ApiCodes.ToHttpStatus(ApiCodes.Unauthorized));
         }
 
-        var result = await _checker.CheckAsync(userId, metadata.Code, context.HttpContext.RequestAborted);
+        var result = await _checker.CheckAsync(userId, permissionCode, context.HttpContext.RequestAborted);
         if (result == PermissionCheckResult.UserDisabled)
         {
             await RecordDeniedAsync(
                 context.HttpContext,
                 userId,
-                metadata.Code,
+                permissionCode,
                 "User account is disabled.",
                 context.HttpContext.RequestAborted);
             return Results.Json(
@@ -54,7 +66,7 @@ public sealed class PermissionEndpointFilter : IEndpointFilter
             await RecordDeniedAsync(
                 context.HttpContext,
                 userId,
-                metadata.Code,
+                permissionCode,
                 "Permission denied.",
                 context.HttpContext.RequestAborted);
             return Results.Json(

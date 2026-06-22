@@ -5,6 +5,14 @@ namespace WeCms.Api.Endpoints;
 
 public static class EndpointAuditExtensions
 {
+    public static RouteGroupBuilder AuditWriteEndpoints(
+        this RouteGroupBuilder builder,
+        string module,
+        string resource)
+    {
+        return EndpointMetadataConventionExtensions.AuditWriteEndpoints(builder, module, resource);
+    }
+
     public static RouteHandlerBuilder Audit(
         this RouteHandlerBuilder builder,
         string module,

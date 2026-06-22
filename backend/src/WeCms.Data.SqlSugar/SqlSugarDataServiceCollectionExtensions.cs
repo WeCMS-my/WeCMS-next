@@ -38,6 +38,7 @@ public static class SqlSugarDataServiceCollectionExtensions
         services.AddScoped<IQueryFilterBypassAuditSink, NullQueryFilterBypassAuditSink>();
         services.AddScoped<QueryFilterBypass>();
         services.AddScoped<IQueryFilterContextAccessor, AmbientQueryFilterContextAccessor>();
+        services.AddScoped<ICacheTenantAccessor, QueryFilterContextTenantAccessor>();
         services.AddScoped<QueryFilterRegistrar>();
         services.AddScoped<IQueryFilterRegistrar>(sp => sp.GetRequiredService<QueryFilterRegistrar>());
         services.AddScoped<ISqlSugarQueryFilterRegistrar>(sp => sp.GetRequiredService<QueryFilterRegistrar>());

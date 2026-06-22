@@ -1,18 +1,24 @@
+using System.Collections.Generic;
+using System.Linq;
 using SqlSugar;
+using WeCms.Shared.Data;
 
 namespace WeCms.Data.SqlSugar;
 
 public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
 {
     private readonly SqlAuditRecorder _recorder;
+    private readonly IReadOnlySet<string> _softDeleteTables;
     private readonly IReadOnlyList<ISqlTimingRecorder> _timingRecorders;
     private readonly SqlAuditRedactor _redactor = new();
 
     public SqlSugarSqlAuditRegistrar(
         SqlAuditRecorder recorder,
+        ICodeFirstModelRegistry codeFirstModelRegistry,
         IEnumerable<ISqlTimingRecorder>? timingRecorders = null)
     {
         _recorder = recorder ?? throw new ArgumentNullException(nameof(recorder));
+        _softDeleteTables = BuildSoftDeleteTableNames(codeFirstModelRegistry);
         _timingRecorders = (timingRecorders ?? []).ToArray();
     }
 
@@ -21,6 +27,9 @@ public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
         ArgumentNullException.ThrowIfNull(db);
 
         var connectionName = db.CurrentConnectionConfig.ConfigId?.ToString() ?? "default";
+
+        db.Aop.OnLogExecuting = (sql, _) =>
+            RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(SqlSugarSqlAuditRegistrar), _softDeleteTables);
 
         db.Aop.OnLogExecuted = (sql, parameters) =>
         {
@@ -43,6 +52,44 @@ public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
                 exception);
             RecordSqlTiming(connectionName, exception.Sql, sugarParameters, TimeSpan.Zero, exception);
         };
+    }
+
+    private static IReadOnlySet<string> BuildSoftDeleteTableNames(ICodeFirstModelRegistry codeFirstModelRegistry)
+    {
+        ArgumentNullException.ThrowIfNull(codeFirstModelRegistry);
+
+        var tableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var modelType in codeFirstModelRegistry.GetModelTypes())
+        {
+            if (!typeof(ISoftDeleteEntity).IsAssignableFrom(modelType))
+            {
+                continue;
+            }
+
+            tableNames.Add(ResolveTableName(modelType));
+        }
+
+        return tableNames;
+    }
+
+    private static string ResolveTableName(Type modelType)
+    {
+        foreach (var attribute in modelType.GetCustomAttributes(inherit: false))
+        {
+            var attributeType = attribute.GetType();
+            if (attributeType.Name is not ("SugarTable" or "SugarTableAttribute"))
+            {
+                continue;
+            }
+
+            var tableName = attributeType.GetProperty("TableName")?.GetValue(attribute) as string;
+            if (!string.IsNullOrWhiteSpace(tableName))
+            {
+                return tableName;
+            }
+        }
+
+        throw new InvalidOperationException($"CodeFirst model {modelType.FullName} must declare SugarTable.");
     }
 
     private void RecordSqlTiming(

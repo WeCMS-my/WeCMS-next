@@ -134,7 +134,6 @@ public sealed class AccessControlContractMigrationTests
             Path.Combine(AccessControlRoot, "Permissions", "IPermissionChecker.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionChecker.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionEndpointFilter.cs"),
-            Path.Combine(AccessControlRoot, "Permissions", "PermissionMetadata.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "EndpointPermissionDeniedRecorder.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "IPermissionManagementService.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionManagementService.cs"),

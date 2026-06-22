@@ -1,12 +1,30 @@
 using SqlSugar;
+using WeCms.Data.SqlSugar;
 
 namespace WeCms.Modules.Identity.SqlSugar.Repositories;
 
 public sealed partial class UserRepository
 {
-    private async Task ExecuteOptionalAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
+    private async Task ExecuteOptionalAsync(
+        string sql,
+        CancellationToken cancellationToken,
+        params SugarParameter[] parameters)
+    {
+        await ExecuteOptionalAsync(sql, cancellationToken, requireDeletedAtFilter: false, parameters);
+    }
+
+    private async Task ExecuteOptionalAsync(
+        string sql,
+        CancellationToken cancellationToken,
+        bool requireDeletedAtFilter = false,
+        params SugarParameter[] parameters)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requireDeletedAtFilter)
+        {
+            RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(ExecuteOptionalAsync));
+        }
+
         var rows = await _db.Ado.ExecuteCommandAsync(sql, parameters);
         if (rows < 0)
         {
@@ -19,6 +37,7 @@ public sealed partial class UserRepository
         cancellationToken.ThrowIfCancellationRequested();
 
         var sql = $"SELECT COUNT(1) FROM sys_user WHERE {column} = @value AND deleted_at IS NULL";
+        RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(ExistsAsync));
         var parameters = new List<SugarParameter> { new("@value", value) };
         if (exceptUserId is not null)
         {
@@ -54,15 +73,16 @@ public sealed partial class UserRepository
     private async Task EnsureActiveUserExistsAsync(long id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var sql =
+            """
+            SELECT COUNT(1)
+            FROM sys_user
+            WHERE id = @id
+              AND deleted_at IS NULL
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(EnsureActiveUserExistsAsync));
         var total = Convert.ToInt32(
-            await _db.Ado.GetScalarAsync(
-                """
-                SELECT COUNT(1)
-                FROM sys_user
-                WHERE id = @id
-                  AND deleted_at IS NULL
-                """,
-                new SugarParameter("@id", id)),
+            await _db.Ado.GetScalarAsync(sql, new SugarParameter("@id", id)),
             global::System.Globalization.CultureInfo.InvariantCulture);
         if (total != 1)
         {
@@ -70,9 +90,26 @@ public sealed partial class UserRepository
         }
     }
 
-    private async Task ExpectOneAsync(string sql, CancellationToken cancellationToken, params SugarParameter[] parameters)
+    private async Task ExpectOneAsync(
+        string sql,
+        CancellationToken cancellationToken,
+        params SugarParameter[] parameters)
+    {
+        await ExpectOneAsync(sql, cancellationToken, requireDeletedAtFilter: false, parameters);
+    }
+
+    private async Task ExpectOneAsync(
+        string sql,
+        CancellationToken cancellationToken,
+        bool requireDeletedAtFilter = false,
+        params SugarParameter[] parameters)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requireDeletedAtFilter)
+        {
+            RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(ExpectOneAsync));
+        }
+
         var rows = await _db.Ado.ExecuteCommandAsync(sql, parameters);
         if (rows != 1)
         {

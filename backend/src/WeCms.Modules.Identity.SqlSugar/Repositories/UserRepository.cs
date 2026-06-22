@@ -2,6 +2,7 @@ using SqlSugar;
 using WeCms.Shared;
 using WeCms.Shared.Id;
 using WeCms.Shared.Security;
+using WeCms.Data.SqlSugar;
 
 namespace WeCms.Modules.Identity.SqlSugar.Repositories;
 
@@ -42,15 +43,15 @@ public sealed partial class UserRepository : IUserRepository
             parameters.Add(new SugarParameter("@deptId", criteria.DeptId.Value));
         }
 
-        var total = Convert.ToInt64(await _db.Ado.GetScalarAsync(
-            $"SELECT COUNT(1) FROM sys_user u {where}",
-            parameters), global::System.Globalization.CultureInfo.InvariantCulture);
+        var totalSql = $"SELECT COUNT(1) FROM sys_user u {where}";
+        RawSqlFilterGuard.RequireDeletedAtFilter(totalSql, nameof(ListAsync));
+        var total = Convert.ToInt64(await _db.Ado.GetScalarAsync(totalSql, parameters), global::System.Globalization.CultureInfo.InvariantCulture);
 
         var offset = (criteria.Page - 1) * criteria.PageSize;
         parameters.Add(new SugarParameter("@offset", offset));
         parameters.Add(new SugarParameter("@pageSize", criteria.PageSize));
 
-        var rows = await _db.Ado.SqlQueryAsync<UserSummaryRow>(
+        var rowsSql =
             $"""
             SELECT u.id AS Id,
                    u.username AS Username,
@@ -66,7 +67,10 @@ public sealed partial class UserRepository : IUserRepository
             {where}
             ORDER BY u.id DESC
             LIMIT @pageSize OFFSET @offset
-            """,
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(rowsSql, nameof(ListAsync));
+        var rows = await _db.Ado.SqlQueryAsync<UserSummaryRow>(
+            rowsSql,
             parameters);
 
         return new PagedResult<UserSummaryDto>(
@@ -80,7 +84,7 @@ public sealed partial class UserRepository : IUserRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var row = await _db.Ado.SqlQuerySingleAsync<UserDetailRow>(
+        var rowSql =
             """
             SELECT u.id AS Id,
                    u.username AS Username,
@@ -98,7 +102,10 @@ public sealed partial class UserRepository : IUserRepository
             WHERE u.id = @id
               AND u.deleted_at IS NULL
             LIMIT 1
-            """,
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(rowSql, nameof(GetAsync));
+        var row = await _db.Ado.SqlQuerySingleAsync<UserDetailRow>(
+            rowSql,
             new SugarParameter("@id", id));
 
         if (row is null)
@@ -185,6 +192,7 @@ public sealed partial class UserRepository : IUserRepository
               AND deleted_at IS NULL
             """,
             cancellationToken,
+            requireDeletedAtFilter: true,
             new SugarParameter("@displayName", record.DisplayName),
             new SugarParameter("@email", record.Email),
             new SugarParameter("@phone", record.Phone),
@@ -207,6 +215,7 @@ public sealed partial class UserRepository : IUserRepository
               AND deleted_at IS NULL
             """,
             cancellationToken,
+            requireDeletedAtFilter: true,
             new SugarParameter("@deletedAt", now.UtcDateTime),
             new SugarParameter("@updatedAt", now.UtcDateTime),
             new SugarParameter("@id", id));
@@ -223,6 +232,7 @@ public sealed partial class UserRepository : IUserRepository
               AND deleted_at IS NULL
             """,
             cancellationToken,
+            requireDeletedAtFilter: true,
             new SugarParameter("@status", status),
             new SugarParameter("@updatedAt", now.UtcDateTime),
             new SugarParameter("@id", id));
@@ -255,6 +265,7 @@ public sealed partial class UserRepository : IUserRepository
               AND deleted_at IS NULL
             """,
             cancellationToken,
+            requireDeletedAtFilter: true,
             new SugarParameter("@passwordHash", passwordHash),
             new SugarParameter("@securityStamp", _idGenerator.NewId()),
             new SugarParameter("@updatedAt", now.UtcDateTime),
@@ -274,10 +285,11 @@ public sealed partial class UserRepository : IUserRepository
         {
             await ExpectOneAsync(
                 "INSERT INTO sys_user_role (user_id, role_id, created_at) VALUES (@id, @roleId, @createdAt)",
-                cancellationToken,
-                new SugarParameter("@id", id),
-                new SugarParameter("@roleId", roleId),
-                new SugarParameter("@createdAt", now.UtcDateTime));
+            cancellationToken,
+            requireDeletedAtFilter: false,
+            new SugarParameter("@id", id),
+            new SugarParameter("@roleId", roleId),
+            new SugarParameter("@createdAt", now.UtcDateTime));
         }
 
     }
@@ -295,10 +307,11 @@ public sealed partial class UserRepository : IUserRepository
         {
             await ExpectOneAsync(
                 "INSERT INTO sys_user_position (user_id, position_id, created_at) VALUES (@id, @positionId, @createdAt)",
-                cancellationToken,
-                new SugarParameter("@id", id),
-                new SugarParameter("@positionId", positionId),
-                new SugarParameter("@createdAt", now.UtcDateTime));
+            cancellationToken,
+            requireDeletedAtFilter: false,
+            new SugarParameter("@id", id),
+            new SugarParameter("@positionId", positionId),
+            new SugarParameter("@createdAt", now.UtcDateTime));
         }
     }
 
@@ -306,7 +319,7 @@ public sealed partial class UserRepository : IUserRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        return await _db.Ado.SqlQueryAsync<long>(
+        var lockRoleIdsSql =
             """
             SELECT r.id
             FROM sys_role r
@@ -316,7 +329,10 @@ public sealed partial class UserRepository : IUserRepository
               AND r.deleted_at IS NULL
             ORDER BY r.id
             FOR UPDATE
-            """,
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(lockRoleIdsSql, nameof(ListLockedRoleIdsByUserAsync));
+        return await _db.Ado.SqlQueryAsync<long>(
+            lockRoleIdsSql,
             new SugarParameter("@userId", userId));
     }
 
@@ -330,14 +346,17 @@ public sealed partial class UserRepository : IUserRepository
 
         var parameters = roleIds.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
         var placeholders = string.Join(", ", parameters.Select(parameter => parameter.ParameterName));
-        var rows = await _db.Ado.SqlQueryAsync<long>(
+        var rowsSql =
             $"""
             SELECT id
             FROM sys_role
             WHERE id IN ({placeholders})
               AND is_locked = TRUE
               AND deleted_at IS NULL
-            """,
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(rowsSql, nameof(ExistingLockedRoleIdsAsync));
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            rowsSql,
             parameters);
 
         return rows.ToHashSet();
@@ -347,7 +366,7 @@ public sealed partial class UserRepository : IUserRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var rows = await _db.Ado.SqlQueryAsync<long>(
+        var rowsSql =
             """
             SELECT u.id
             FROM sys_user u
@@ -357,7 +376,10 @@ public sealed partial class UserRepository : IUserRepository
               AND u.deleted_at IS NULL
             ORDER BY u.id
             FOR UPDATE
-            """,
+            """;
+        RawSqlFilterGuard.RequireDeletedAtFilter(rowsSql, nameof(CountEnabledUsersByRoleForUpdateAsync));
+        var rows = await _db.Ado.SqlQueryAsync<long>(
+            rowsSql,
             new SugarParameter("@roleId", roleId));
 
         return rows.Count;

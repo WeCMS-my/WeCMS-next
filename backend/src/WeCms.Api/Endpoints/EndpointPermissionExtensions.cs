@@ -5,6 +5,13 @@ namespace WeCms.Api.Endpoints;
 
 public static class EndpointPermissionExtensions
 {
+    public static RouteHandlerBuilder RequireEndpointPermission(
+        this RouteHandlerBuilder builder,
+        string permissionCode)
+    {
+        return EndpointPermissionRuntimeExtensions.RequireEndpointPermission(builder, permissionCode);
+    }
+
     public static RouteHandlerBuilder RequirePermission(
         this RouteHandlerBuilder builder,
         string permissionCode)
@@ -34,6 +41,8 @@ public static class EndpointPermissionExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(permissionCode);
 
-        return builder.WithMetadata(new EndpointPermissionMetadata(permissionCode, kind));
+        return builder
+            .WithMetadata(new EndpointPermissionMetadata(permissionCode, kind))
+            .AddEndpointFilter<EndpointPermissionFilter>();
     }
 }
