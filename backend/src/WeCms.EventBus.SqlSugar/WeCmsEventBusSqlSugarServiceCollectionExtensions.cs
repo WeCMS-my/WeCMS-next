@@ -12,6 +12,7 @@ public static class WeCmsEventBusSqlSugarServiceCollectionExtensions
         services.AddSingleton<ICodeFirstModelProvider, EventBusCodeFirstModelProvider>();
         services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
         services.AddScoped<IOutboxWriter, SqlSugarOutboxWriter>();
+        services.AddHostedService<OutboxDispatcherHostedService>();
 
         return services;
     }
