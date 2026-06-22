@@ -31,6 +31,7 @@ Use one copy of this checklist per release. Do not record secrets, passwords, to
 - [ ] Database backup completed using `docs/runbooks/database-backup-restore.md`.
 - [ ] Migration plan reviewed, including `--migrate` command and expected migration versions.
 - [ ] Migration SQL and seed SQL reviewed against `docs/ops/database-production.md`; production startup automatic DDL remains disabled.
+- [ ] System foundation operations reviewed against `docs/ops/system-foundation-operations.md`, including OpenAPI, audit, security events, Outbox, cache, and health checks.
 - [ ] `appsettings` and environment variables reviewed against `docs/ops/production-configuration.md`.
 - [ ] Secrets verified in the production secret store, without copying values into the release record.
 - [ ] File storage directory exists and is writable by API process (example: `sudo mkdir -p /var/lib/wecms/files` then `sudo chown -R wecms:wecms /var/lib/wecms/files` as reviewed in `docs/ops/file-storage-production.md`).

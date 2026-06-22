@@ -20,4 +20,5 @@ Follow these rules for new raw SQL:
 - Prefer `SoftDeleteSqlPredicateBuilder` for soft-delete predicates.
 - Prefer `TenantSqlPredicateBuilder` for tenant predicates.
 - Prefer `DataScopeSqlPredicateBuilder` for data-scope predicates.
+- If a new guarded raw SQL block cannot use a PredicateBuilder, add an explicit exception comment with the reason and a targeted test.
 - Add dedicated tests for complex SQL, including nested subqueries, repeated aliases, complex CTEs, `UNION` / `UNION ALL`, SQL-like text inside database functions, or dialect-specific syntax.

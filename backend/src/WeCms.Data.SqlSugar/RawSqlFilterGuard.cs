@@ -20,6 +20,12 @@ public static class RawSqlFilterGuard
     private static readonly Regex StatementTypePattern = new(
         @"^\s*(SELECT|UPDATE|DELETE|INSERT|WITH)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex UnionPattern = new(
+        @"\bUNION(?:\s+ALL)?\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex SubqueryPattern = new(
+        @"\(\s*SELECT\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static void RequireDataBoundaryFilters(
         string sql,
@@ -46,11 +52,18 @@ public static class RawSqlFilterGuard
             return;
         }
 
+        if (TryValidateUnionBranches(sql, operation, tenantTables, dataScopeTables, context))
+        {
+            return;
+        }
+
         var affectedTables = ExtractTableReferences(sql);
         if (affectedTables.Count == 0)
         {
             return;
         }
+
+        RequireSupportedComplexSql(sql, operation, affectedTables, tenantTables, dataScopeTables);
 
         var missingTenantReference = context.TenantId is not null
             ? FirstMissingReference(sql, affectedTables, tenantTables, "tenant_id", "@tenantId", TenantFilterPattern)
@@ -93,7 +106,15 @@ public static class RawSqlFilterGuard
             return;
         }
 
-        var missingReference = FirstMissingSoftDeleteReference(sql, ExtractTableReferences(sql), softDeleteTables);
+        if (TryValidateUnionBranches(sql, operation, softDeleteTables))
+        {
+            return;
+        }
+
+        var references = ExtractTableReferences(sql);
+        RequireSupportedComplexSql(sql, operation, references, softDeleteTables);
+
+        var missingReference = FirstMissingSoftDeleteReference(sql, references, softDeleteTables);
         if (missingReference is not null)
         {
             throw new InvalidOperationException(
@@ -159,6 +180,70 @@ public static class RawSqlFilterGuard
         return null;
     }
 
+    private static bool TryValidateUnionBranches(
+        string sql,
+        string operation,
+        IReadOnlySet<string> softDeleteTables)
+    {
+        if (!UnionPattern.IsMatch(sql))
+        {
+            return false;
+        }
+
+        foreach (var branch in UnionPattern.Split(sql))
+        {
+            var references = ExtractTableReferences(branch);
+            RequireSupportedComplexSql(branch, operation, references, softDeleteTables);
+            var missingReference = FirstMissingSoftDeleteReference(branch, references, softDeleteTables);
+            if (missingReference is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingReference.ExpectedPredicate} predicate in every UNION branch when querying soft-delete tables.\nSQL: {TrimSql(sql)}");
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateUnionBranches(
+        string sql,
+        string operation,
+        IReadOnlySet<string> tenantTables,
+        IReadOnlySet<string> dataScopeTables,
+        QueryFilterContext context)
+    {
+        if (!UnionPattern.IsMatch(sql))
+        {
+            return false;
+        }
+
+        foreach (var branch in UnionPattern.Split(sql))
+        {
+            var references = ExtractTableReferences(branch);
+            RequireSupportedComplexSql(branch, operation, references, tenantTables, dataScopeTables);
+
+            var missingTenantReference = context.TenantId is not null
+                ? FirstMissingReference(branch, references, tenantTables, "tenant_id", "@tenantId", TenantFilterPattern)
+                : null;
+            if (missingTenantReference is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingTenantReference.ExpectedPredicate} predicate in every UNION branch when querying tenant-scoped tables.\nSQL: {TrimSql(sql)}");
+            }
+
+            var missingDataScopeReference = context.DataScopeUserIds.Count > 0
+                ? FirstMissingReference(branch, references, dataScopeTables, "created_by_user_id", "@dataScopeUserIds", DataScopeFilterPattern)
+                : null;
+            if (missingDataScopeReference is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingDataScopeReference.ExpectedPredicate} predicate in every UNION branch when querying data-scoped tables.\nSQL: {TrimSql(sql)}");
+            }
+        }
+
+        return true;
+    }
+
     private static MissingReference? FirstMissingSoftDeleteReference(
         string sql,
         IReadOnlyList<TableReference> references,
@@ -211,6 +296,52 @@ public static class RawSqlFilterGuard
         }
 
         return references;
+    }
+
+    private static void RequireSupportedComplexSql(
+        string sql,
+        string operation,
+        IReadOnlyList<TableReference> references,
+        params IReadOnlySet<string>[] guardedTableSets)
+    {
+        if (references.Count == 0 || !ReferencesGuardedTable(references, guardedTableSets))
+        {
+            return;
+        }
+
+        if (IsWithStatement(sql))
+        {
+            ThrowUnsupportedComplexSql(sql, operation, "CTE");
+        }
+
+        if (SubqueryPattern.IsMatch(sql) &&
+            references.Any(reference => IsGuarded(reference, guardedTableSets) && !reference.HasExplicitAlias))
+        {
+            ThrowUnsupportedComplexSql(sql, operation, "unaliased subquery");
+        }
+    }
+
+    private static bool ReferencesGuardedTable(
+        IEnumerable<TableReference> references,
+        IReadOnlySet<string>[] guardedTableSets)
+    {
+        return references.Any(reference => IsGuarded(reference, guardedTableSets));
+    }
+
+    private static bool IsGuarded(TableReference reference, IReadOnlySet<string>[] guardedTableSets)
+    {
+        return guardedTableSets.Any(tables => tables.Contains(reference.Table));
+    }
+
+    private static bool IsWithStatement(string sql)
+    {
+        return Regex.IsMatch(sql, @"^\s*WITH\b", RegexOptions.IgnoreCase);
+    }
+
+    private static void ThrowUnsupportedComplexSql(string sql, string operation, string pattern)
+    {
+        throw new InvalidOperationException(
+            $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} cannot reliably validate {pattern} SQL for guarded tables; split the SQL or use PredicateBuilder.\nSQL: {TrimSql(sql)}");
     }
 
     private static bool HasQualifiedPredicate(string sql, string alias, string column, string parameter)

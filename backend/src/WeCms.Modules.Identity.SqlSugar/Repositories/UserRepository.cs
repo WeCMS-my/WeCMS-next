@@ -23,7 +23,9 @@ public sealed partial class UserRepository : IUserRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var where = "WHERE u.deleted_at IS NULL";
+        // P3 raw-sql-reviewed: PredicateBuilder supplies the sys_user soft-delete predicate.
+        var userSoftDelete = SoftDeleteSqlPredicateBuilder.Build("u");
+        var where = $"WHERE {userSoftDelete.Sql}";
         var parameters = new List<SugarParameter>();
         if (!string.IsNullOrWhiteSpace(criteria.Keyword))
         {
@@ -83,9 +85,11 @@ public sealed partial class UserRepository : IUserRepository
     public async Task<UserDetailDto?> GetAsync(long id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // P3 raw-sql-reviewed: PredicateBuilder supplies the sys_user soft-delete predicate.
+        var userSoftDelete = SoftDeleteSqlPredicateBuilder.Build("u");
 
         var rowSql =
-            """
+            $"""
             SELECT u.id AS Id,
                    u.username AS Username,
                    u.display_name AS DisplayName,
@@ -100,7 +104,7 @@ public sealed partial class UserRepository : IUserRepository
                    u.updated_at AS UpdatedAt
             FROM sys_user u
             WHERE u.id = @id
-              AND u.deleted_at IS NULL
+              AND {userSoftDelete.Sql}
             LIMIT 1
             """;
         RawSqlFilterGuard.RequireDeletedAtFilter(rowSql, nameof(GetAsync));
