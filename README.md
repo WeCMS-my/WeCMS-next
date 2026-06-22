@@ -12,6 +12,8 @@
 
 当前补齐阶段不回流 CMS 内容管理到一期，不做旧 ThinkPHP runtime compatibility，不做旧数据迁移，不引入 AI runtime，也不复制旧 AdminGate。旧系统 AdminGate / CSRF 中有价值的安全职责必须按新架构拆解到认证、授权、权限码、审计、限流、安全事件、IP 规则和 Cookie 型认证接口防护中。
 
+**Foundation stable：** 当前基础系统冻结入口为 [`docs/reports/wecms-foundation-stable-final-acceptance.md`](docs/reports/wecms-foundation-stable-final-acceptance.md)，release note 为 [`docs/releases/v0.2.0-foundation.md`](docs/releases/v0.2.0-foundation.md)，变更历史入口为 [`CHANGELOG.md`](CHANGELOG.md)。本稳定点冻结 `.NET 10 + JIT + Minimal API + SqlSugar + SoybeanAdmin + OpenAPI` 基线，以及 `AGENTS.md`、`code_review.md`、`.trae/rules/wecms-engineering-principles.md`、`scripts/quality-gate-backend.sh`、`scripts/quality-gate-frontend.sh`、`scripts/quality-gate-production.sh` 组成的治理与质量门禁表面。
+
 ## 技术栈
 
 | 层 | 技术 |
@@ -311,6 +313,9 @@ artifacts/
 - [工程骨架验证文档](docs/context/WeCMS_工程骨架验证文档.md)
 - [完整迁移重构计划（历史命名路径）](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
 - [系统基础开发指南](docs/dirs/system-foundation-development-guide.md)
+- [Foundation Stable 最终验收报告](docs/reports/wecms-foundation-stable-final-acceptance.md)
+- [v0.2.0-foundation Release Note](docs/releases/v0.2.0-foundation.md)
+- [CHANGELOG](CHANGELOG.md)
 
 ## 许可证
 
