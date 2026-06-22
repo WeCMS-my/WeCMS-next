@@ -9,16 +9,26 @@ public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
 {
     private readonly SqlAuditRecorder _recorder;
     private readonly IReadOnlySet<string> _softDeleteTables;
+    private readonly IReadOnlySet<string> _tenantTables;
+    private readonly IReadOnlySet<string> _dataScopeTables;
+    private readonly IQueryFilterContextAccessor _contextAccessor;
+    private readonly QueryFilterBypass _queryFilterBypass;
     private readonly IReadOnlyList<ISqlTimingRecorder> _timingRecorders;
     private readonly SqlAuditRedactor _redactor = new();
 
     public SqlSugarSqlAuditRegistrar(
         SqlAuditRecorder recorder,
         ICodeFirstModelRegistry codeFirstModelRegistry,
+        IQueryFilterContextAccessor contextAccessor,
+        QueryFilterBypass queryFilterBypass,
         IEnumerable<ISqlTimingRecorder>? timingRecorders = null)
     {
         _recorder = recorder ?? throw new ArgumentNullException(nameof(recorder));
         _softDeleteTables = BuildSoftDeleteTableNames(codeFirstModelRegistry);
+        _tenantTables = BuildTableNamesByInterface(codeFirstModelRegistry, typeof(ITenantEntity));
+        _dataScopeTables = BuildTableNamesByInterface(codeFirstModelRegistry, typeof(IDataScopedEntity));
+        _contextAccessor = contextAccessor ?? throw new ArgumentNullException(nameof(contextAccessor));
+        _queryFilterBypass = queryFilterBypass ?? throw new ArgumentNullException(nameof(queryFilterBypass));
         _timingRecorders = (timingRecorders ?? []).ToArray();
     }
 
@@ -29,7 +39,20 @@ public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
         var connectionName = db.CurrentConnectionConfig.ConfigId?.ToString() ?? "default";
 
         db.Aop.OnLogExecuting = (sql, _) =>
-            RawSqlFilterGuard.RequireDeletedAtFilter(sql, nameof(SqlSugarSqlAuditRegistrar), _softDeleteTables);
+        {
+            if (_queryFilterBypass.IsBypassed)
+            {
+                return;
+            }
+
+            RawSqlFilterGuard.RequireDataBoundaryFilters(
+                sql,
+                nameof(SqlSugarSqlAuditRegistrar),
+                _contextAccessor.Current,
+                _softDeleteTables,
+                _tenantTables,
+                _dataScopeTables);
+        };
 
         db.Aop.OnLogExecuted = (sql, parameters) =>
         {
@@ -62,6 +85,26 @@ public sealed class SqlSugarSqlAuditRegistrar : ISqlSugarAuditRegistrar
         foreach (var modelType in codeFirstModelRegistry.GetModelTypes())
         {
             if (!typeof(ISoftDeleteEntity).IsAssignableFrom(modelType))
+            {
+                continue;
+            }
+
+            tableNames.Add(ResolveTableName(modelType));
+        }
+
+        return tableNames;
+    }
+
+    private static IReadOnlySet<string> BuildTableNamesByInterface(
+        ICodeFirstModelRegistry codeFirstModelRegistry,
+        Type interfaceType)
+    {
+        ArgumentNullException.ThrowIfNull(interfaceType);
+
+        var tableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var modelType in codeFirstModelRegistry.GetModelTypes())
+        {
+            if (!interfaceType.IsAssignableFrom(modelType))
             {
                 continue;
             }

@@ -19,6 +19,16 @@ public sealed class RawSqlFilterGuardTests
         "sys_i18n_message"
     };
 
+    private static readonly IReadOnlySet<string> TenantTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "sys_tenant_scoped_table"
+    };
+
+    private static readonly IReadOnlySet<string> DataScopeTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "sys_data_scope_table"
+    };
+
     [Fact]
     public void RequireDeletedAtFilter_AllowsQueryWithDeletedAtPredicate()
     {
@@ -79,6 +89,79 @@ public sealed class RawSqlFilterGuardTests
         var exception = Record.Exception(() => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "ListAsync", SoftDeleteTables));
 
         Assert.Null(exception);
+    }
+
+    [Fact]
+    public void RequireDataBoundaryFilters_AllowsTenantAndDataScopeFiltersWhenRequired()
+    {
+        var context = new QueryFilterContext(42, [100, 200]);
+        var sql =
+            """
+            SELECT id
+            FROM sys_tenant_scoped_table t
+            WHERE deleted_at IS NULL
+              AND t.tenant_id = @tenantId
+              AND t.created_by_user_id IN @userIds
+            """;
+
+        var exception = Record.Exception(
+            () => RawSqlFilterGuard.RequireDataBoundaryFilters(
+                sql,
+                "ListAsync",
+                context,
+                SoftDeleteTables,
+                TenantTables,
+                DataScopeTables));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void RequireDataBoundaryFilters_ThrowsWhenTenantFilterMissing()
+    {
+        var context = new QueryFilterContext(42, [100, 200]);
+        var sql =
+            """
+            SELECT id
+            FROM sys_tenant_scoped_table t
+            WHERE deleted_at IS NULL
+              AND t.created_by_user_id IN @userIds
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDataBoundaryFilters(
+                sql,
+                "ListAsync",
+                context,
+                SoftDeleteTables,
+                TenantTables,
+                DataScopeTables));
+
+        Assert.Contains("tenant_id", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequireDataBoundaryFilters_ThrowsWhenDataScopeFilterMissing()
+    {
+        var context = new QueryFilterContext(42, [100, 200]);
+        var sql =
+            """
+            SELECT id
+            FROM sys_data_scope_table t
+            WHERE deleted_at IS NULL
+              AND t.tenant_id = @tenantId
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDataBoundaryFilters(
+                sql,
+                "ListAsync",
+                context,
+                SoftDeleteTables,
+                TenantTables,
+                DataScopeTables));
+
+        Assert.Contains("created_by_user_id", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
