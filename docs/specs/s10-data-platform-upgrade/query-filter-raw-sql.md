@@ -10,3 +10,14 @@ Raw SQL executed through `Ado`, including `SqlQuery`, `GetScalar`, and `ExecuteC
 The default `QueryFilterBypass` writes a `QueryFilterBypassAuditEvent` through `IQueryFilterBypassAuditSink`. S10-T04 defines the bypass contract and test sink. Persistent SQL audit storage belongs to S10-T06 and must not be implemented here.
 
 Bypass scope is intentionally narrow: it prevents filters from being registered while a client is created inside the bypass scope. It does not remove filters already registered on an existing SqlSugar client.
+
+## P3-001 Known Limitations
+
+`RawSqlFilterGuard` is a regex-level guardrail, not a full SQL AST parser. It is sufficient for current system-foundation gate checks when paired with reviewed SQL, predicate builders, and targeted tests, but complex SQL still needs explicit review.
+
+Follow these rules for new raw SQL:
+
+- Prefer `SoftDeleteSqlPredicateBuilder` for soft-delete predicates.
+- Prefer `TenantSqlPredicateBuilder` for tenant predicates.
+- Prefer `DataScopeSqlPredicateBuilder` for data-scope predicates.
+- Add dedicated tests for complex SQL, including nested subqueries, repeated aliases, complex CTEs, `UNION` / `UNION ALL`, SQL-like text inside database functions, or dialect-specific syntax.
