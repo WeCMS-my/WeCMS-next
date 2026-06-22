@@ -3,6 +3,7 @@ using WeCms.Data.SqlSugar;
 using WeCms.Modules.Audit.Logs;
 using WeCms.Modules.Audit.SqlSugar.Entities;
 using WeCms.Modules.Audit.SqlSugar.Repositories;
+using WeCms.Shared.Endpoints;
 
 namespace WeCms.Modules.Audit.SqlSugar;
 
@@ -12,6 +13,7 @@ public static class AuditSqlSugarServiceCollectionExtensions
     {
         services.AddSingleton<ICodeFirstModelProvider, AuditCodeFirstModelProvider>();
         services.AddScoped<ILogRepository, LogRepository>();
+        services.AddScoped<IAuditWriter, SqlSugarAuditWriter>();
 
         return services;
     }

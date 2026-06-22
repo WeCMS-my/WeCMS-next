@@ -55,9 +55,13 @@ public sealed class S12EventBusBoundaryTests
 
         Assert.Contains("AddWeCmsEventBus", apiProgram, StringComparison.Ordinal);
         Assert.Contains("AddWeCmsEventBusSqlSugar", apiProgram, StringComparison.Ordinal);
+        Assert.Contains("AddWeCmsCaching", apiProgram, StringComparison.Ordinal);
+        Assert.DoesNotContain("NoopAuditWriter", apiProgram, StringComparison.Ordinal);
         Assert.Contains("ICodeFirstModelProvider", source, StringComparison.Ordinal);
         Assert.Contains("IOutboxMessageRepository", source, StringComparison.Ordinal);
         Assert.Contains("IOutboxWriter", source, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService<OutboxDispatcherHostedService>", source, StringComparison.Ordinal);
+        Assert.Contains("BackgroundService", source, StringComparison.Ordinal);
         Assert.DoesNotContain("TransactionScope", source, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Transactions", source, StringComparison.Ordinal);
     }

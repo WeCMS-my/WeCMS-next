@@ -15,6 +15,15 @@ public sealed class SqlSugarBoundaryArchitectureTests
         "MySqlConnector"
     ];
 
+    private static readonly string[] RawSqlTokens =
+    [
+        ".Ado.",
+        "SqlQuery",
+        "GetScalar",
+        "ExecuteCommand",
+        "SELECT "
+    ];
+
     [Fact]
     public void SqlSugarDataPlatformDecision_IsAccepted()
     {
@@ -45,6 +54,38 @@ public sealed class SqlSugarBoundaryArchitectureTests
         Assert.True(
             violations.Length == 0,
             "Database/ORM tokens are only allowed in current transition or target data projects:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void RawSqlUsage_IsLimitedToExplicitDataBoundaries()
+    {
+        var violations = ProductionFiles()
+            .Where(file => ContainsAnyRawSqlToken(file))
+            .Where(file => !IsAllowedRawSqlBoundary(file))
+            .Select(RelativePath)
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Raw SQL and Ado APIs are only allowed in explicit data boundaries because SqlSugar QueryFilter does not govern raw SQL automatically:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void BusinessModules_DoNotBypassQueryFilterWithRawSql()
+    {
+        var violations = ProductionFiles()
+            .Where(IsUnderBusinessModuleProject)
+            .Where(file => ContainsAnyRawSqlToken(file) || ContainsAnyDatabaseToken(file))
+            .Select(RelativePath)
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Business modules must not use raw SQL, Ado APIs, or ORM clients directly; put data access in Modules.*.SqlSugar and account for soft-delete/tenant/data-scope filters explicitly:"
             + Environment.NewLine
             + string.Join(Environment.NewLine, violations));
     }
@@ -82,6 +123,13 @@ public sealed class SqlSugarBoundaryArchitectureTests
             || IsUnderModuleSqlSugarProject(file);
     }
 
+    private static bool IsAllowedRawSqlBoundary(string file)
+    {
+        return IsUnderProject(file, "WeCms.Data.SqlSugar")
+            || IsUnderProject(file, "WeCms.EventBus.SqlSugar")
+            || IsUnderModuleSqlSugarProject(file);
+    }
+
     private static bool IsFinalDataPlatformMode()
     {
         return string.Equals(Environment.GetEnvironmentVariable(FinalDataPlatformFlag), "true", StringComparison.OrdinalIgnoreCase);
@@ -101,10 +149,24 @@ public sealed class SqlSugarBoundaryArchitectureTests
             && firstSegment.EndsWith(".SqlSugar", StringComparison.Ordinal);
     }
 
+    private static bool IsUnderBusinessModuleProject(string file)
+    {
+        var relative = Path.GetRelativePath(TestPaths.SourceRoot, file);
+        var firstSegment = relative.Split(Path.DirectorySeparatorChar)[0];
+        return firstSegment.StartsWith("WeCms.Modules.", StringComparison.Ordinal)
+            && !firstSegment.EndsWith(".SqlSugar", StringComparison.Ordinal);
+    }
+
     private static bool ContainsAnyDatabaseToken(string file)
     {
         var source = File.ReadAllText(file);
         return DatabaseTokens.Any(token => source.Contains(token, StringComparison.Ordinal));
+    }
+
+    private static bool ContainsAnyRawSqlToken(string file)
+    {
+        var source = File.ReadAllText(file);
+        return RawSqlTokens.Any(token => source.Contains(token, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string RelativePath(string file)

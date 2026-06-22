@@ -26,6 +26,7 @@ public static class WeCmsEventBusServiceCollectionExtensions
         services.TryAddSingleton<IEventHandlerIdempotencyStore, InMemoryEventHandlerIdempotencyStore>();
         services.TryAddSingleton<IIntegrationEventSerializer, SystemTextJsonIntegrationEventSerializer>();
         services.TryAddSingleton<IOutboxLockTokenProvider, GuidOutboxLockTokenProvider>();
+        services.AddHostedService<OutboxDispatcherHostedService>();
 
         return services;
     }
