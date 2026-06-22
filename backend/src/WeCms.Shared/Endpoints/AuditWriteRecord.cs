@@ -8,7 +8,12 @@ public sealed record AuditWriteRecord(
     string RequestMethod,
     string RequestPath,
     string TraceId,
-    string Detail = "");
+    string Detail = "",
+    long? UserId = null,
+    string? Username = null,
+    string? IpAddress = null,
+    string? UserAgent = null,
+    string? TargetId = null);
 
 public enum AuditWriteStatus
 {

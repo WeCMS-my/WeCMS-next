@@ -20,11 +20,16 @@ public sealed class SqlSugarAuditWriter : IAuditWriter
 
         var affectedRows = await db.Insertable(new AuditLogEntity
         {
+            UserId = record.UserId,
+            Username = Optional(record.Username, 64),
             Module = Required(record.Module, nameof(record.Module), 80),
             Resource = Required(record.Resource, nameof(record.Resource), 80),
             Action = Required(record.Action, nameof(record.Action), 80),
+            TargetId = Optional(record.TargetId, 128),
             RequestMethod = Required(record.RequestMethod, nameof(record.RequestMethod), 16),
             RequestPath = Required(record.RequestPath, nameof(record.RequestPath), 160),
+            IpAddress = Optional(record.IpAddress, 64),
+            UserAgent = Optional(record.UserAgent, 500),
             TraceId = Optional(record.TraceId, 64),
             Result = record.Status.ToString(),
             Detail = Optional(record.Detail, 500) ?? string.Empty,
