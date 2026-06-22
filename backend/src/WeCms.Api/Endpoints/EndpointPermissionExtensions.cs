@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Shared.Endpoints;
 
 namespace WeCms.Api.Endpoints;
@@ -9,7 +10,7 @@ public static class EndpointPermissionExtensions
         this RouteHandlerBuilder builder,
         string permissionCode)
     {
-        return EndpointPermissionRuntimeExtensions.RequireEndpointPermission(builder, permissionCode);
+        return RequirePermission(builder, permissionCode, EndpointPermissionKind.Api);
     }
 
     public static RouteHandlerBuilder RequirePermission(
@@ -43,6 +44,6 @@ public static class EndpointPermissionExtensions
 
         return builder
             .WithMetadata(new EndpointPermissionMetadata(permissionCode, kind))
-            .AddEndpointFilter<EndpointPermissionFilter>();
+            .AddEndpointFilter<PermissionEndpointFilter>();
     }
 }

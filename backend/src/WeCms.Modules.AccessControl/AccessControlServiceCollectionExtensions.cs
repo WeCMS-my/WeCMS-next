@@ -18,8 +18,7 @@ public static class AccessControlServiceCollectionExtensions
         services.AddSingleton<IAccessControlClock, SystemAccessControlClock>();
         services.AddScoped<PermissionChecker>();
         services.AddScoped<IPermissionChecker>(provider => provider.GetRequiredService<PermissionChecker>());
-        services.AddScoped<IEndpointPermissionChecker>(provider => provider.GetRequiredService<PermissionChecker>());
-        services.AddScoped<IEndpointPermissionDeniedRecorder, EndpointPermissionDeniedRecorder>();
+        services.AddScoped<IEndpointPermissionFilter, PermissionEndpointFilter>();
         services.AddScoped<IAccessProfileService, AccessProfileService>();
         services.AddScoped<IPermissionManagementService, PermissionManagementService>();
         services.AddScoped<IMenuService, MenuService>();

@@ -54,13 +54,7 @@ public sealed class ApplicationServiceAopInterceptor : IInterceptor
             return;
         }
 
-        if (returnType == typeof(void))
-        {
-            InterceptSync(invocation, plan);
-            return;
-        }
-
-        throw new NotSupportedException($"Unsupported application service return type '{returnType}'.");
+        throw new NotSupportedException($"Application service AOP supports only Task or Task<T> return types. Unsupported return type '{returnType}'.");
     }
 
     private Task InterceptTaskAsync(
@@ -85,34 +79,6 @@ public sealed class ApplicationServiceAopInterceptor : IInterceptor
         operation = ApplyTransaction(operation, plan);
 
         return ExecuteWithAuditAsync(plan, operation, cancellationToken);
-    }
-
-    private void InterceptSync(IInvocation invocation, InvocationPlan plan)
-    {
-        if (plan.Audited is null)
-        {
-            invocation.Proceed();
-            return;
-        }
-
-        auditWriter.WriteAsync(
-            CreateAuditRecord(plan, AuditWriteStatus.Started, string.Empty),
-            CancellationToken.None).GetAwaiter().GetResult();
-
-        try
-        {
-            invocation.Proceed();
-            auditWriter.WriteAsync(
-                CreateAuditRecord(plan, AuditWriteStatus.Completed, string.Empty),
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-        catch (Exception exception)
-        {
-            auditWriter.WriteAsync(
-                CreateAuditRecord(plan, AuditWriteStatus.Failed, exception.Message),
-                CancellationToken.None).GetAwaiter().GetResult();
-            throw;
-        }
     }
 
     private Func<CancellationToken, Task> ApplyCacheEviction(

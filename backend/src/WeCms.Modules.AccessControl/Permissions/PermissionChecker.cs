@@ -1,10 +1,9 @@
 using WeCms.Modules.AccessControl.Records;
 using WeCms.Modules.AccessControl.Repositories;
-using WeCms.Shared.Endpoints;
 
 namespace WeCms.Modules.AccessControl.Permissions;
 
-public sealed class PermissionChecker : IPermissionChecker, IEndpointPermissionChecker
+public sealed class PermissionChecker : IPermissionChecker
 {
     private const string EnabledStatus = "enabled";
     private readonly IPermissionRepository _repository;
@@ -28,19 +27,5 @@ public sealed class PermissionChecker : IPermissionChecker, IEndpointPermissionC
         return await _repository.UserHasPermissionAsync(userId, permissionCode, cancellationToken)
             ? PermissionCheckResult.Allowed
             : PermissionCheckResult.Forbidden;
-    }
-
-    async Task<EndpointPermissionCheckResult> IEndpointPermissionChecker.CheckAsync(
-        long userId,
-        string permissionCode,
-        CancellationToken cancellationToken)
-    {
-        return await CheckAsync(userId, permissionCode, cancellationToken) switch
-        {
-            PermissionCheckResult.Allowed => EndpointPermissionCheckResult.Allowed,
-            PermissionCheckResult.UserDisabled => EndpointPermissionCheckResult.UserDisabled,
-            PermissionCheckResult.Forbidden => EndpointPermissionCheckResult.Forbidden,
-            _ => throw new InvalidOperationException("Unknown permission check result.")
-        };
     }
 }

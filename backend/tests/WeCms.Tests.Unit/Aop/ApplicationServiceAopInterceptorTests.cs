@@ -61,20 +61,162 @@ public sealed class ApplicationServiceAopInterceptorTests
         Assert.Empty(writer.Records);
     }
 
+    [Fact]
+    public void ApplicationServiceAopInterceptor_RejectsVoidMethodsWithoutExecutingTarget()
+    {
+        using var provider = CreateProvider();
+        var interceptor = provider.GetRequiredService<ApplicationServiceAopInterceptor>();
+        var target = new SyncService();
+        var proxy = new ProxyGenerator().CreateInterfaceProxyWithTarget<ISyncService>(target, interceptor);
+
+        var exception = Assert.Throws<NotSupportedException>(proxy.Run);
+
+        Assert.Contains("Task or Task<T>", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, target.RunCount);
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_CommitsUnitOfWork_OnSuccess()
+    {
+        using var provider = CreateProvider();
+        var unitOfWork = provider.GetRequiredService<FakeUnitOfWork>();
+        var proxy = CreatePipelineProxy(provider, new PipelineService());
+
+        await proxy.SaveAsync();
+
+        Assert.Equal(1, unitOfWork.BeginCalls);
+        Assert.Equal(1, unitOfWork.CommitCalls);
+        Assert.Equal(0, unitOfWork.RollbackCalls);
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_RollsBackUnitOfWork_AndPreservesException()
+    {
+        using var provider = CreateProvider();
+        var unitOfWork = provider.GetRequiredService<FakeUnitOfWork>();
+        var target = new PipelineService();
+        var proxy = CreatePipelineProxy(provider, target);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(proxy.FailInTransactionAsync);
+
+        Assert.Same(target.Failure, exception);
+        Assert.Equal(1, unitOfWork.BeginCalls);
+        Assert.Equal(0, unitOfWork.CommitCalls);
+        Assert.Equal(1, unitOfWork.RollbackCalls);
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_ReturnsCachedValueWithoutExecutingTarget_OnCacheHit()
+    {
+        using var provider = CreateProvider();
+        var cache = provider.GetRequiredService<ICache>();
+        var cacheInterceptor = provider.GetRequiredService<CacheInterceptor>();
+        var target = new PipelineService();
+        var proxy = CreatePipelineProxy(provider, target);
+        var key = cacheInterceptor.BuildKey(
+            new CacheableAttribute("identity:users:detail"),
+            new CacheInvocationContext("tenant-id", [7L]));
+        await cache.SetAsync(key, "cached-user", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await proxy.GetCachedUserAsync(7);
+
+        Assert.Equal("cached-user", result);
+        Assert.Equal(0, target.GetCachedUserCalls);
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_EvictsCacheKeyAfterSuccessfulTaskOfT()
+    {
+        using var provider = CreateProvider();
+        var cache = provider.GetRequiredService<ICache>();
+        var cacheInterceptor = provider.GetRequiredService<CacheInterceptor>();
+        var target = new PipelineService();
+        var proxy = CreatePipelineProxy(provider, target);
+        var key = cacheInterceptor.BuildKey(
+            new CacheEvictAttribute("identity:users:detail"),
+            new CacheInvocationContext("tenant-id", [7L]));
+        await cache.SetAsync(key, "stale-user", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await proxy.UpdateUserAsync(7);
+
+        Assert.Equal("updated-7", result);
+        Assert.Equal(1, target.UpdateUserCalls);
+        Assert.Null(await cache.GetAsync<string>(key, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_EvictsCachePrefixAfterSuccessfulTask()
+    {
+        using var provider = CreateProvider();
+        var cache = provider.GetRequiredService<ICache>();
+        var cacheInterceptor = provider.GetRequiredService<CacheInterceptor>();
+        var proxy = CreatePipelineProxy(provider, new PipelineService());
+        var attribute = new CacheEvictAttribute("identity:users:list", CacheEvictionMode.Prefix);
+        var firstKey = cacheInterceptor.BuildKey(attribute, new CacheInvocationContext("tenant-id", [1L]));
+        var secondKey = cacheInterceptor.BuildKey(attribute, new CacheInvocationContext("tenant-id", [2L]));
+        var otherTenantKey = cacheInterceptor.BuildKey(attribute, new CacheInvocationContext("other-tenant", [1L]));
+        await cache.SetAsync(firstKey, "first", cancellationToken: TestContext.Current.CancellationToken);
+        await cache.SetAsync(secondKey, "second", cancellationToken: TestContext.Current.CancellationToken);
+        await cache.SetAsync(otherTenantKey, "other", cancellationToken: TestContext.Current.CancellationToken);
+
+        await proxy.RefreshUsersAsync(1);
+
+        Assert.Null(await cache.GetAsync<string>(firstKey, TestContext.Current.CancellationToken));
+        Assert.Null(await cache.GetAsync<string>(secondKey, TestContext.Current.CancellationToken));
+        Assert.Equal("other", await cache.GetAsync<string>(otherTenantKey, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_UsesTenantAccessorForCacheKeys()
+    {
+        using var provider = CreateProvider("tenant-77");
+        var cache = provider.GetRequiredService<ICache>();
+        var cacheInterceptor = provider.GetRequiredService<CacheInterceptor>();
+        var proxy = CreatePipelineProxy(provider, new PipelineService());
+
+        var result = await proxy.GetCachedUserAsync(11);
+
+        var key = cacheInterceptor.BuildKey(
+            new CacheableAttribute("identity:users:detail"),
+            new CacheInvocationContext("tenant-77", [11L]));
+        Assert.Equal("loaded-11", result);
+        Assert.Equal("loaded-11", await cache.GetAsync<string>(key, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ApplicationServiceAopInterceptor_PreservesTaskOfTResult()
+    {
+        using var provider = CreateProvider();
+        var proxy = CreatePipelineProxy(provider, new PipelineService());
+
+        var result = await proxy.SaveAndReturnAsync();
+
+        Assert.Equal("saved", result);
+    }
+
     private static IAuditedService CreateProxy(ApplicationServiceAopInterceptor interceptor)
     {
         return new ProxyGenerator().CreateInterfaceProxyWithTarget<IAuditedService>(new AuditedService(), interceptor);
     }
 
-    private static ServiceProvider CreateProvider()
+    private static IPipelineService CreatePipelineProxy(ServiceProvider provider, PipelineService target)
+    {
+        return new ProxyGenerator().CreateInterfaceProxyWithTarget<IPipelineService>(
+            target,
+            provider.GetRequiredService<ApplicationServiceAopInterceptor>());
+    }
+
+    private static ServiceProvider CreateProvider(string tenantId = "tenant-id")
     {
         var services = new ServiceCollection();
         var writer = new RecordingAuditWriter();
+        var unitOfWork = new FakeUnitOfWork();
 
         services.AddSingleton<IAuditWriter>(writer);
         services.AddSingleton(writer);
-        services.AddSingleton<IUnitOfWork, FakeUnitOfWork>();
-        services.AddSingleton<ICacheTenantAccessor>(new StubCacheTenantAccessor("tenant-id"));
+        services.AddSingleton<IUnitOfWork>(unitOfWork);
+        services.AddSingleton(unitOfWork);
+        services.AddSingleton<ICacheTenantAccessor>(new StubCacheTenantAccessor(tenantId));
         services.AddSingleton<IIdGenerator>(new StubIdGenerator());
         services.AddWeCmsCaching(options =>
         {
@@ -118,6 +260,33 @@ public sealed class ApplicationServiceAopInterceptorTests
         Task PlainAsync();
     }
 
+    public interface ISyncService
+    {
+        [Audited("identity.users.sync")]
+        void Run();
+    }
+
+    public interface IPipelineService
+    {
+        [UnitOfWork]
+        Task SaveAsync();
+
+        [UnitOfWork]
+        Task<string> SaveAndReturnAsync();
+
+        [UnitOfWork]
+        Task FailInTransactionAsync();
+
+        [Cacheable("identity:users:detail")]
+        Task<string> GetCachedUserAsync(long id);
+
+        [CacheEvict("identity:users:detail")]
+        Task<string> UpdateUserAsync(long id);
+
+        [CacheEvict("identity:users:list", CacheEvictionMode.Prefix)]
+        Task RefreshUsersAsync(long id);
+    }
+
     public sealed class AuditedService : IAuditedService
     {
         public Task CreateAsync()
@@ -136,6 +305,55 @@ public sealed class ApplicationServiceAopInterceptorTests
         }
     }
 
+    public sealed class SyncService : ISyncService
+    {
+        public int RunCount { get; private set; }
+
+        public void Run()
+        {
+            RunCount++;
+        }
+    }
+
+    public sealed class PipelineService : IPipelineService
+    {
+        public InvalidOperationException Failure { get; } = new("pipeline failure");
+        public int GetCachedUserCalls { get; private set; }
+        public int UpdateUserCalls { get; private set; }
+
+        public Task SaveAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<string> SaveAndReturnAsync()
+        {
+            return Task.FromResult("saved");
+        }
+
+        public Task FailInTransactionAsync()
+        {
+            return Task.FromException(Failure);
+        }
+
+        public Task<string> GetCachedUserAsync(long id)
+        {
+            GetCachedUserCalls++;
+            return Task.FromResult($"loaded-{id}");
+        }
+
+        public Task<string> UpdateUserAsync(long id)
+        {
+            UpdateUserCalls++;
+            return Task.FromResult($"updated-{id}");
+        }
+
+        public Task RefreshUsersAsync(long id)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class RecordingAuditWriter : IAuditWriter
     {
         public List<AuditWriteRecord> Records { get; } = [];
@@ -149,27 +367,34 @@ public sealed class ApplicationServiceAopInterceptorTests
 
     private sealed class FakeUnitOfWork : IUnitOfWork
     {
+        public int BeginCalls { get; private set; }
+        public int CommitCalls { get; private set; }
+        public int RollbackCalls { get; private set; }
+
         public Task<ITransactionContext> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<ITransactionContext>(new FakeTransactionContext());
-        }
-    }
-
-    private sealed class FakeTransactionContext : ITransactionContext
-    {
-        public Task CommitAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
+            BeginCalls++;
+            return Task.FromResult<ITransactionContext>(new FakeTransactionContext(this));
         }
 
-        public Task RollbackAsync(CancellationToken cancellationToken = default)
+        private sealed class FakeTransactionContext(FakeUnitOfWork unitOfWork) : ITransactionContext
         {
-            return Task.CompletedTask;
-        }
+            public Task CommitAsync(CancellationToken cancellationToken = default)
+            {
+                unitOfWork.CommitCalls++;
+                return Task.CompletedTask;
+            }
 
-        public ValueTask DisposeAsync()
-        {
-            return ValueTask.CompletedTask;
+            public Task RollbackAsync(CancellationToken cancellationToken = default)
+            {
+                unitOfWork.RollbackCalls++;
+                return Task.CompletedTask;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                return ValueTask.CompletedTask;
+            }
         }
     }
 
