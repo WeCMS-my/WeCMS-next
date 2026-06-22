@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http;
+using System.Net;
+using System.Security.Claims;
 using WeCms.Api.Endpoints;
 using WeCms.Shared.Endpoints;
 
@@ -49,6 +51,33 @@ public sealed class AuditEndpointFilterTests
                 AssertAudit(failed, AuditWriteStatus.Failed);
                 Assert.Equal("boom", failed.Detail);
             });
+    }
+
+    [Fact]
+    public async Task AuditEndpointFilter_WritesRequestContext()
+    {
+        var writer = new RecordingAuditWriter();
+        var httpContext = CreateHttpContext(new EndpointAuditMetadata("identity", "users", "update"));
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim(ClaimTypes.Name, "admin")
+            ],
+            "unit"));
+        httpContext.Connection.RemoteIpAddress = IPAddress.Parse("192.0.2.10");
+        httpContext.Request.Headers.UserAgent = "wecms-unit";
+        httpContext.Request.RouteValues["id"] = 1001L;
+        var context = new TestEndpointFilterInvocationContext(httpContext);
+        var filter = new AuditEndpointFilter(writer);
+
+        await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>("ok"));
+
+        var completed = Assert.Single(writer.Records, static record => record.Status == AuditWriteStatus.Completed);
+        Assert.Equal(42, completed.UserId);
+        Assert.Equal("admin", completed.Username);
+        Assert.Equal("192.0.2.10", completed.IpAddress);
+        Assert.Equal("wecms-unit", completed.UserAgent);
+        Assert.Equal("1001", completed.TargetId);
     }
 
     [Fact]
