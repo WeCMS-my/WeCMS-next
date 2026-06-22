@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace WeCms.Data.SqlSugar;
@@ -15,11 +14,11 @@ public static class RawSqlFilterGuard
     private static readonly Regex DeletedAtFilterPattern = new(
         @"\bdeleted_at\s+IS\s+NULL\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex SoftDeleteTablePattern = new(
-        @"\b(?:FROM|JOIN|UPDATE|INTO|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_]*)\b",
+    private static readonly Regex TableReferencePattern = new(
+        @"\b(?:FROM|JOIN|UPDATE|INTO|DELETE\s+FROM)\s+(?<table>[A-Za-z_][A-Za-z0-9_]*)(?:\s+(?:AS\s+)?(?<alias>[A-Za-z_][A-Za-z0-9_]*))?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex StatementTypePattern = new(
-        @"^\s*(SELECT|UPDATE|DELETE|INSERT)\b",
+        @"^\s*(SELECT|UPDATE|DELETE|INSERT|WITH)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static void RequireDataBoundaryFilters(
@@ -47,24 +46,28 @@ public static class RawSqlFilterGuard
             return;
         }
 
-        var affectedTables = ExtractTables(sql);
+        var affectedTables = ExtractTableReferences(sql);
         if (affectedTables.Count == 0)
         {
             return;
         }
 
-        if (context.TenantId is not null && AffectedTableMatches(affectedTables, tenantTables)
-            && !TenantFilterPattern.IsMatch(sql))
+        var missingTenantReference = context.TenantId is not null
+            ? FirstMissingReference(sql, affectedTables, tenantTables, "tenant_id", "@tenantId", TenantFilterPattern)
+            : null;
+        if (missingTenantReference is not null)
         {
             throw new InvalidOperationException(
-                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit tenant_id predicate when querying tenant-scoped tables.\nSQL: {TrimSql(sql)}");
+                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingTenantReference.ExpectedPredicate} predicate when querying tenant-scoped tables.\nSQL: {TrimSql(sql)}");
         }
 
-        if (context.DataScopeUserIds.Count > 0 && AffectedTableMatches(affectedTables, dataScopeTables)
-            && !DataScopeFilterPattern.IsMatch(sql))
+        var missingDataScopeReference = context.DataScopeUserIds.Count > 0
+            ? FirstMissingReference(sql, affectedTables, dataScopeTables, "created_by_user_id", "@dataScopeUserIds", DataScopeFilterPattern)
+            : null;
+        if (missingDataScopeReference is not null)
         {
             throw new InvalidOperationException(
-                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit created_by_user_id predicate when querying data-scoped tables.\nSQL: {TrimSql(sql)}");
+                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingDataScopeReference.ExpectedPredicate} predicate when querying data-scoped tables.\nSQL: {TrimSql(sql)}");
         }
     }
 
@@ -90,10 +93,11 @@ public static class RawSqlFilterGuard
             return;
         }
 
-        if (RequiresDeletedAtFilter(sql, softDeleteTables) && !DeletedAtFilterPattern.IsMatch(sql))
+        var missingReference = FirstMissingSoftDeleteReference(sql, ExtractTableReferences(sql), softDeleteTables);
+        if (missingReference is not null)
         {
             throw new InvalidOperationException(
-                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit deleted_at predicate when querying soft-delete tables.\nSQL: {TrimSql(sql)}");
+                $"Raw SQL operation '{operation}' in {nameof(RawSqlFilterGuard)} requires an explicit {missingReference.ExpectedPredicate} predicate when querying soft-delete tables.\nSQL: {TrimSql(sql)}");
         }
     }
 
@@ -121,44 +125,120 @@ public static class RawSqlFilterGuard
         }
     }
 
-    private static bool RequiresDeletedAtFilter(string sql, IReadOnlySet<string> softDeleteTables)
+    private static MissingReference? FirstMissingReference(
+        string sql,
+        IReadOnlyList<TableReference> references,
+        IReadOnlySet<string> targetTables,
+        string column,
+        string parameter,
+        Regex fallbackPattern)
     {
-        foreach (var match in ExtractTables(sql))
+        foreach (var reference in references)
         {
-            if (softDeleteTables.Contains(match))
+            if (!targetTables.Contains(reference.Table))
             {
-                return true;
+                continue;
+            }
+
+            if (!reference.HasExplicitAlias)
+            {
+                if (!fallbackPattern.IsMatch(sql))
+                {
+                    return new MissingReference($"{column} predicate");
+                }
+
+                continue;
+            }
+
+            if (!HasQualifiedPredicate(sql, reference.Alias, column, parameter))
+            {
+                return new MissingReference($"{reference.Alias}.{column}");
             }
         }
 
-        return false;
+        return null;
     }
 
-    private static bool AffectedTableMatches(IReadOnlySet<string> tables, IReadOnlySet<string> targetTables)
+    private static MissingReference? FirstMissingSoftDeleteReference(
+        string sql,
+        IReadOnlyList<TableReference> references,
+        IReadOnlySet<string> softDeleteTables)
     {
-        foreach (var table in tables)
+        foreach (var reference in references)
         {
-            if (targetTables.Contains(table))
+            if (!softDeleteTables.Contains(reference.Table))
             {
-                return true;
+                continue;
+            }
+
+            if (!reference.HasExplicitAlias)
+            {
+                if (!DeletedAtFilterPattern.IsMatch(sql))
+                {
+                    return new MissingReference("deleted_at predicate");
+                }
+
+                continue;
+            }
+
+            if (!HasQualifiedSoftDeletePredicate(sql, reference.Alias))
+            {
+                return new MissingReference($"{reference.Alias}.deleted_at");
             }
         }
 
-        return false;
+        return null;
     }
 
-    private static IReadOnlySet<string> ExtractTables(string sql)
+    private static IReadOnlyList<TableReference> ExtractTableReferences(string sql)
     {
-        var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var match in SoftDeleteTablePattern.Matches(sql).Select(static match => match.Groups[1].Value))
+        var references = new List<TableReference>();
+        foreach (Match match in TableReferencePattern.Matches(sql))
         {
-            if (!string.IsNullOrWhiteSpace(match))
+            var table = match.Groups["table"].Value;
+            if (string.IsNullOrWhiteSpace(table))
             {
-                tables.Add(match);
+                continue;
             }
+
+            var alias = match.Groups["alias"].Success ? match.Groups["alias"].Value : string.Empty;
+            if (IsReservedAlias(alias))
+            {
+                alias = string.Empty;
+            }
+
+            references.Add(new TableReference(table, string.IsNullOrWhiteSpace(alias) ? table : alias, !string.IsNullOrWhiteSpace(alias)));
         }
 
-        return tables;
+        return references;
+    }
+
+    private static bool HasQualifiedPredicate(string sql, string alias, string column, string parameter)
+    {
+        return Regex.IsMatch(
+            sql,
+            $@"\b{Regex.Escape(alias)}\.{Regex.Escape(column)}\s*(?:=|IN)\s*{Regex.Escape(parameter)}\b",
+            RegexOptions.IgnoreCase);
+    }
+
+    private static bool HasQualifiedSoftDeletePredicate(string sql, string alias)
+    {
+        return Regex.IsMatch(
+            sql,
+            $@"\b{Regex.Escape(alias)}\.deleted_at\s+IS\s+NULL\b",
+            RegexOptions.IgnoreCase);
+    }
+
+    private static bool IsReservedAlias(string alias)
+    {
+        return alias.Equals("WHERE", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("ON", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("JOIN", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("SET", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("VALUES", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("LIMIT", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("ORDER", StringComparison.OrdinalIgnoreCase) ||
+            alias.Equals("GROUP", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ShouldGuardStatement(string sql, out string statementType)
@@ -171,6 +251,11 @@ public static class RawSqlFilterGuard
         }
 
         statementType = match.Groups[1].Value.ToUpperInvariant();
+        if (statementType is "WITH")
+        {
+            statementType = "SELECT";
+        }
+
         return statementType is "SELECT" or "UPDATE" or "DELETE" or "INSERT";
     }
 
@@ -178,4 +263,8 @@ public static class RawSqlFilterGuard
     {
         return sql.Replace('\n', ' ').Trim();
     }
+
+    private sealed record TableReference(string Table, string Alias, bool HasExplicitAlias);
+
+    private sealed record MissingReference(string ExpectedPredicate);
 }
