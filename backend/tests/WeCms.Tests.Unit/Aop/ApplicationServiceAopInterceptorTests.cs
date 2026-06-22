@@ -194,6 +194,22 @@ public sealed class ApplicationServiceAopInterceptorTests
         Assert.Equal("saved", result);
     }
 
+    [Fact]
+    public void ApplicationServiceAopInterceptor_DoesNotWrapSynchronousGenericPipelineException()
+    {
+        using var provider = CreateProvider(cacheTenantAccessor: new ThrowingCacheTenantAccessor());
+        var proxy = CreatePipelineProxy(provider, new PipelineService());
+
+        var exception = Assert.Throws<InvalidOperationException>(() => InvokeCachedUserSynchronously(proxy));
+
+        Assert.Equal("tenant accessor failure", exception.Message);
+    }
+
+    private static void InvokeCachedUserSynchronously(IPipelineService proxy)
+    {
+        proxy.GetCachedUserAsync(11).GetAwaiter().GetResult();
+    }
+
     private static IAuditedService CreateProxy(ApplicationServiceAopInterceptor interceptor)
     {
         return new ProxyGenerator().CreateInterfaceProxyWithTarget<IAuditedService>(new AuditedService(), interceptor);
@@ -206,7 +222,7 @@ public sealed class ApplicationServiceAopInterceptorTests
             provider.GetRequiredService<ApplicationServiceAopInterceptor>());
     }
 
-    private static ServiceProvider CreateProvider(string tenantId = "tenant-id")
+    private static ServiceProvider CreateProvider(string tenantId = "tenant-id", ICacheTenantAccessor? cacheTenantAccessor = null)
     {
         var services = new ServiceCollection();
         var writer = new RecordingAuditWriter();
@@ -216,7 +232,7 @@ public sealed class ApplicationServiceAopInterceptorTests
         services.AddSingleton(writer);
         services.AddSingleton<IUnitOfWork>(unitOfWork);
         services.AddSingleton(unitOfWork);
-        services.AddSingleton<ICacheTenantAccessor>(new StubCacheTenantAccessor(tenantId));
+        services.AddSingleton(cacheTenantAccessor ?? new StubCacheTenantAccessor(tenantId));
         services.AddSingleton<IIdGenerator>(new StubIdGenerator());
         services.AddWeCmsCaching(options =>
         {
@@ -405,6 +421,14 @@ public sealed class ApplicationServiceAopInterceptorTests
         public string GetCurrentTenantId()
         {
             return _tenantId;
+        }
+    }
+
+    private sealed class ThrowingCacheTenantAccessor : ICacheTenantAccessor
+    {
+        public string GetCurrentTenantId()
+        {
+            throw new InvalidOperationException("tenant accessor failure");
         }
     }
 

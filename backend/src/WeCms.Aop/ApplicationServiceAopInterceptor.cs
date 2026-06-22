@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Castle.DynamicProxy;
 using WeCms.Shared.Data;
 using WeCms.Shared.Endpoints;
@@ -50,7 +51,15 @@ public sealed class ApplicationServiceAopInterceptor : IInterceptor
             var method = typeof(ApplicationServiceAopInterceptor).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
                 .Single(static method => method.Name == nameof(InterceptTaskAsync) && method.IsGenericMethodDefinition);
             var generic = method.MakeGenericMethod(returnType.GetGenericArguments()[0]);
-            invocation.ReturnValue = generic.Invoke(this, [invocation, plan, cancellationToken]);
+            try
+            {
+                invocation.ReturnValue = generic.Invoke(this, [invocation, plan, cancellationToken]);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
+
             return;
         }
 
