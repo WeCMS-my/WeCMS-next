@@ -11,6 +11,7 @@ using WeCms.Api.Middleware;
 using WeCms.Api.RateLimiting;
 using WeCms.Api.Configuration;
 using WeCms.Api.Security;
+using WeCms.Caching;
 using WeCms.Data.SqlSugar;
 using WeCms.EventBus;
 using WeCms.EventBus.SqlSugar;
@@ -66,6 +67,7 @@ builder.Services.AddWeCmsSqlSugarData(
     builder.Configuration,
     useMigrationConnectionString: isMigrationCommand,
     codeFirstEnvironmentName: builder.Environment.EnvironmentName);
+builder.Services.AddWeCmsCaching();
 builder.Services.AddWeCmsEventBus();
 builder.Services.AddWeCmsEventBusSqlSugar();
 builder.Services.AddWeCmsAccessControlSqlSugar();
@@ -78,7 +80,6 @@ builder.Services.AddWeCmsPlatformSqlSugar();
 builder.Services.AddWeCmsSecuritySqlSugar();
 builder.Services.AddWeCmsFileStorage(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton<IIdGenerator, SystemIdGenerator>();
-builder.Services.AddSingleton<IAuditWriter, NoopAuditWriter>();
 builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddWeCmsAccessControl();
@@ -118,7 +119,7 @@ if (DatabaseStartupMigrationOptions.ShouldRunMigrationsOnStartup(builder.Configu
     await DatabaseMigrationCommand.RunAsync(app);
 }
 
-StartFrontendDevServer(app, isMigrationCommand);
+await StartFrontendDevServerAsync(app, isMigrationCommand);
 
 app.UseWeCmsForwardedHeaders(builder.Configuration);
 if (!app.Environment.IsDevelopment())
@@ -142,9 +143,9 @@ app.MapWeCmsOpenApiDocumentation();
 
 app.Run();
 
-static void StartFrontendDevServer(WebApplication app, bool isMigrationCommand)
+static async Task StartFrontendDevServerAsync(WebApplication app, bool isMigrationCommand)
 {
-    if (isMigrationCommand || !app.Environment.IsDevelopment() || IsTcpPortOpen("127.0.0.1", 5173))
+    if (isMigrationCommand || !app.Environment.IsDevelopment() || await IsTcpPortOpenAsync("127.0.0.1", 5173))
     {
         return;
     }
@@ -199,18 +200,24 @@ static void StartFrontendDevServer(WebApplication app, bool isMigrationCommand)
         }
         catch (InvalidOperationException)
         {
+            logger.LogDebug("Frontend dev server process already exited before shutdown cleanup.");
         }
     });
 }
 
-static bool IsTcpPortOpen(string host, int port)
+static async Task<bool> IsTcpPortOpenAsync(string host, int port)
 {
     try
     {
         using var client = new TcpClient();
-        return client.ConnectAsync(host, port).Wait(TimeSpan.FromMilliseconds(500));
+        await client.ConnectAsync(host, port).WaitAsync(TimeSpan.FromMilliseconds(500));
+        return true;
     }
     catch (SocketException)
+    {
+        return false;
+    }
+    catch (TimeoutException)
     {
         return false;
     }
