@@ -134,7 +134,6 @@ public sealed class AccessControlContractMigrationTests
             Path.Combine(AccessControlRoot, "Permissions", "IPermissionChecker.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionChecker.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionEndpointFilter.cs"),
-            Path.Combine(AccessControlRoot, "Permissions", "EndpointPermissionDeniedRecorder.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "IPermissionManagementService.cs"),
             Path.Combine(AccessControlRoot, "Permissions", "PermissionManagementService.cs"),
             Path.Combine(AccessControlRoot, "Repositories", "IPermissionRepository.cs"),
@@ -169,6 +168,27 @@ public sealed class AccessControlContractMigrationTests
         Assert.DoesNotContain("SqlSugar", permissionService, StringComparison.Ordinal);
         Assert.DoesNotContain("MySqlConnector", permissionService, StringComparison.Ordinal);
         Assert.DoesNotContain("namespace " + LegacyBoundaryNames.SystemNamespace("Permissions") + ";", permissionService, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EndpointPermissionExtensions_BindToAccessControlPermissionFilter()
+    {
+        var apiExtension = await File.ReadAllTextAsync(
+            Path.Combine(TestPaths.SourceRoot, "WeCms.Api", "Endpoints", "EndpointPermissionExtensions.cs"),
+            TestContext.Current.CancellationToken);
+        var sharedExtension = await File.ReadAllTextAsync(
+            Path.Combine(TestPaths.SourceRoot, "WeCms.Shared", "Endpoints", "EndpointPermissionExtensions.cs"),
+            TestContext.Current.CancellationToken);
+        var registration = await File.ReadAllTextAsync(
+            Path.Combine(AccessControlRoot, "AccessControlServiceCollectionExtensions.cs"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("using WeCms.Modules.AccessControl.Permissions;", apiExtension, StringComparison.Ordinal);
+        Assert.Contains(".AddEndpointFilter<PermissionEndpointFilter>()", apiExtension, StringComparison.Ordinal);
+        Assert.DoesNotContain("EndpointPermissionRuntimeExtensions", apiExtension, StringComparison.Ordinal);
+        Assert.DoesNotContain("EndpointPermissionFilter", apiExtension, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<IEndpointPermissionFilter>()", sharedExtension, StringComparison.Ordinal);
+        Assert.Contains("AddScoped<IEndpointPermissionFilter, PermissionEndpointFilter>()", registration, StringComparison.Ordinal);
     }
 
     [Fact]

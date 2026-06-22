@@ -6,7 +6,7 @@ using WeCms.Shared;
 
 namespace WeCms.Modules.AccessControl.Permissions;
 
-public sealed class PermissionEndpointFilter : IEndpointFilter
+public sealed class PermissionEndpointFilter : IEndpointPermissionFilter
 {
     private readonly IPermissionChecker _checker;
     private readonly IPermissionSecurityEventWriter _securityEventWriter;
