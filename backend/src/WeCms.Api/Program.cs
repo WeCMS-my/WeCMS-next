@@ -5,6 +5,7 @@ using Autofac.Extensions.DependencyInjection;
 using WeCms.Aop;
 using WeCms.Api.Endpoints;
 using WeCms.Api.Extensions;
+using WeCms.Api.AccessProfiles;
 using WeCms.Api.Files;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
@@ -18,6 +19,7 @@ using WeCms.EventBus.SqlSugar;
 using WeCms.Modules.AccessControl;
 using WeCms.Modules.AccessControl.AccessProfiles;
 using WeCms.Modules.AccessControl.Permissions;
+using WeCms.Modules.AccessControl.Repositories;
 using WeCms.Modules.AccessControl.SqlSugar;
 using WeCms.Modules.Audit;
 using WeCms.Modules.Audit.SqlSugar;
@@ -88,6 +90,11 @@ builder.Services.AddSingleton<ISecurityRejectionEventBuffer>(provider => provide
 builder.Services.AddSingleton<ISecurityRejectionEventReader>(provider => provider.GetRequiredService<SecurityRejectionEventBuffer>());
 builder.Services.AddHostedService<SecurityRejectionEventFlushHostedService>();
 builder.Services.AddWeCmsAccessControl();
+builder.Services.AddScoped<IAccessProfileService>(provider => new CachedAccessProfileService(
+    provider.GetRequiredService<AccessProfileService>(),
+    provider.GetRequiredService<IAccessProfileRepository>(),
+    provider.GetRequiredService<ICache>(),
+    provider.GetRequiredService<ICacheKeyBuilder>()));
 builder.Services.AddWeCmsAudit();
 builder.Services.AddWeCmsConfiguration();
 builder.Services.AddWeCmsIdentity(builder.Configuration);

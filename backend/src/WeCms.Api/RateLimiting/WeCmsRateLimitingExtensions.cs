@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 using WeCms.Api.Json;
 using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
@@ -20,6 +21,7 @@ public static class WeCmsRateLimitingExtensions
     {
         var settings = RateLimitSettings.FromConfiguration(configuration);
         services.AddSingleton(settings);
+        services.AddHostedService<RateLimitSecurityEventFlushHostedService>();
         services.AddRateLimiter(options =>
         {
             AddFixedWindowPolicy(options, RateLimitPolicyNames.AuthLogin, settings.AuthLogin, AuthPartition);
@@ -83,6 +85,33 @@ public static class WeCmsRateLimitingExtensions
             result,
             WeCmsJsonSerializerContext.Default.ApiResultObject,
             cancellationToken);
+    }
+
+    private static void TryBufferRateLimitHit(HttpContext httpContext, string policyName)
+    {
+        try
+        {
+            var clock = httpContext.RequestServices.GetRequiredService<ISecurityClock>();
+            var buffer = httpContext.RequestServices.GetRequiredService<IRateLimitHitBuffer>();
+            _ = buffer.TryRecord(
+                new RateLimitHitRecord(
+                    policyName,
+                    httpContext.Request.Method,
+                    httpContext.Request.Path.Value ?? "/",
+                    TryGetUserId(httpContext),
+                    httpContext.User.Identity?.Name,
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    httpContext.Request.Headers.UserAgent.ToString(),
+                    httpContext.TraceIdentifier,
+                    clock.UtcNow));
+        }
+        catch (Exception exception)
+        {
+            httpContext.RequestServices
+                .GetService<ILoggerFactory>()?
+                .CreateLogger(typeof(WeCmsRateLimitingExtensions).FullName ?? nameof(WeCmsRateLimitingExtensions))
+                .LogWarning(exception, "Failed to buffer rate-limit security event.");
+        }
     }
 
     private static string AuthPartition(HttpContext context)
