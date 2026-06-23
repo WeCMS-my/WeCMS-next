@@ -73,7 +73,7 @@ public sealed partial class AuthIntegrationTests
         var twoFactorOptions = new TwoFactorOptions("integration-two-factor-secret-key-32", "WeCMS", 30, 6, 1, 10);
         var twoFactorRepository = new UserTwoFactorRepository(db);
         var authRepository = new AuthRepository(db, securityEventClassifier);
-        var accessProfileService = new AccessProfileService(new AccessProfileRepository(db));
+        var accessProfileService = new AccessProfileService(new AccessProfileRepository(db), new NoopAccessProfileCache());
         var unitOfWork = new SqlSugarUnitOfWork(db);
         var clock = new FixedAuthClock(now);
         var securityAlertService = new SecurityAlertService(new NoopSecurityAlertSink());
@@ -83,7 +83,8 @@ public sealed partial class AuthIntegrationTests
             securityAlertService,
             new SqlSugarUnitOfWork(db),
             new WeCms.EventBus.SqlSugar.SqlSugarOutboxWriter(new WeCms.EventBus.SqlSugar.Repositories.OutboxMessageRepository(db)),
-            new WeCms.Infrastructure.Id.SystemIdGenerator());
+            new WeCms.Infrastructure.Id.SystemIdGenerator(),
+            new NoopSecurityBanLookupCache());
         var identitySecurityBanService = new IdentitySecurityBanServiceAdapter(securityBanService);
         var accessTokenService = new AccessTokenService(tokenOptions);
         var refreshTokenService = new RefreshTokenService(tokenOptions.RefreshTokenLifetime, new AuthTokenEntropy());
@@ -392,4 +393,61 @@ public sealed partial class AuthIntegrationTests
         }
     }
 
+    private sealed class NoopSecurityBanLookupCache : ISecurityBanLookupCache
+    {
+        public ValueTask<SecurityBanLookupCacheResult?> GetAsync(
+            string banType,
+            string target,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<SecurityBanLookupCacheResult?>(null);
+        }
+
+        public ValueTask SetAsync(
+            SecurityBanRecord record,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask SetMissAsync(
+            string banType,
+            string target,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask RemoveAsync(
+            string banType,
+            string target,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class NoopAccessProfileCache : IAccessProfileCache
+    {
+        public ValueTask<AccessProfileDto?> GetAsync(
+            long userId,
+            bool isSuperAdmin,
+            long permissionVersion,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<AccessProfileDto?>(null);
+        }
+
+        public ValueTask SetAsync(
+            long userId,
+            bool isSuperAdmin,
+            AccessProfileDto profile,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
 }

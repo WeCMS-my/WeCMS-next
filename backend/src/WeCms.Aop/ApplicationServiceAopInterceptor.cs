@@ -273,14 +273,23 @@ public sealed class ApplicationServiceAopInterceptor : IInterceptor
         var audited = GetAttribute<AuditedAttribute>(invocation);
         var (module, resource, action) = ResolveAuditMetadata(audited, invocation.Method);
 
+        var cacheableAttributes = GetAttributes<CacheableAttribute>(invocation)
+            .OrderBy(static attribute => attribute.Order)
+            .ToList();
+        var cacheEvictAttributes = GetAttributes<CacheEvictAttribute>(invocation)
+            .OrderBy(static attribute => attribute.Order)
+            .ToList();
+
+        if (cacheableAttributes.Count > 0 && cacheEvictAttributes.Count > 0)
+        {
+            throw new NotSupportedException(
+                $"{nameof(CacheableAttribute)} and {nameof(CacheEvictAttribute)} cannot be combined on the same application service method.");
+        }
+
         return new InvocationPlan(
             GetAttribute<UnitOfWorkAttribute>(invocation),
-            GetAttributes<CacheableAttribute>(invocation)
-                .OrderBy(static attribute => attribute.Order)
-                .ToList(),
-            GetAttributes<CacheEvictAttribute>(invocation)
-                .OrderBy(static attribute => attribute.Order)
-                .ToList(),
+            cacheableAttributes,
+            cacheEvictAttributes,
             audited,
             new AuditMetadata(module, resource, action),
             $"{invocation.Method.DeclaringType?.FullName}.{invocation.Method.Name}");

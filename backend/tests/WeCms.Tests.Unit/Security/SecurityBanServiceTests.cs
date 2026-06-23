@@ -35,6 +35,92 @@ public sealed class SecurityBanServiceTests
     }
 
     [Fact]
+    public async Task FindActiveAsync_CachesPositiveActiveBanLookup()
+    {
+        var repository = new FakeSecurityBanRepository
+        {
+            ActiveBan = new SecurityBanRecord(7, SecurityBanTypes.Ip, "192.168.1.10", "bruteforce", "warning", "login", Now.AddMinutes(10), null)
+        };
+        var cache = new FakeSecurityBanLookupCache();
+        var service = CreateService(repository, cache: cache);
+
+        var first = await service.FindActiveAsync(SecurityBanTypes.Ip, "192.168.1.10", Now, CancellationToken.None);
+        var second = await service.FindActiveAsync(SecurityBanTypes.Ip, "192.168.1.10", Now, CancellationToken.None);
+
+        Assert.NotNull(first);
+        Assert.Same(first, second);
+        Assert.Equal(1, repository.FindActiveCalls);
+        Assert.Equal(1, cache.SetCalls);
+    }
+
+    [Fact]
+    public async Task FindActiveAsync_CachesNegativeMisses()
+    {
+        var repository = new FakeSecurityBanRepository();
+        var cache = new FakeSecurityBanLookupCache();
+        var service = CreateService(repository, cache: cache);
+
+        var first = await service.FindActiveAsync(SecurityBanTypes.Ip, "192.168.1.10", Now, CancellationToken.None);
+        var second = await service.FindActiveAsync(SecurityBanTypes.Ip, "192.168.1.10", Now, CancellationToken.None);
+
+        Assert.Null(first);
+        Assert.Null(second);
+        Assert.Equal(1, repository.FindActiveCalls);
+        Assert.Equal(0, cache.SetCalls);
+        Assert.Equal(1, cache.SetMissCalls);
+    }
+
+    [Fact]
+    public async Task UnbanAsync_InvalidatesActiveBanLookupCache()
+    {
+        var repository = new FakeSecurityBanRepository
+        {
+            BanDetail = new SecurityBanDetailDto(7, SecurityBanTypes.Ip, "192.168.1.10", "manual", "critical", "admin", null, null, null, null, Now, Now, null, null)
+        };
+        var cache = new FakeSecurityBanLookupCache();
+        var service = CreateService(repository, cache: cache);
+
+        await service.UnbanAsync(7, new UnbanSecurityBanRequest("reviewed"), Context, CancellationToken.None);
+
+        Assert.Equal(1, repository.RevokeCalls);
+        Assert.Equal(1, cache.RemoveCalls);
+        Assert.Contains("security:active-ban:", cache.LastRemovedKey, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateTemporaryAsync_InvalidatesActiveBanLookupCache()
+    {
+        var operations = new List<string>();
+        var cache = new FakeSecurityBanLookupCache(operations);
+        var outbox = new WeCms.Tests.Unit.RecordingOutboxWriter(operations);
+        var service = CreateService(new FakeSecurityBanRepository(), cache: cache, unitOfWork: new FakeUnitOfWork(operations), outboxWriter: outbox);
+
+        await service.CreateTemporaryAsync(
+            new CreateSecurityBanRecord(SecurityBanTypes.Ip, "127.0.0.1", "bruteforce", "warning", "login", Now.AddMinutes(5), Now),
+            CancellationToken.None);
+
+        Assert.Equal(1, cache.RemoveCalls);
+        Assert.True(operations.IndexOf("commit") < operations.IndexOf("cache-remove"), string.Join(", ", operations));
+    }
+
+    [Fact]
+    public async Task SecurityBanService_UsesCacheAbstractionForActiveBanLookup()
+    {
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.Security", "SecurityBanService.cs"), TestContext.Current.CancellationToken);
+
+        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "SecurityBanLookupCache.cs"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("ISecurityBanLookupCache", source, StringComparison.Ordinal);
+        Assert.Contains("_lookupCache.GetAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_lookupCache.SetAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_lookupCache.SetMissAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RemoveAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ICache", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("ICacheKeyBuilder", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("NegativeCacheTtl", cacheSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RecordHitAsync_WritesSecurityEvent()
     {
         var repository = new FakeSecurityBanRepository();
@@ -166,14 +252,32 @@ public sealed class SecurityBanServiceTests
         ISecurityBanRepository repository,
         FakeSecurityAlertService? alertService = null,
         FakeUnitOfWork? unitOfWork = null,
-        WeCms.Tests.Unit.RecordingOutboxWriter? outboxWriter = null)
+        WeCms.Tests.Unit.RecordingOutboxWriter? outboxWriter = null,
+        ISecurityBanLookupCache? cache = null)
     {
         return new SecurityBanService(
             repository,
             alertService ?? new FakeSecurityAlertService(),
             unitOfWork ?? new FakeUnitOfWork(),
             outboxWriter ?? new WeCms.Tests.Unit.RecordingOutboxWriter(),
-            new WeCms.Tests.Unit.FixedTestIdGenerator());
+            new WeCms.Tests.Unit.FixedTestIdGenerator(),
+            cache ?? new FakeSecurityBanLookupCache());
+    }
+
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
     }
 
     private static void AssertWriteWasInsideTransaction(IReadOnlyList<string> operations, string eventType)
@@ -206,6 +310,8 @@ public sealed class SecurityBanServiceTests
 
         public int RevokeCalls { get; private set; }
 
+        public int FindActiveCalls { get; private set; }
+
         public int AuditCount { get; private set; }
 
         public string LastAuditAction { get; private set; } = string.Empty;
@@ -214,6 +320,7 @@ public sealed class SecurityBanServiceTests
 
         public Task<SecurityBanRecord?> FindActiveAsync(string banType, string target, DateTimeOffset now, CancellationToken cancellationToken)
         {
+            FindActiveCalls++;
             LastBanType = banType;
             LastTarget = target;
             return Task.FromResult(ActiveBan);
@@ -264,6 +371,69 @@ public sealed class SecurityBanServiceTests
             LastSecurityEventSeverity = record.Severity;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeSecurityBanLookupCache : ISecurityBanLookupCache
+    {
+        private readonly Dictionary<string, SecurityBanLookupCacheResult> _values = new(StringComparer.Ordinal);
+        private readonly List<string>? _operations;
+
+        public FakeSecurityBanLookupCache(List<string>? operations = null)
+        {
+            _operations = operations;
+        }
+
+        public int SetCalls { get; private set; }
+
+        public int SetMissCalls { get; private set; }
+
+        public int RemoveCalls { get; private set; }
+
+        public string LastRemovedKey { get; private set; } = string.Empty;
+
+        public ValueTask<SecurityBanLookupCacheResult?> GetAsync(
+            string banType,
+            string target,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(_values.TryGetValue(Key(banType, target), out var value) ? value : null);
+        }
+
+        public ValueTask SetAsync(
+            SecurityBanRecord record,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            SetCalls++;
+            _values[Key(record.BanType, record.Target)] = new SecurityBanLookupCacheResult(record);
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask SetMissAsync(
+            string banType,
+            string target,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+        {
+            SetMissCalls++;
+            _values[Key(banType, target)] = SecurityBanLookupCacheResult.Miss;
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask RemoveAsync(
+            string banType,
+            string target,
+            CancellationToken cancellationToken)
+        {
+            RemoveCalls++;
+            LastRemovedKey = Key(banType, target);
+            _values.Remove(LastRemovedKey);
+            _operations?.Add("cache-remove");
+            return ValueTask.CompletedTask;
+        }
+
+        private static string Key(string banType, string target) => $"security:active-ban:{banType}:{target}";
     }
 
     private sealed class FakeSecurityAlertService : ISecurityAlertService

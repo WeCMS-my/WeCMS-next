@@ -101,7 +101,7 @@ alert_sources = {
     "backend/src/WeCms.Modules.Identity/Services/LoginFailureLimiter.cs": "login failure alert routing",
     "backend/src/WeCms.Modules.Identity/Services/AuthTwoFactorChallengeService.cs": "2FA alert routing",
     "backend/src/WeCms.Modules.Security/SecurityBanService.cs": "security ban alert routing",
-    "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": "IP access alert routing",
+    "backend/src/WeCms.Api/Security/SecurityRejectionEventBuffer.cs": "IP access alert routing",
 }
 for relative, label in alert_sources.items():
     source = read(relative)
@@ -116,8 +116,38 @@ for relative, label in alert_sources.items():
 ip_access = read("backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs")
 if "context.TraceIdentifier" not in ip_access:
     violations.append("IpAccessControlMiddleware must record trace id in security event")
-if "security.ip_rejected" not in ip_access:
-    violations.append("IpAccessControlMiddleware must use classifier-backed security.ip_rejected event")
+if "ISecurityRejectionEventBuffer" not in ip_access:
+    violations.append("IpAccessControlMiddleware must enqueue classifier-backed security.ip_rejected event")
+ip_access_flush = read("backend/src/WeCms.Api/Security/SecurityRejectionEventBuffer.cs")
+if "security.ip_rejected" not in ip_access_flush:
+    violations.append("SecurityRejectionEventBuffer must flush classifier-backed security.ip_rejected event")
+
+memory_cache = read("backend/src/WeCms.Caching/MemoryCacheProvider.cs")
+for token in ["prefixInvalidationVersions", "Interlocked.Increment", "IsInvalidated"]:
+    if token not in memory_cache:
+        violations.append(f"MemoryCacheProvider prefix invalidation missing {token}")
+if "foreach (var key in keys.Keys)" in memory_cache:
+    violations.append("MemoryCacheProvider RemoveByPrefixAsync must not enumerate every tracked key")
+
+outbox_options = read("backend/src/WeCms.EventBus/OutboxDispatcherOptions.cs")
+for token in ["IdlePollInterval", "FailurePollInterval"]:
+    if token not in outbox_options:
+        violations.append(f"OutboxDispatcherOptions missing {token}")
+
+outbox_contract = read("backend/src/WeCms.EventBus/IOutboxDispatcher.cs")
+for token in ["OutboxDispatchResult", "LockedCount", "ProcessedCount", "FailedCount"]:
+    if token not in outbox_contract:
+        violations.append(f"IOutboxDispatcher result contract missing {token}")
+
+outbox_dispatcher = read("backend/src/WeCms.EventBus/OutboxDispatcher.cs")
+for token in ["OutboxDispatchResult.Empty", "LockedCount", "ProcessedCount", "FailedCount"]:
+    if token not in outbox_dispatcher:
+        violations.append(f"OutboxDispatcher observability result missing {token}")
+
+outbox_hosted_service = read("backend/src/WeCms.EventBus.SqlSugar/OutboxDispatcherHostedService.cs")
+for token in ["OutboxDispatchCycleOutcome", "IdlePollInterval", "FailurePollInterval", "OutboxDispatchResult"]:
+    if token not in outbox_hosted_service:
+        violations.append(f"OutboxDispatcherHostedService backoff missing {token}")
 
 docs = read("docs/ops/logging-observability.md") + read("docs/ops/security-alerting.md")
 for token in ["Authorization", "Cookie", "password", "/health/live", "/health/ready", "/health/dependencies", "ISecurityAlertSink"]:

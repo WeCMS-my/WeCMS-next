@@ -49,6 +49,24 @@ public sealed class SecurityBanMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_DoesNotThrowSecondaryExceptionWhenBlockedResponseAlreadyStarted()
+    {
+        var middleware = new SecurityBanMiddleware(_ => Task.CompletedTask);
+        var context = CreateContext("192.168.1.10");
+        context.Features.Set<Microsoft.AspNetCore.Http.Features.IHttpResponseFeature>(new StartedResponseFeature());
+        var service = new FakeSecurityBanService
+        {
+            IpBan = Ban(SecurityBanTypes.Ip, "192.168.1.10")
+        };
+
+        await middleware.InvokeAsync(context, service, new FakeAuthClock());
+
+        Assert.True(context.Response.HasStarted);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(1, service.RecordHitCount);
+    }
+
+    [Fact]
     public async Task InvokeAsync_NoBanCallsNext()
     {
         var nextCalled = false;

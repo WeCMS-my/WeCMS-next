@@ -1,10 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using WeCms.Api.Json;
-using WeCms.Modules.Identity.Records;
-using WeCms.Modules.Identity.Repositories;
+using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
-using WeCms.Modules.Security;
 using WeCms.Shared;
 using WeCms.Shared.Security;
 
@@ -12,7 +10,6 @@ namespace WeCms.Api.Middleware;
 
 public sealed class IpAccessControlMiddleware
 {
-    private const string DeniedEventType = "security.ip_rejected";
     private const string DeniedMessage = "IP access is not allowed.";
 
     private readonly RequestDelegate _next;
@@ -26,15 +23,13 @@ public sealed class IpAccessControlMiddleware
         HttpContext context,
         IConfiguration configuration,
         IIpRuleMatcher ipRuleMatcher,
-        IAuthRepository authRepository,
-        ISecurityAlertService alertService,
+        ISecurityRejectionEventBuffer securityRejectionEventBuffer,
         IAuthClock clock)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(ipRuleMatcher);
-        ArgumentNullException.ThrowIfNull(authRepository);
-        ArgumentNullException.ThrowIfNull(alertService);
+        ArgumentNullException.ThrowIfNull(securityRejectionEventBuffer);
         ArgumentNullException.ThrowIfNull(clock);
 
         if (!ReadBool(configuration, "Security:IpAccessControl:Enabled", defaultValue: false)
@@ -59,25 +54,12 @@ public sealed class IpAccessControlMiddleware
         }
 
         var now = clock.UtcNow;
-        var securityEvent = new SecurityEventRecord(
-            DeniedEventType,
-            null,
-            null,
-            remoteIp?.ToString() ?? string.Empty,
-            "critical",
-            DeniedMessage,
-            now,
-            context.TraceIdentifier);
-
-        await authRepository.RecordSecurityEventAsync(securityEvent, context.RequestAborted);
-        await alertService.PublishIfRequiredAsync(
-            SecurityAlertRecord.FromSecurityEvent(
-                securityEvent.EventType,
-                securityEvent.Severity,
-                securityEvent.Message,
-                securityEvent.TraceId ?? context.TraceIdentifier,
-                now),
-            context.RequestAborted);
+        _ = securityRejectionEventBuffer.TryEnqueue(
+            SecurityRejectionEvent.FromIpAccessDenied(
+                new IpAccessDeniedSecurityEvent(
+                    remoteIp?.ToString() ?? string.Empty,
+                    context.TraceIdentifier,
+                    now)));
 
         await WriteForbiddenAsync(context);
     }
@@ -116,7 +98,7 @@ public sealed class IpAccessControlMiddleware
     {
         if (context.Response.HasStarted)
         {
-            throw new InvalidOperationException("Cannot write API error response after the response has started.");
+            return;
         }
 
         context.Response.Clear();

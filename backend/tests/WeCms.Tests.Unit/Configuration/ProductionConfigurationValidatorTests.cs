@@ -188,7 +188,9 @@ public sealed class ProductionConfigurationValidatorTests
                     ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
                     ["Security:AllowedOrigins:0"] = "https://admin.example.com",
                     ["FileStorage:Local:BasePath"] = path,
-                    ["FileStorage:VirusScanEnabled"] = "false",
+                    ["FileStorage:VirusScanEnabled"] = "true",
+                    ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                    ["FileStorage:VirusScan:Host"] = "scanner.internal",
                     ["FileStorage:Provider"] = "local",
                     ["Database:SeedAdminPassword"] = ValidSeedPassword()
                 }), Environment("Production")));
@@ -215,6 +217,7 @@ public sealed class ProductionConfigurationValidatorTests
                 ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
                 ["Security:AllowedOrigins:0"] = "https://admin.example.com",
                 ["FileStorage:VirusScanEnabled"] = "true",
+                ["FileStorage:VirusScan:Provider"] = "none",
                 ["Database:SeedAdminPassword"] = ValidSeedPassword()
             }), Environment("Production")));
 
@@ -251,12 +254,30 @@ public sealed class ProductionConfigurationValidatorTests
                 ["Security:AllowedOrigins:0"] = "https://admin.example.com",
                 ["FileStorage:VirusScanEnabled"] = "true",
                 ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                ["FileStorage:VirusScan:Host"] = "",
                 ["FileStorage:VirusScan:Port"] = "3310",
                 ["FileStorage:VirusScan:TimeoutSeconds"] = "5",
                 ["Database:SeedAdminPassword"] = ValidSeedPassword()
             }), Environment("Production")));
 
         Assert.Equal("FileStorage:VirusScan:Host must be configured when virus scanning is enabled in Production.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsDisabledVirusScan()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["FileStorage:VirusScanEnabled"] = "false",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:VirusScanEnabled must be true in Production.", exception.Message);
     }
 
     [Fact]
@@ -463,6 +484,24 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Validate_ProductionRejectsReportOnlyCspWithoutEnforceCsp()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Security:SecureHeaders:CspEnabled"] = "false",
+                ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword()
+            }), Environment("Production")));
+
+        Assert.Equal("Security:SecureHeaders:CspEnabled must be true in Production.", exception.Message);
+    }
+
+    [Fact]
     public void Validate_ProductionAllowsForwardedHeadersWithKnownNetwork()
     {
         ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
@@ -482,10 +521,16 @@ public sealed class ProductionConfigurationValidatorTests
         var merged = new Dictionary<string, string?>
         {
             ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
+            ["Security:SecureHeaders:CspEnabled"] = "true",
+            ["Security:SecureHeaders:Csp"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
             ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
             ["FileStorage:Provider"] = "local",
             ["FileStorage:Local:BasePath"] = ValidStorageBasePath(),
-            ["FileStorage:VirusScanEnabled"] = "false"
+            ["FileStorage:VirusScanEnabled"] = "true",
+            ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+            ["FileStorage:VirusScan:Host"] = "scanner.internal",
+            ["FileStorage:VirusScan:Port"] = "3310",
+            ["FileStorage:VirusScan:TimeoutSeconds"] = "5"
         };
 
         foreach (var (key, value) in values)

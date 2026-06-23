@@ -9,7 +9,9 @@ public sealed class MemoryCacheProvider : ICache
     private readonly ICacheSerializer serializer;
     private readonly CacheOptions cacheOptions;
     private readonly ConcurrentDictionary<string, byte> keys = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> prefixInvalidationVersions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new(StringComparer.Ordinal);
+    private long cacheVersion;
 
     public MemoryCacheProvider(
         IMemoryCache memoryCache,
@@ -43,7 +45,7 @@ public sealed class MemoryCacheProvider : ICache
             return RemoveAsync(key, cancellationToken);
         }
 
-        var payload = new MemoryCachePayload(serializer.Serialize(value));
+        var payload = new MemoryCachePayload(serializer.Serialize(value), Volatile.Read(ref cacheVersion));
         var entryOptions = BuildEntryOptions(key, options);
 
         memoryCache.Set(key, payload, entryOptions);
@@ -103,29 +105,47 @@ public sealed class MemoryCacheProvider : ICache
         }
     }
 
-    public async ValueTask RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    public ValueTask RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ValidateKey(prefix);
 
-        foreach (var key in keys.Keys)
-        {
-            if (key.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                await RemoveAsync(key, cancellationToken);
-            }
-        }
+        var version = Interlocked.Increment(ref cacheVersion);
+        prefixInvalidationVersions.AddOrUpdate(prefix, version, (_, current) => Math.Max(current, version));
+
+        return ValueTask.CompletedTask;
     }
 
     private bool TryGetValue<T>(string key, out T? value)
     {
         if (memoryCache.TryGetValue(key, out MemoryCachePayload? payload) && payload is not null)
         {
+            if (IsInvalidated(key, payload.Version))
+            {
+                memoryCache.Remove(key);
+                keys.TryRemove(key, out _);
+                value = default;
+                return false;
+            }
+
             value = serializer.Deserialize<T>(payload.Value);
             return true;
         }
 
         value = default;
+        return false;
+    }
+
+    private bool IsInvalidated(string key, long payloadVersion)
+    {
+        foreach (var invalidation in prefixInvalidationVersions)
+        {
+            if (invalidation.Value > payloadVersion && key.StartsWith(invalidation.Key, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -161,5 +181,5 @@ public sealed class MemoryCacheProvider : ICache
         }
     }
 
-    private sealed record MemoryCachePayload(byte[] Value);
+    private sealed record MemoryCachePayload(byte[] Value, long Version);
 }

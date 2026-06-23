@@ -85,6 +85,9 @@ if template_path.is_file():
         violations.append("production example 2FA key must use __SET_BY_ENV__")
     if get("Database:SeedAdminPassword") != "__SET_BY_SECRET_MANAGER__":
         violations.append("production example seed password must use __SET_BY_SECRET_MANAGER__")
+    secure_headers = get("Security:SecureHeaders")
+    if isinstance(secure_headers, dict) and secure_headers.get("CspEnabled") is not True:
+        violations.append("production example must enable enforce CSP")
 
     origins = get("Security:AllowedOrigins")
     if isinstance(origins, list):

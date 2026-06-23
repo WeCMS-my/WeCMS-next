@@ -24,7 +24,7 @@ public sealed class AccessProfileServiceTests
                 new MenuSummaryDto(1, null, "catalog", "sys.system", "/system", null, "System", null, null, 10, false, false, null, null, "enabled", true)
             ]
         };
-        var service = new AccessProfileService(repository);
+        var service = CreateService(repository);
 
         var profile = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
 
@@ -40,40 +40,167 @@ public sealed class AccessProfileServiceTests
         Assert.False(repository.CapturedIsSuperAdmin);
     }
 
+    [Fact]
+    public async Task GetAsync_CachesProfileByUserSuperAdminAndPermissionVersion()
+    {
+        var repository = new FakeAccessProfileRepository
+        {
+            PermissionVersion = 12,
+            Roles = ["admin"],
+            Permissions = ["identity:user:list"],
+            Menus = []
+        };
+        var cache = new FakeAccessProfileCache();
+        var service = CreateService(repository, cache);
+
+        var first = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        var second = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+
+        Assert.Same(first, second);
+        Assert.Equal(2, repository.PermissionVersionCalls);
+        Assert.Equal(1, repository.RoleCalls);
+        Assert.Equal(1, repository.PermissionCalls);
+        Assert.Equal(1, repository.MenuCalls);
+        Assert.Equal(1, cache.SetCalls);
+    }
+
+    [Fact]
+    public async Task GetAsync_ChangesCacheKeyWhenPermissionVersionChanges()
+    {
+        var repository = new FakeAccessProfileRepository
+        {
+            PermissionVersion = 12,
+            Roles = ["admin"],
+            Permissions = ["identity:user:list"],
+            Menus = []
+        };
+        var cache = new FakeAccessProfileCache();
+        var service = CreateService(repository, cache);
+
+        _ = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        repository.PermissionVersion = 13;
+        repository.Roles = ["operator"];
+        var changed = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+
+        Assert.Equal(["operator"], changed.Roles);
+        Assert.Equal(2, repository.RoleCalls);
+        Assert.Equal(2, cache.SetCalls);
+    }
+
+    [Fact]
+    public async Task AccessProfileService_UsesVersionedCacheAbstraction()
+    {
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "AccessProfiles", "AccessProfileService.cs"), TestContext.Current.CancellationToken);
+        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "AccessProfileCache.cs"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("IAccessProfileCache", source, StringComparison.Ordinal);
+        Assert.Contains("_cache.GetAsync(userId, isSuperAdmin, permissionVersion", source, StringComparison.Ordinal);
+        Assert.Contains("_cache.SetAsync(userId, isSuperAdmin, profile", source, StringComparison.Ordinal);
+        Assert.Contains("ICache", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("permissionVersion", cacheSource, StringComparison.Ordinal);
+    }
+
+    private static AccessProfileService CreateService(
+        IAccessProfileRepository repository,
+        IAccessProfileCache? cache = null)
+    {
+        return new AccessProfileService(repository, cache ?? new FakeAccessProfileCache());
+    }
+
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
+    }
+
     private sealed class FakeAccessProfileRepository : IAccessProfileRepository
     {
-        public long PermissionVersion { get; init; }
+        public long PermissionVersion { get; set; }
 
-        public IReadOnlyList<string> Roles { get; init; } = [];
+        public IReadOnlyList<string> Roles { get; set; } = [];
 
-        public IReadOnlyList<string> Permissions { get; init; } = [];
+        public IReadOnlyList<string> Permissions { get; set; } = [];
 
-        public IReadOnlyList<MenuSummaryDto> Menus { get; init; } = [];
+        public IReadOnlyList<MenuSummaryDto> Menus { get; set; } = [];
 
         public long CapturedUserId { get; private set; }
 
         public bool CapturedIsSuperAdmin { get; private set; }
 
+        public int PermissionVersionCalls { get; private set; }
+
+        public int RoleCalls { get; private set; }
+
+        public int PermissionCalls { get; private set; }
+
+        public int MenuCalls { get; private set; }
+
         public Task<long> GetPermissionVersionAsync(long userId, CancellationToken cancellationToken)
         {
+            PermissionVersionCalls++;
             CapturedUserId = userId;
             return Task.FromResult(PermissionVersion);
         }
 
         public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
         {
+            RoleCalls++;
             return Task.FromResult(Roles);
         }
 
         public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
         {
+            PermissionCalls++;
             return Task.FromResult(Permissions);
         }
 
         public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
         {
+            MenuCalls++;
             CapturedIsSuperAdmin = isSuperAdmin;
             return Task.FromResult(Menus);
+        }
+    }
+
+    private sealed class FakeAccessProfileCache : IAccessProfileCache
+    {
+        private readonly Dictionary<string, AccessProfileDto> _values = new(StringComparer.Ordinal);
+
+        public int SetCalls { get; private set; }
+
+        public ValueTask<AccessProfileDto?> GetAsync(
+            long userId,
+            bool isSuperAdmin,
+            long permissionVersion,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult(_values.TryGetValue(Key(userId, isSuperAdmin, permissionVersion), out var profile) ? profile : null);
+        }
+
+        public ValueTask SetAsync(
+            long userId,
+            bool isSuperAdmin,
+            AccessProfileDto profile,
+            CancellationToken cancellationToken)
+        {
+            SetCalls++;
+            _values[Key(userId, isSuperAdmin, profile.PermissionVersion)] = profile;
+            return ValueTask.CompletedTask;
+        }
+
+        private static string Key(long userId, bool isSuperAdmin, long permissionVersion)
+        {
+            return $"{userId}:{isSuperAdmin}:{permissionVersion}";
         }
     }
 }

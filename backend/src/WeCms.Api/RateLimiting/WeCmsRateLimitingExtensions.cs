@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using WeCms.Api.Json;
+using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
 using WeCms.Modules.Security;
 using WeCms.Shared;
@@ -56,9 +57,9 @@ public static class WeCmsRateLimitingExtensions
         var httpContext = context.HttpContext;
         var policyName = httpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName ?? "unknown";
         var clock = httpContext.RequestServices.GetRequiredService<IAuthClock>();
-        var recorder = httpContext.RequestServices.GetRequiredService<IRateLimitSecurityEventService>();
-        await recorder.RecordHitAsync(
-            new RateLimitHitRecord(
+        var buffer = httpContext.RequestServices.GetRequiredService<ISecurityRejectionEventBuffer>();
+        _ = buffer.TryEnqueue(
+            SecurityRejectionEvent.FromRateLimit(new RateLimitHitRecord(
                 policyName,
                 httpContext.Request.Method,
                 httpContext.Request.Path.Value ?? "/",
@@ -67,8 +68,7 @@ public static class WeCmsRateLimitingExtensions
                 httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 httpContext.Request.Headers.UserAgent.ToString(),
                 httpContext.TraceIdentifier,
-                clock.UtcNow),
-            cancellationToken);
+                clock.UtcNow)));
 
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
         {

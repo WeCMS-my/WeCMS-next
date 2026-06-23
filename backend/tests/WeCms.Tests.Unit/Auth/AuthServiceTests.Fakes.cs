@@ -8,13 +8,13 @@ namespace WeCms.Tests.Unit.Auth;
 
 public sealed partial class AuthServiceTests
 {
-    private static AuthService CreateService(FakeAuthRepository repository)
+    private static AuthService CreateService(FakeAuthRepository repository, IPasswordHasher? passwordHasher = null)
     {
         repository.LoginFailureLimiter = new FakeLoginFailureLimiter();
-        return CreateService(repository, repository.LoginFailureLimiter);
+        return CreateService(repository, repository.LoginFailureLimiter, passwordHasher);
     }
 
-    private static AuthService CreateService(FakeAuthRepository repository, FakeLoginFailureLimiter limiter)
+    private static AuthService CreateService(FakeAuthRepository repository, FakeLoginFailureLimiter limiter, IPasswordHasher? passwordHasher = null)
     {
         repository.LoginFailureLimiter = limiter;
         var clock = new FixedAuthClock(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
@@ -44,7 +44,7 @@ public sealed partial class AuthServiceTests
         return new AuthService(
             repository,
             repository,
-            new PasswordHasher(),
+            passwordHasher ?? new PasswordHasher(),
             clock,
             limiter,
             auditWriter,
@@ -148,6 +148,32 @@ public sealed partial class AuthServiceTests
             CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CountingPasswordHasher : IPasswordHasher
+    {
+        private readonly bool _verifyResult;
+
+        public CountingPasswordHasher(bool verifyResult = false)
+        {
+            _verifyResult = verifyResult;
+        }
+
+        public int VerifyCalls { get; private set; }
+
+        public string? LastPasswordHash { get; private set; }
+
+        public string Hash(string password)
+        {
+            throw new NotSupportedException();
+        }
+
+        public bool Verify(string password, string passwordHash)
+        {
+            VerifyCalls++;
+            LastPasswordHash = passwordHash;
+            return _verifyResult;
         }
     }
 

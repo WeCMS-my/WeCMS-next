@@ -34,7 +34,7 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
         this.logger = logger;
     }
 
-    public async Task DispatchAsync(CancellationToken cancellationToken)
+    public async Task<OutboxDispatchResult> DispatchAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var lockToken = lockTokenProvider.CreateLockToken();
@@ -42,14 +42,37 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
             .LockPendingMessagesAsync(ValidatedBatchSize(), now, lockToken, cancellationToken)
             .ConfigureAwait(false);
 
+        if (messages.Count == 0)
+        {
+            logger.LogDebug("Outbox dispatcher found no pending messages.");
+            return OutboxDispatchResult.Empty;
+        }
+
+        var processedCount = 0;
+        var failedCount = 0;
         foreach (var message in messages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await DispatchMessageAsync(message, now, cancellationToken).ConfigureAwait(false);
+            if (await DispatchMessageAsync(message, now, cancellationToken).ConfigureAwait(false))
+            {
+                processedCount++;
+            }
+            else
+            {
+                failedCount++;
+            }
         }
+
+        logger.LogInformation(
+            "Outbox dispatcher completed cycle. Locked: {LockedCount}; processed: {ProcessedCount}; failed: {FailedCount}.",
+            messages.Count,
+            processedCount,
+            failedCount);
+
+        return new OutboxDispatchResult(messages.Count, processedCount, failedCount);
     }
 
-    private async Task DispatchMessageAsync(
+    private async Task<bool> DispatchMessageAsync(
         OutboxMessageRecord message,
         DateTimeOffset dispatchStartedAt,
         CancellationToken cancellationToken)
@@ -64,6 +87,7 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
 
             await handlerExecutor.ExecuteAsync(integrationEvent, idempotencyStore, cancellationToken).ConfigureAwait(false);
             await repository.MarkProcessedAsync(message.Id, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+            return true;
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -78,6 +102,7 @@ public sealed class OutboxDispatcher : IOutboxDispatcher
                 TrimError(exception.Message),
                 dispatchStartedAt.Add(options.RetryDelay),
                 cancellationToken).ConfigureAwait(false);
+            return false;
         }
     }
 

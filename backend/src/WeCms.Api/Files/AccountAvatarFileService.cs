@@ -31,22 +31,28 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var originalName = NormalizeRequired(request.OriginalName, "originalName", 255);
+        var originalName = FileNameSafety.NormalizeFileName(request.OriginalName, "originalName", 255);
         var mimeType = NormalizeRequired(request.MimeType, "mimeType", 120);
         var sha256 = NormalizeSha256(request.Sha256);
-        var ext = Path.GetExtension(originalName);
+        var ext = FileNameSafety.NormalizeFileExtension(originalName);
         var policy = _policyResolver.Resolve("avatar");
         if (request.SizeBytes <= 0 || request.SizeBytes > policy.MaxSizeBytes)
         {
             throw Validation($"Avatar size must be between 1 and {policy.MaxSizeBytes} bytes.");
         }
 
-        await policy.ValidateContentAsync(file, mimeType, ext, cancellationToken);
-        await ScanAvatarAsync(file, originalName, mimeType, request.SizeBytes, policy.Code, cancellationToken);
+        await using var uploadContent = await FileUploadContent.ReadAsync(file, policy.MaxSizeBytes, cancellationToken);
+        if (uploadContent.SizeBytes != request.SizeBytes)
+        {
+            throw Validation("Avatar content does not match declared metadata.");
+        }
+
+        await policy.ValidateContentAsync(uploadContent.Content, uploadContent.SizeBytes, mimeType, ext, cancellationToken);
+        await ScanAvatarAsync(uploadContent, originalName, mimeType, request.SizeBytes, policy.Code, cancellationToken);
 
         var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(now, ext)}";
-        await using var stream = file.OpenReadStream();
-        var stored = await _storage.StoreAsync(stream, objectKey, ext.ToLowerInvariant(), policy.MaxSizeBytes, cancellationToken);
+        uploadContent.Rewind();
+        var stored = await _storage.StoreAsync(uploadContent.Content, objectKey, ext, policy.MaxSizeBytes, cancellationToken);
         if (stored.SizeBytes != request.SizeBytes
             || !string.Equals(stored.Sha256, sha256, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(stored.MimeType, mimeType, StringComparison.OrdinalIgnoreCase))
@@ -55,7 +61,7 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
             throw Validation("Avatar content does not match declared metadata.");
         }
 
-        return new AccountAvatarStoredFile(objectKey, stored.MimeType, ext.ToLowerInvariant());
+        return new AccountAvatarStoredFile(objectKey, stored.MimeType, ext);
     }
 
     public async Task<AccountAvatarDownload> OpenAsync(
@@ -64,10 +70,11 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
         string fileExtension,
         CancellationToken cancellationToken)
     {
+        var normalizedExtension = FileNameSafety.NormalizeStoredFileExtension(fileExtension);
         return new AccountAvatarDownload(
             await _storage.OpenReadAsync(objectKey, cancellationToken),
             mimeType,
-            $"avatar{fileExtension}",
+            $"avatar{normalizedExtension}",
             0,
             OwnsStream: true);
     }
@@ -77,11 +84,11 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
         return _storage.DeleteAsync(objectKey, cancellationToken);
     }
 
-    private async Task ScanAvatarAsync(IFormFile file, string originalName, string mimeType, long sizeBytes, string policyCode, CancellationToken cancellationToken)
+    private async Task ScanAvatarAsync(FileUploadContent uploadContent, string originalName, string mimeType, long sizeBytes, string policyCode, CancellationToken cancellationToken)
     {
-        await using var scanStream = file.OpenReadStream();
+        uploadContent.Rewind();
         var scanResult = await _fileScanService.ScanAsync(
-            scanStream,
+            uploadContent.Content,
             new FileScanRequest(originalName, mimeType, sizeBytes, policyCode),
             cancellationToken);
         if (!scanResult.Clean)

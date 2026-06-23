@@ -86,7 +86,18 @@ public sealed class FileServiceTests
     [InlineData("bad\nname.pdf")]
     [InlineData("bad\"name.pdf")]
     [InlineData("bad\\name.pdf")]
+    [InlineData("bad/name.pdf")]
     [InlineData("bad;name.pdf")]
+    [InlineData(" bad.pdf")]
+    [InlineData("bad.pdf ")]
+    [InlineData(".bad.pdf")]
+    [InlineData("bad.")]
+    [InlineData("bad<name>.pdf")]
+    [InlineData("bad:name.pdf")]
+    [InlineData("bad|name.pdf")]
+    [InlineData("bad?name.pdf")]
+    [InlineData("bad*name.pdf")]
+    [InlineData("CON.pdf")]
     public async Task CreateAsync_RejectsHeaderDangerousOriginalName(string originalName)
     {
         var service = CreateService();
@@ -143,6 +154,25 @@ public sealed class FileServiceTests
         Assert.Equal(sha, repository.Recorded!.Sha256);
         Assert.Equal("active", repository.Recorded!.Status);
         Assert.StartsWith("documents/", repository.Recorded!.ObjectKey, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NormalizesFileExtensionBeforeObjectKeyAndMetadata()
+    {
+        var repository = new RecordingFileRepository();
+        var service = CreateService(repository);
+        var content = Encoding.UTF8.GetBytes("sample content");
+        var file = CreateFormFile("upload.PDF", "application/pdf", content);
+
+        await service.CreateAsync(
+            new CreateFileRequest("upload.PDF", "application/pdf", content.Length, ComputeSha256(content)),
+            file,
+            Context(),
+            CancellationToken.None);
+
+        Assert.NotNull(repository.Recorded);
+        Assert.Equal(".pdf", repository.Recorded!.FileExt);
+        Assert.EndsWith("/test.pdf", repository.Recorded.ObjectKey, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -253,6 +283,18 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task GetDownloadPayloadAsync_RejectsUnsafeStoredOriginalName()
+    {
+        var service = CreateService(new FakeFileRepository("active", "bad/name.pdf"));
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.GetDownloadPayloadAsync(1, false, Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal("fileName contains invalid characters.", exception.Message);
+    }
+
+    [Fact]
     public async Task GetDownloadPayloadAsync_ForcesDocumentPreviewToAttachment()
     {
         var service = CreateService(new FakeFileRepository("active"));
@@ -289,12 +331,17 @@ public sealed class FileServiceTests
     private sealed class FakeFileRepository : IFileRepository
     {
         private readonly string _status;
+        private readonly string _originalName;
 
-        public FakeFileRepository(string status = "active") => _status = status;
+        public FakeFileRepository(string status = "active", string originalName = "a.pdf")
+        {
+            _status = status;
+            _originalName = originalName;
+        }
 
         public Task<PagedResult<FileSummaryDto>> ListAsync(FileListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<FileSummaryDto>([], criteria.Page, criteria.PageSize, 0));
         public Task<FileDetailDto?> GetAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDetailDto?>(new FileDetailDto(id, "a.pdf", ".pdf", "application/pdf", 100, "a".PadLeft(64, '0'), "active", 1, DateTimeOffset.UnixEpoch));
-        public Task<FileDownloadRecord?> GetDownloadAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDownloadRecord?>(new FileDownloadRecord("a", "a.pdf", ".pdf", "application/pdf", 5, _status));
+        public Task<FileDownloadRecord?> GetDownloadAsync(long id, CancellationToken cancellationToken) => Task.FromResult<FileDownloadRecord?>(new FileDownloadRecord("a", _originalName, ".pdf", "application/pdf", 5, _status));
         public Task<long> CreateAsync(FileCreateRecord record, CancellationToken cancellationToken) => Task.FromResult(1L);
         public Task SoftDeleteAsync(long id, DateTimeOffset now, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task RecordAuditAsync(FileAuditRecord record, CancellationToken cancellationToken) => Task.CompletedTask;

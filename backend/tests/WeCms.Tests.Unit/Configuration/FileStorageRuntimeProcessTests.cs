@@ -26,10 +26,14 @@ public sealed class FileStorageRuntimeProcessTests
                     ["Auth:AccessTokenSecret"] = new string('a', 32),
                     ["Security:TwoFactor:SecretProtectionKey"] = new string('b', 32),
                     ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                    ["Security:SecureHeaders:CspEnabled"] = "true",
+                    ["Security:SecureHeaders:Csp"] = "default-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';",
                     ["Security:SecureHeaders:CspReportOnly"] = "default-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';",
                     ["FileStorage:Provider"] = "local",
                     ["Database:SeedAdminPassword"] = "SeedPassword!12345A",
-                    ["FileStorage:VirusScanEnabled"] = "false"
+                    ["FileStorage:VirusScanEnabled"] = "true",
+                    ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                    ["FileStorage:VirusScan:Host"] = "scanner.internal"
                 }),
                 ProductionEnvironment()));
 
@@ -55,7 +59,9 @@ public sealed class FileStorageRuntimeProcessTests
                     ["FileStorage:Provider"] = "local",
                     ["FileStorage:Local:BasePath"] = storagePath,
                     ["Database:SeedAdminPassword"] = "SeedPassword!12345A",
-                    ["FileStorage:VirusScanEnabled"] = "false"
+                    ["FileStorage:VirusScanEnabled"] = "true",
+                    ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                    ["FileStorage:VirusScan:Host"] = "scanner.internal"
                 }),
                 ProductionEnvironment());
 

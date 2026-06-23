@@ -17,19 +17,22 @@ public sealed class SecurityBanService : ISecurityBanService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IOutboxWriter _outboxWriter;
     private readonly IIdGenerator _idGenerator;
+    private readonly ISecurityBanLookupCache _lookupCache;
 
     public SecurityBanService(
         ISecurityBanRepository repository,
         ISecurityAlertService alertService,
         IUnitOfWork unitOfWork,
         IOutboxWriter outboxWriter,
-        IIdGenerator idGenerator)
+        IIdGenerator idGenerator,
+        ISecurityBanLookupCache lookupCache)
     {
         _repository = repository;
         _alertService = alertService;
         _unitOfWork = unitOfWork;
         _outboxWriter = outboxWriter;
         _idGenerator = idGenerator;
+        _lookupCache = lookupCache;
     }
 
     public Task<SecurityStatusDto> GetStatusAsync(
@@ -83,6 +86,7 @@ public sealed class SecurityBanService : ISecurityBanService
         await EnsureHighRiskUnbanAllowedAsync(ban, context, cancellationToken);
 
         await _repository.RevokeAsync(new SecurityBanRevokeRecord(id, context.ActorUserId, reason, context.Now), cancellationToken);
+        await _lookupCache.RemoveAsync(ban.BanType, ban.Target, cancellationToken);
         await RecordAuditAsync(id, context, "unban", "success", $"Security ban {id} revoked.", cancellationToken);
         await RecordSecurityEventAsync("security.ban_unbanned", ban, context, $"Security ban {id} revoked.", cancellationToken);
 
@@ -105,6 +109,7 @@ public sealed class SecurityBanService : ISecurityBanService
             EnsureCanUnban(ban);
             await EnsureHighRiskUnbanAllowedAsync(ban, context, cancellationToken);
             await _repository.RevokeAsync(new SecurityBanRevokeRecord(id, context.ActorUserId, reason, context.Now), cancellationToken);
+            await _lookupCache.RemoveAsync(ban.BanType, ban.Target, cancellationToken);
             await RecordAuditAsync(id, context, "batch-unban", "success", $"Security ban {id} revoked in batch.", cancellationToken);
             await RecordSecurityEventAsync("security.ban_unbanned", ban, context, $"Security ban {id} revoked in batch.", cancellationToken);
         }
@@ -142,10 +147,11 @@ public sealed class SecurityBanService : ISecurityBanService
             throw;
         }
 
+        await _lookupCache.RemoveAsync(normalized.BanType, normalized.Target, cancellationToken);
         return new SecurityBanMutationResponse(id);
     }
 
-    public Task<SecurityBanRecord?> FindActiveAsync(
+    public async Task<SecurityBanRecord?> FindActiveAsync(
         string banType,
         string target,
         DateTimeOffset now,
@@ -153,7 +159,21 @@ public sealed class SecurityBanService : ISecurityBanService
     {
         var normalizedType = NormalizeBanType(banType);
         var normalizedTarget = NormalizeRequired(target, "target", MaxTargetLength);
-        return _repository.FindActiveAsync(normalizedType, normalizedTarget, now, cancellationToken);
+        var cached = await _lookupCache.GetAsync(normalizedType, normalizedTarget, now, cancellationToken);
+        if (cached is not null)
+        {
+            return cached.Record;
+        }
+
+        var active = await _repository.FindActiveAsync(normalizedType, normalizedTarget, now, cancellationToken);
+        if (active is not null)
+        {
+            await _lookupCache.SetAsync(active, now, cancellationToken);
+            return active;
+        }
+
+        await _lookupCache.SetMissAsync(normalizedType, normalizedTarget, now, cancellationToken);
+        return null;
     }
 
     public async Task RecordHitAsync(

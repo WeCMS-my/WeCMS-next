@@ -138,15 +138,12 @@ public static class ProductionConfigurationValidator
         var cspEnabled = ReadBool(configuration, "Security:SecureHeaders:CspEnabled", defaultValue: false);
         var cspReportOnlyEnabled = ReadBool(configuration, "Security:SecureHeaders:CspReportOnlyEnabled", defaultValue: true);
 
-        if (!cspEnabled && !cspReportOnlyEnabled)
+        if (!cspEnabled)
         {
-            throw new InvalidOperationException("At least one CSP mode must be enabled in Production.");
+            throw new InvalidOperationException("Security:SecureHeaders:CspEnabled must be true in Production.");
         }
 
-        if (cspEnabled)
-        {
-            RequireCsp(configuration["Security:SecureHeaders:Csp"], "Security:SecureHeaders:Csp");
-        }
+        RequireCsp(configuration["Security:SecureHeaders:Csp"], "Security:SecureHeaders:Csp");
 
         if (cspReportOnlyEnabled)
         {
@@ -224,7 +221,7 @@ public static class ProductionConfigurationValidator
     {
         if (!ReadBool(configuration, "FileStorage:VirusScanEnabled", defaultValue: false))
         {
-            return;
+            throw new InvalidOperationException("FileStorage:VirusScanEnabled must be true in Production.");
         }
 
         var provider = configuration["FileStorage:VirusScan:Provider"];

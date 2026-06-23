@@ -12,7 +12,8 @@ public sealed record RateLimitHitRecord(
     string Ip,
     string UserAgent,
     string TraceId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    int RejectedCount = 1);
 
 public sealed record RateLimitSecurityEventRecord(
     string EventType,
@@ -61,7 +62,14 @@ public sealed class RateLimitSecurityEventService : IRateLimitSecurityEventServi
         var method = NormalizeRequired(record.HttpMethod, "httpMethod", 16).ToUpperInvariant();
         var ip = NormalizeRequired(record.Ip, "ip", 64);
         var traceId = NormalizeRequired(record.TraceId, "traceId", 64);
-        var message = $"Rate limit hit for {record.Policy} on {method} {path}.";
+        if (record.RejectedCount <= 0)
+        {
+            throw new InvalidOperationException("rejectedCount must be positive for rate limit security events.");
+        }
+
+        var message = record.RejectedCount == 1
+            ? $"Rate limit hit for {record.Policy} on {method} {path}."
+            : $"Rate limit hit for {record.Policy} on {method} {path}. Rejected count: {record.RejectedCount}.";
 
         var securityEvent = new RateLimitSecurityEventRecord(
             "rate_limit_hit",

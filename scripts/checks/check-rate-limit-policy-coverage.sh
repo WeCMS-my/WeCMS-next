@@ -31,8 +31,10 @@ require_contains "backend/src/WeCms.Shared/Security/RateLimitPolicyNames.cs" 'Se
 
 require_contains "backend/src/WeCms.Api/Program.cs" 'builder.Services.AddWeCmsRateLimiting(builder.Configuration);'
 require_contains "backend/src/WeCms.Api/Program.cs" 'app.UseRateLimiter();'
+require_contains "backend/src/WeCms.Api/Program.cs" 'builder.Services.AddHostedService<SecurityRejectionEventFlushHostedService>();'
 require_contains "backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs" 'options.OnRejected = OnRejectedAsync;'
-require_contains "backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs" 'IRateLimitSecurityEventService'
+require_contains "backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs" 'ISecurityRejectionEventBuffer'
+require_contains "backend/src/WeCms.Api/Security/SecurityRejectionEventBuffer.cs" 'IRateLimitSecurityEventService'
 require_contains "backend/src/WeCms.Modules.Security.SqlSugar/SecuritySqlSugarServiceCollectionExtensions.cs" 'IRateLimitSecurityEventRepository'
 
 require_contains "backend/src/WeCms.Modules.Identity/Endpoints/AuthEndpointDefinition.cs" 'RequireRateLimiting(IdentityEndpointRateLimitPolicyNames.AuthLogin)'

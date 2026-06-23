@@ -25,6 +25,16 @@ public sealed class ExceptionMiddleware
         }
         catch (DomainException exception)
         {
+            if (context.Response.HasStarted)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Domain exception occurred after the response started. TraceId: {TraceId}",
+                    context.TraceIdentifier);
+                context.Abort();
+                return;
+            }
+
             await WriteErrorAsync(
                 context,
                 exception.Code,
@@ -35,6 +45,12 @@ public sealed class ExceptionMiddleware
         catch (Exception exception)
         {
             _logger.LogError(exception, "Unhandled request exception. TraceId: {TraceId}", context.TraceIdentifier);
+            if (context.Response.HasStarted)
+            {
+                context.Abort();
+                return;
+            }
+
             await WriteErrorAsync(
                 context,
                 ApiCodes.SystemError,
@@ -53,7 +69,7 @@ public sealed class ExceptionMiddleware
     {
         if (context.Response.HasStarted)
         {
-            throw new InvalidOperationException("Cannot write API error response after the response has started.");
+            return;
         }
 
         context.Response.Clear();

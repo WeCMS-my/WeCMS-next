@@ -50,6 +50,17 @@ public sealed class RateLimitingSourceTests
         Assert.All(fileReadLines, line => Assert.DoesNotContain("RequireRateLimiting", line, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task RejectedRequests_EnqueueSecurityEventsWithoutSynchronousPersistence()
+    {
+        var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "RateLimiting", "WeCmsRateLimitingExtensions.cs"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("GetRequiredService<ISecurityRejectionEventBuffer>()", source, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetRequiredService<IRateLimitSecurityEventService>()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("await recorder.RecordHitAsync", source, StringComparison.Ordinal);
+    }
+
     private static string RepoPath(params string[] segments)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

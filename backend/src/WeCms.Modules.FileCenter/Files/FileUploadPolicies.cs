@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using WeCms.Shared;
 
 namespace WeCms.Modules.FileCenter.Files;
@@ -13,7 +12,7 @@ public interface IFileUploadPolicy
     bool ReencodeImage { get; }
     bool AllowPreview { get; }
     string StorageScope { get; }
-    Task ValidateContentAsync(IFormFile file, string declaredMimeType, string fileExt, CancellationToken cancellationToken);
+    Task ValidateContentAsync(Stream content, long sizeBytes, string declaredMimeType, string fileExt, CancellationToken cancellationToken);
 }
 
 public interface IFileUploadPolicyResolver
@@ -94,14 +93,14 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
     public bool AllowPreview { get; }
     public string StorageScope { get; }
 
-    public async Task ValidateContentAsync(IFormFile file, string declaredMimeType, string fileExt, CancellationToken cancellationToken)
+    public async Task ValidateContentAsync(Stream content, long sizeBytes, string declaredMimeType, string fileExt, CancellationToken cancellationToken)
     {
-        if (file is null || file.Length <= 0)
+        if (content is null || sizeBytes <= 0)
         {
             throw Validation("file is required and must not be empty.");
         }
 
-        if (file.Length > MaxSizeBytes)
+        if (sizeBytes > MaxSizeBytes)
         {
             throw Validation($"sizeBytes must be between 1 and {MaxSizeBytes}.");
         }
@@ -118,23 +117,25 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
 
         if (RequireImageSignatureValidation)
         {
-            await ValidateImageStructureAsync(file, declaredMimeType, cancellationToken);
+            await ValidateImageStructureAsync(content, declaredMimeType, cancellationToken);
         }
     }
 
-    private static async Task ValidateImageStructureAsync(IFormFile file, string declaredMimeType, CancellationToken cancellationToken)
+    private static async Task ValidateImageStructureAsync(Stream content, string declaredMimeType, CancellationToken cancellationToken)
     {
-        await using var stream = file.OpenReadStream();
-        await using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory, cancellationToken);
-        var bytes = memory.ToArray();
+        if (!content.CanSeek)
+        {
+            throw Validation("file content stream must be seekable.");
+        }
+
         var valid = declaredMimeType.ToLowerInvariant() switch
         {
-            "image/png" => IsPng(bytes),
-            "image/jpeg" => IsJpeg(bytes),
-            "image/webp" => IsWebp(bytes),
+            "image/png" => await IsPngAsync(content, cancellationToken),
+            "image/jpeg" => await IsJpegAsync(content, cancellationToken),
+            "image/webp" => await IsWebpAsync(content, cancellationToken),
             _ => false
         };
+        content.Position = 0;
 
         if (!valid)
         {
@@ -142,43 +143,88 @@ public abstract class FileUploadPolicyBase : IFileUploadPolicy
         }
     }
 
-    private static bool IsPng(byte[] bytes)
+    private static async Task<bool> IsPngAsync(Stream content, CancellationToken cancellationToken)
     {
-        return bytes.Length >= 12 &&
-               bytes[0] == 0x89 &&
-               bytes[1] == 0x50 &&
-               bytes[2] == 0x4E &&
-               bytes[3] == 0x47 &&
-               bytes[4] == 0x0D &&
-               bytes[5] == 0x0A &&
-               bytes[6] == 0x1A &&
-               bytes[7] == 0x0A &&
-               bytes[^12] == 0x00 &&
-               bytes[^11] == 0x00 &&
-               bytes[^10] == 0x00 &&
-               bytes[^9] == 0x00 &&
-               bytes[^8] == 0x49 &&
-               bytes[^7] == 0x45 &&
-               bytes[^6] == 0x4E &&
-               bytes[^5] == 0x44;
+        if (content.Length < 12)
+        {
+            return false;
+        }
+
+        var head = await ReadAtAsync(content, 0, 8, cancellationToken);
+        var tail = await ReadAtAsync(content, content.Length - 12, 8, cancellationToken);
+        return head.Count == 8 &&
+               tail.Count == 8 &&
+               head.Buffer[0] == 0x89 &&
+               head.Buffer[1] == 0x50 &&
+               head.Buffer[2] == 0x4E &&
+               head.Buffer[3] == 0x47 &&
+               head.Buffer[4] == 0x0D &&
+               head.Buffer[5] == 0x0A &&
+               head.Buffer[6] == 0x1A &&
+               head.Buffer[7] == 0x0A &&
+               tail.Buffer[0] == 0x00 &&
+               tail.Buffer[1] == 0x00 &&
+               tail.Buffer[2] == 0x00 &&
+               tail.Buffer[3] == 0x00 &&
+               tail.Buffer[4] == 0x49 &&
+               tail.Buffer[5] == 0x45 &&
+               tail.Buffer[6] == 0x4E &&
+               tail.Buffer[7] == 0x44;
     }
 
-    private static bool IsJpeg(byte[] bytes)
+    private static async Task<bool> IsJpegAsync(Stream content, CancellationToken cancellationToken)
     {
-        return bytes.Length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[^2] == 0xFF && bytes[^1] == 0xD9;
+        if (content.Length < 4)
+        {
+            return false;
+        }
+
+        var head = await ReadAtAsync(content, 0, 2, cancellationToken);
+        var tail = await ReadAtAsync(content, content.Length - 2, 2, cancellationToken);
+        return head.Count == 2 &&
+               tail.Count == 2 &&
+               head.Buffer[0] == 0xFF &&
+               head.Buffer[1] == 0xD8 &&
+               tail.Buffer[0] == 0xFF &&
+               tail.Buffer[1] == 0xD9;
     }
 
-    private static bool IsWebp(byte[] bytes)
+    private static async Task<bool> IsWebpAsync(Stream content, CancellationToken cancellationToken)
     {
-        return bytes.Length >= 12 &&
-               bytes[0] == 0x52 &&
-               bytes[1] == 0x49 &&
-               bytes[2] == 0x46 &&
-               bytes[3] == 0x46 &&
-               bytes[8] == 0x57 &&
-               bytes[9] == 0x45 &&
-               bytes[10] == 0x42 &&
-               bytes[11] == 0x50;
+        if (content.Length < 12)
+        {
+            return false;
+        }
+
+        var head = await ReadAtAsync(content, 0, 12, cancellationToken);
+        return head.Count == 12 &&
+               head.Buffer[0] == 0x52 &&
+               head.Buffer[1] == 0x49 &&
+               head.Buffer[2] == 0x46 &&
+               head.Buffer[3] == 0x46 &&
+               head.Buffer[8] == 0x57 &&
+               head.Buffer[9] == 0x45 &&
+               head.Buffer[10] == 0x42 &&
+               head.Buffer[11] == 0x50;
+    }
+
+    private static async Task<(byte[] Buffer, int Count)> ReadAtAsync(Stream content, long offset, int count, CancellationToken cancellationToken)
+    {
+        content.Position = offset;
+        var buffer = new byte[count];
+        var total = 0;
+        while (total < count)
+        {
+            var read = await content.ReadAsync(buffer.AsMemory(total, count - total), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            total += read;
+        }
+
+        return (buffer, total);
     }
 
     private static DomainException Validation(string message) => new(ApiCodes.ValidationError, message);

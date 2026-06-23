@@ -25,6 +25,24 @@ public sealed class LocalFileStorageTests
         Assert.True(File.Exists(Path.Combine(basePath, "documents", "a.txt")));
     }
 
+    [Fact]
+    public async Task StoreAsync_RejectsExistingObjectKeyWithoutOverwritingContent()
+    {
+        var basePath = TempPath();
+        var storage = new LocalFileStorage(basePath);
+        var original = Encoding.UTF8.GetBytes("original");
+        var replacement = Encoding.UTF8.GetBytes("replacement");
+        const string objectKey = "documents/a.txt";
+
+        await storage.StoreAsync(new MemoryStream(original), objectKey, ".txt", 1024, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            storage.StoreAsync(new MemoryStream(replacement), objectKey, ".txt", 1024, CancellationToken.None));
+
+        Assert.Equal(ApiCodes.Conflict, exception.Code);
+        Assert.Equal(original, await File.ReadAllBytesAsync(Path.Combine(basePath, "documents", "a.txt"), CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("../outside.txt")]
     [InlineData("/tmp/outside.txt")]

@@ -43,7 +43,23 @@ public sealed class LocalFileStorage : IFileStorage
         var headerLength = 0;
         var totalBytes = 0L;
         var isTextCandidate = true;
-        await using var fileStream = File.Create(fullPath);
+        FileStream fileStream;
+        try
+        {
+            fileStream = new FileStream(
+                fullPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                8192,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+        }
+        catch (IOException) when (File.Exists(fullPath))
+        {
+            throw new DomainException(ApiCodes.Conflict, "file object key already exists.");
+        }
+
+        await using var _ = fileStream;
 
         var buffer = new byte[8192];
         try

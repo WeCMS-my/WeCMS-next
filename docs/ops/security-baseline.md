@@ -54,10 +54,9 @@ Configuration keys:
 
 Production rollout:
 
-1. Report-only: keep `CspReportOnlyEnabled=true`.
-2. Collect violations from browser and reverse-proxy logs.
-3. Enforce: set `CspEnabled=true` with the reviewed `Csp` value.
-4. Tighten: remove unsafe directives or replace them with nonce/hash strategies when frontend assets require it.
+1. Pre-production: collect violations with `CspReportOnlyEnabled=true` before promoting a release.
+2. Production: set `CspEnabled=true` with the reviewed `Csp` value; report-only may remain enabled as an additional signal.
+3. Tighten: remove unsafe directives or replace them with nonce/hash strategies when frontend assets require it.
 
 Production CSP must include:
 

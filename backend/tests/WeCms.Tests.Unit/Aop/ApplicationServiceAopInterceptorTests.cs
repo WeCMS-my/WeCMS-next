@@ -205,6 +205,21 @@ public sealed class ApplicationServiceAopInterceptorTests
         Assert.Equal("tenant accessor failure", exception.Message);
     }
 
+    [Fact]
+    public void ApplicationServiceAopInterceptor_RejectsCombinedCacheableAndCacheEvictMetadata()
+    {
+        using var provider = CreateProvider();
+        var target = new PipelineService();
+        var proxy = CreatePipelineProxy(provider, target);
+
+        var exception = Assert.Throws<NotSupportedException>(
+            () => proxy.InvalidCacheMetadataAsync(7).GetAwaiter().GetResult());
+
+        Assert.Contains(nameof(CacheableAttribute), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(CacheEvictAttribute), exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, target.InvalidCacheMetadataCalls);
+    }
+
     private static void InvokeCachedUserSynchronously(IPipelineService proxy)
     {
         proxy.GetCachedUserAsync(11).GetAwaiter().GetResult();
@@ -301,6 +316,10 @@ public sealed class ApplicationServiceAopInterceptorTests
 
         [CacheEvict("identity:users:list", CacheEvictionMode.Prefix)]
         Task RefreshUsersAsync(long id);
+
+        [Cacheable("identity:users:detail")]
+        [CacheEvict("identity:users:detail")]
+        Task<string> InvalidCacheMetadataAsync(long id);
     }
 
     public sealed class AuditedService : IAuditedService
@@ -336,6 +355,7 @@ public sealed class ApplicationServiceAopInterceptorTests
         public InvalidOperationException Failure { get; } = new("pipeline failure");
         public int GetCachedUserCalls { get; private set; }
         public int UpdateUserCalls { get; private set; }
+        public int InvalidCacheMetadataCalls { get; private set; }
 
         public Task SaveAsync()
         {
@@ -367,6 +387,12 @@ public sealed class ApplicationServiceAopInterceptorTests
         public Task RefreshUsersAsync(long id)
         {
             return Task.CompletedTask;
+        }
+
+        public Task<string> InvalidCacheMetadataAsync(long id)
+        {
+            InvalidCacheMetadataCalls++;
+            return Task.FromResult($"invalid-{id}");
         }
     }
 

@@ -155,6 +155,19 @@ public sealed class AccountProfileServiceTests
     }
 
     [Fact]
+    public async Task GetAvatarAsync_RejectsUnsafeStoredAvatarExtension()
+    {
+        var repository = new FakeAccountProfileRepository { AvatarFileExt = "../evil.png" };
+        var service = CreateService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.GetAvatarAsync(Context(), CancellationToken.None));
+
+        Assert.Equal(ApiCodes.ValidationError, exception.Code);
+        Assert.Equal("file extension contains invalid characters.", exception.Message);
+    }
+
+    [Fact]
     public async Task GetSecurityAsync_ReturnsAccountAndTwoFactorState()
     {
         var twoFactorRepository = new FakeUserTwoFactorRepository
@@ -234,6 +247,11 @@ public sealed class AccountProfileServiceTests
 
         public string? ExistingEmail { get; init; }
         public string? ExistingPhone { get; init; }
+        public string? AvatarFileExt
+        {
+            init => Profile = Profile with { AvatarFileExt = value };
+        }
+
         public bool ThrowOnAvatarUpdate { get; init; }
         public bool PasswordUpdated { get; private set; }
         public bool RefreshTokensRevoked { get; private set; }
@@ -407,14 +425,14 @@ public sealed class AccountProfileServiceTests
         public bool AllowPreview => true;
         public string StorageScope => "avatars";
 
-        public Task ValidateContentAsync(IFormFile file, string declaredMimeType, string fileExt, CancellationToken cancellationToken)
+        public Task ValidateContentAsync(Stream content, long sizeBytes, string declaredMimeType, string fileExt, CancellationToken cancellationToken)
         {
-            if (file is null || file.Length <= 0)
+            if (content is null || sizeBytes <= 0)
             {
                 throw new DomainException(ApiCodes.ValidationError, "file is required and must not be empty.");
             }
 
-            if (file.Length > MaxSizeBytes)
+            if (sizeBytes > MaxSizeBytes)
             {
                 throw new DomainException(ApiCodes.ValidationError, $"Avatar size must be between 1 and {MaxSizeBytes} bytes.");
             }

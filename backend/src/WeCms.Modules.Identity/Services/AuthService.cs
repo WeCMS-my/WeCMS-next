@@ -14,6 +14,7 @@ public sealed class AuthService : IAuthService
     private const string LoginAuditAction = "login";
     private const string AuditResultFailed = "failed";
     private const string AuditResultBlocked = "blocked";
+    private const string DummyPasswordHash = "wecms.pbkdf2-sha256.v1.600000.AQIDBAUGBwgJCgsMDQ4PEA==.wISuiW68N/gKfYEP+E70NpYBON359gMJuv/HMsmhWRA=";
 
     private readonly IAuthRepository _repository;
     private readonly IAccessProfileService _accessProfileService;
@@ -64,9 +65,11 @@ public sealed class AuthService : IAuthService
         var username = NormalizeRequired(request.Username, nameof(request.Username), MaxUsernameLength);
         var password = NormalizeRequired(request.Password, nameof(request.Password), MaxPasswordLength);
         var user = await _repository.FindUserByUsernameAsync(username, cancellationToken);
+        var passwordHash = user?.PasswordHash ?? DummyPasswordHash;
+        var passwordValid = _passwordHasher.Verify(password, passwordHash);
         if (user is null
             || !string.Equals(user.Status, EnabledStatus, StringComparison.Ordinal)
-            || !_passwordHasher.Verify(password, user.PasswordHash))
+            || !passwordValid)
         {
             var decision = await RecordFailedLoginAsync(username, user?.Id, requestContext, cancellationToken);
             await _auditWriter.RecordAsync(

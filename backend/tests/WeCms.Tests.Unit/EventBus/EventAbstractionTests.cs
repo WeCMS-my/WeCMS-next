@@ -67,13 +67,25 @@ public sealed class EventAbstractionTests
         AssertMethodRequiresCancellationToken(typeof(IOutboxDispatcher), "DispatchAsync");
     }
 
+    [Fact]
+    public void OutboxDispatcherContract_ReturnsDispatchResultForBackoff()
+    {
+        var method = typeof(IOutboxDispatcher).GetMethod(nameof(IOutboxDispatcher.DispatchAsync));
+
+        Assert.NotNull(method);
+        Assert.StartsWith(
+            "System.Threading.Tasks.Task`1[[WeCms.EventBus.OutboxDispatchResult",
+            method.ReturnType.FullName,
+            StringComparison.Ordinal);
+    }
+
     private static void AssertMethodRequiresCancellationToken(Type type, string methodName)
     {
         var methods = type.GetMethods().Where(method => method.Name == methodName).ToArray();
         Assert.NotEmpty(methods);
         Assert.All(methods, method =>
         {
-            Assert.Equal(typeof(Task), method.ReturnType);
+            Assert.True(typeof(Task).IsAssignableFrom(method.ReturnType));
             Assert.Contains(method.GetParameters(), parameter => parameter.ParameterType == typeof(CancellationToken));
         });
     }
@@ -200,6 +212,48 @@ public sealed class InMemoryEventBusTests
 public sealed class OutboxDispatcherTests
 {
     [Fact]
+    public async Task OutboxHostedService_UsesIdleAndFailureBackoff()
+    {
+        var options = await File.ReadAllTextAsync(
+            RepoPath("backend", "src", "WeCms.EventBus", "OutboxDispatcherOptions.cs"),
+            TestContext.Current.CancellationToken);
+        var hostedService = await File.ReadAllTextAsync(
+            RepoPath("backend", "src", "WeCms.EventBus.SqlSugar", "OutboxDispatcherHostedService.cs"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("IdlePollInterval", options, StringComparison.Ordinal);
+        Assert.Contains("FailurePollInterval", options, StringComparison.Ordinal);
+        Assert.Contains("OutboxDispatchCycleOutcome", hostedService, StringComparison.Ordinal);
+        Assert.Contains("OutboxDispatchResult", hostedService, StringComparison.Ordinal);
+        Assert.Contains("FailedCount > 0", hostedService, StringComparison.Ordinal);
+        Assert.Contains("SelectDelay", hostedService, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OutboxHostedService_SelectsBackoffDelayByCycleOutcome()
+    {
+        var serviceType = typeof(OutboxDispatcherHostedService);
+        var outcomeType = serviceType.GetNestedType("OutboxDispatchCycleOutcome", BindingFlags.NonPublic);
+        var method = serviceType.GetMethod("SelectDelay", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(outcomeType);
+        Assert.NotNull(method);
+
+        var pollInterval = TimeSpan.FromSeconds(5);
+        var idlePollInterval = TimeSpan.FromSeconds(15);
+        var failurePollInterval = TimeSpan.FromSeconds(30);
+
+        Assert.Equal(
+            pollInterval,
+            InvokeSelectDelay(method, outcomeType, "Processed", pollInterval, idlePollInterval, failurePollInterval));
+        Assert.Equal(
+            idlePollInterval,
+            InvokeSelectDelay(method, outcomeType, "Idle", pollInterval, idlePollInterval, failurePollInterval));
+        Assert.Equal(
+            failurePollInterval,
+            InvokeSelectDelay(method, outcomeType, "Failed", pollInterval, idlePollInterval, failurePollInterval));
+    }
+
+    [Fact]
     public async Task OutboxDispatcher_DispatchesPendingMessages()
     {
         var now = new DateTimeOffset(2026, 6, 21, 4, 0, 0, TimeSpan.Zero);
@@ -210,8 +264,9 @@ public sealed class OutboxDispatcherTests
         var executor = new FakeEventHandlerExecutor();
         var dispatcher = CreateDispatcher(repository, executor, now);
 
-        await dispatcher.DispatchAsync(CancellationToken.None);
+        var result = await dispatcher.DispatchAsync(CancellationToken.None);
 
+        Assert.Equal(new OutboxDispatchResult(1, 1, 0), result);
         Assert.Single(executor.ExecutedEvents);
         Assert.Equal(101, repository.ProcessedIds.Single());
         Assert.Empty(repository.FailedMessages);
@@ -230,13 +285,30 @@ public sealed class OutboxDispatcherTests
         var executor = new FakeEventHandlerExecutor { Failure = new InvalidOperationException("handler failed") };
         var dispatcher = CreateDispatcher(repository, executor, now);
 
-        await dispatcher.DispatchAsync(CancellationToken.None);
+        var result = await dispatcher.DispatchAsync(CancellationToken.None);
 
+        Assert.Equal(new OutboxDispatchResult(1, 0, 1), result);
         Assert.Empty(executor.ExecutedEvents);
         var failure = repository.FailedMessages.Single();
         Assert.Equal(102, failure.Id);
         Assert.Contains("handler failed", failure.Error, StringComparison.Ordinal);
         Assert.Equal(now.AddMinutes(5), failure.NextAvailableAt);
+    }
+
+    [Fact]
+    public async Task OutboxDispatcher_ReturnsIdleResultWhenNoMessagesAreLocked()
+    {
+        var now = new DateTimeOffset(2026, 6, 21, 4, 0, 0, TimeSpan.Zero);
+        var repository = new FakeOutboxMessageRepository();
+        var executor = new FakeEventHandlerExecutor();
+        var dispatcher = CreateDispatcher(repository, executor, now);
+
+        var result = await dispatcher.DispatchAsync(CancellationToken.None);
+
+        Assert.Equal(OutboxDispatchResult.Empty, result);
+        Assert.Empty(executor.ExecutedEvents);
+        Assert.Empty(repository.ProcessedIds);
+        Assert.Empty(repository.FailedMessages);
     }
 
     [Fact]
@@ -255,8 +327,9 @@ public sealed class OutboxDispatcherTests
         var executor = new FakeEventHandlerExecutor();
         var dispatcher = CreateDispatcher(repository, executor, now, idempotencyStore);
 
-        await dispatcher.DispatchAsync(CancellationToken.None);
+        var result = await dispatcher.DispatchAsync(CancellationToken.None);
 
+        Assert.Equal(new OutboxDispatchResult(1, 0, 1), result);
         Assert.Empty(executor.ExecutedEvents);
         Assert.Empty(repository.ProcessedIds);
         var failure = repository.FailedMessages.Single();
@@ -300,6 +373,34 @@ public sealed class OutboxDispatcherTests
             new FakeTimeProvider(now),
             new OutboxDispatcherOptions { BatchSize = 10, RetryDelay = TimeSpan.FromMinutes(5) },
             Microsoft.Extensions.Logging.Abstractions.NullLogger<OutboxDispatcher>.Instance);
+    }
+
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
+    }
+
+    private static TimeSpan InvokeSelectDelay(
+        MethodInfo method,
+        Type outcomeType,
+        string outcomeName,
+        TimeSpan pollInterval,
+        TimeSpan idlePollInterval,
+        TimeSpan failurePollInterval)
+    {
+        var outcome = Enum.Parse(outcomeType, outcomeName);
+        return (TimeSpan)method.Invoke(null, [outcome, pollInterval, idlePollInterval, failurePollInterval])!;
     }
 
     private static OutboxMessageRecord CreateMessage(long id, Guid eventId, DateTimeOffset now)

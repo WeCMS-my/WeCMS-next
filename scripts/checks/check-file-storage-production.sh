@@ -37,7 +37,7 @@ for token in ["ExistsAsync", "GetMetadataAsync", "FileStorageMetadata", "IFileSc
         violations.append(f"FileStorage shared contract missing {token}")
 
 local_storage = read("backend/src/WeCms.Infrastructure/Files/LocalFileStorage.cs")
-for token in ["LocalFileStorage(string basePath)", "Path.GetFullPath(basePath)", "IsUnderBasePath", "NoopFileScanService", "FileScanResult.CleanResult"]:
+for token in ["LocalFileStorage(string basePath)", "Path.GetFullPath(basePath)", "IsUnderBasePath", "FileMode.CreateNew", "NoopFileScanService", "FileScanResult.CleanResult"]:
     if token not in local_storage:
         violations.append(f"LocalFileStorage missing {token}")
 if "Microsoft.Extensions" in local_storage:
@@ -83,12 +83,12 @@ for token in [
         violations.append(f"ProductionConfigurationValidator missing {token}")
 
 file_service = read("backend/src/WeCms.Modules.FileCenter/Files/FileService.cs")
-for token in ["IFileScanService", "ScanAsync(file", "FileScanRequest", "file scan rejected uploaded content", "file_upload_rejected"]:
+for token in ["IFileScanService", "FileUploadContent.ReadAsync", "ScanAsync(uploadContent", "FileScanRequest", "file scan rejected uploaded content", "file_upload_rejected"]:
     if token not in file_service:
         violations.append(f"FileService missing scanner/security token {token}")
 
 account_avatar_file_service = read("backend/src/WeCms.Api/Files/AccountAvatarFileService.cs")
-for token in ["IFileScanService", "ScanAvatarAsync", "FileScanRequest", "Avatar scan rejected uploaded content"]:
+for token in ["IFileScanService", "FileUploadContent.ReadAsync", "ScanAvatarAsync", "FileScanRequest", "Avatar scan rejected uploaded content"]:
     if token not in account_avatar_file_service:
         violations.append(f"AccountProfileService missing scanner token {token}")
 
@@ -106,11 +106,14 @@ tests = (
 for token in [
     "StoreAsync_UsesConfiguredBasePathAndExposesMetadata",
     "StoreAsync_RejectsPathTraversal",
+    "StoreAsync_RejectsExistingObjectKeyWithoutOverwritingContent",
     "CreateAsync_RejectsWhenFileScannerRejectsContentAndWritesSecurityEvent",
     "UploadAvatarAsync_RejectsWhenFileScannerRejectsContent",
     "Validate_ProductionRejectsMissingFileStorageBasePath",
+    "Validate_ProductionRejectsDisabledVirusScan",
     "Validate_ProductionRejectsVirusScanEnabledWithNoopScanner",
     "Validate_ProductionAllowsVirusScanEnabledWithClamAvProvider",
+    "Validate_ProductionRejectsReportOnlyCspWithoutEnforceCsp",
     "ScanAsync_ReturnsClean_WhenClamAvReportsOk",
     "ScanAsync_ReturnsRejected_WhenClamAvReportsFound",
 ]:
@@ -118,7 +121,7 @@ for token in [
         violations.append(f"PH-4 tests missing {token}")
 
 production_template = read("backend/src/WeCms.Api/appsettings.Production.example.json")
-for token in ['"FileStorage"', '"Provider": "local"', '"BasePath": "__SET_BY_ENV__"', '"VirusScanEnabled": false', '"Provider": "clamav-tcp"', '"Host": "scanner.internal"']:
+for token in ['"FileStorage"', '"Provider": "local"', '"BasePath": "__SET_BY_ENV__"', '"VirusScanEnabled": true', '"Provider": "clamav-tcp"', '"Host": "scanner.internal"']:
     if token not in production_template:
         violations.append(f"production template missing {token}")
 

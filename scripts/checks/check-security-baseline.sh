@@ -88,6 +88,8 @@ secure_headers = security.get("SecureHeaders") or {}
 for key in ["CspEnabled", "CspReportOnlyEnabled", "Csp", "CspReportOnly"]:
     if key not in secure_headers:
         violations.append(f"production template SecureHeaders missing {key}")
+if secure_headers.get("CspEnabled") is not True:
+    violations.append("production template must enable enforce CSP")
 for key in ["Csp", "CspReportOnly"]:
     value = secure_headers.get(key, "")
     if "object-src 'none'" not in value:
@@ -99,6 +101,50 @@ security_docs = (repo / "docs/ops/security-baseline.md").read_text(encoding="utf
 for token in ["ForwardedHeaders", "CORS", "CSP", "Rate Limiting", "__Host-wecms_refresh"]:
     if token not in security_docs:
         violations.append(f"security baseline docs missing {token}")
+
+response_started_tokens = {
+    "backend/src/WeCms.Api/Middleware/ExceptionMiddleware.cs": [
+        "context.Response.HasStarted",
+        "context.Abort()",
+    ],
+    "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs": [
+        "context.Response.HasStarted",
+    ],
+    "backend/src/WeCms.Api/Middleware/SecurityBanMiddleware.cs": [
+        "context.Response.HasStarted",
+    ],
+    "backend/tests/WeCms.Tests.Unit/Api/ResponseAndExceptionTests.cs": [
+        "ExceptionMiddleware_DoesNotThrowSecondaryExceptionAfterResponseStarted",
+        "StartedResponseFeature",
+        "AbortedRequestLifetimeFeature",
+    ],
+    "backend/tests/WeCms.Tests.Unit/Api/IpAccessControlMiddlewareTests.cs": [
+        "InvokeAsync_DoesNotThrowSecondaryExceptionWhenDenyResponseAlreadyStarted",
+        "StartedResponseFeature",
+    ],
+    "backend/tests/WeCms.Tests.Unit/Api/SecurityBanMiddlewareTests.cs": [
+        "InvokeAsync_DoesNotThrowSecondaryExceptionWhenBlockedResponseAlreadyStarted",
+        "StartedResponseFeature",
+    ],
+}
+for relative_path, tokens in response_started_tokens.items():
+    path = repo / relative_path
+    if not path.is_file():
+        violations.append(f"missing response-started baseline file {relative_path}")
+        continue
+    text = path.read_text(encoding="utf-8")
+    for token in tokens:
+        if token not in text:
+            violations.append(f"{relative_path} missing response-started token {token!r}")
+
+for relative_path in [
+    "backend/src/WeCms.Api/Middleware/ExceptionMiddleware.cs",
+    "backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs",
+    "backend/src/WeCms.Api/Middleware/SecurityBanMiddleware.cs",
+]:
+    text = (repo / relative_path).read_text(encoding="utf-8")
+    if "Cannot write API error response after the response has started." in text:
+        violations.append(f"{relative_path} must not throw after response has started")
 
 if violations:
     raise SystemExit("check-security-baseline: " + "; ".join(violations))

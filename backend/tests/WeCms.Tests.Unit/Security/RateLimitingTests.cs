@@ -44,6 +44,30 @@ public sealed class RateLimitingTests
     }
 
     [Fact]
+    public async Task RateLimitSecurityEventService_RecordHitAsync_IncludesAggregatedRejectedCount()
+    {
+        var repository = new FakeRateLimitSecurityEventRepository();
+        var service = new RateLimitSecurityEventService(repository, new FakeSecurityAlertService());
+
+        await service.RecordHitAsync(
+            new RateLimitHitRecord(
+                RateLimitPolicyNames.AuthLogin,
+                "POST",
+                "/api/v1/auth/login",
+                null,
+                null,
+                "192.168.1.10",
+                "unit-test",
+                "trace-rate",
+                DateTimeOffset.Parse("2026-06-18T00:00:00Z", global::System.Globalization.CultureInfo.InvariantCulture),
+                RejectedCount: 3),
+            CancellationToken.None);
+
+        Assert.NotNull(repository.Record);
+        Assert.Contains("Rejected count: 3.", repository.Record.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RateLimitSecurityEventService_RecordHitAsync_RejectsUnknownPolicy()
     {
         var service = new RateLimitSecurityEventService(new FakeRateLimitSecurityEventRepository(), new FakeSecurityAlertService());

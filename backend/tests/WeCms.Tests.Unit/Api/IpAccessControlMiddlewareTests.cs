@@ -2,8 +2,8 @@ using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using WeCms.Api.Middleware;
+using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
-using WeCms.Modules.AccessControl.Menus;
 using WeCms.Modules.Security;
 using WeCms.Shared.Security;
 
@@ -22,23 +22,22 @@ public sealed class IpAccessControlMiddlewareTests
         });
         var context = CreateContext("/api/v1/auth/login", "203.0.113.20");
         context.TraceIdentifier = "trace-ip-denied";
-        var repository = new FakeAuthRepository();
+        var buffer = new FakeSecurityRejectionEventBuffer();
 
         await middleware.InvokeAsync(
             context,
             Configuration(new Dictionary<string, string?>()),
             new IpRuleMatcher(),
-            repository,
-            new FakeSecurityAlertService(),
+            buffer,
             new FakeAuthClock());
 
         Assert.True(nextCalled);
         Assert.Equal(200, context.Response.StatusCode);
-        Assert.Equal(0, repository.SecurityEventCount);
+        Assert.Equal(0, buffer.Count);
     }
 
     [Fact]
-    public async Task InvokeAsync_RejectsNonMatchingIpAndWritesSecurityEvent()
+    public async Task InvokeAsync_RejectsNonMatchingIpAndEnqueuesSecurityEvent()
     {
         var nextCalled = false;
         var middleware = new IpAccessControlMiddleware(_ =>
@@ -48,8 +47,7 @@ public sealed class IpAccessControlMiddlewareTests
         });
         var context = CreateContext("/api/v1/auth/login", "203.0.113.20");
         context.TraceIdentifier = "trace-ip-denied";
-        var repository = new FakeAuthRepository();
-        var alertService = new FakeSecurityAlertService();
+        var buffer = new FakeSecurityRejectionEventBuffer();
 
         await middleware.InvokeAsync(
             context,
@@ -59,17 +57,39 @@ public sealed class IpAccessControlMiddlewareTests
                 ["Security:IpAccessControl:AllowedRules:0"] = "192.168.10.0/24"
             }),
             new IpRuleMatcher(),
-            repository,
-            alertService,
+            buffer,
             new FakeAuthClock());
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
-        Assert.Equal(1, repository.SecurityEventCount);
-        Assert.Equal("security.ip_rejected", repository.LastSecurityEventType);
-        Assert.Equal("critical", repository.LastSecurityEventSeverity);
-        Assert.Equal("trace-ip-denied", repository.LastTraceId);
-        Assert.Equal(1, alertService.Count);
+        Assert.Equal(1, buffer.Count);
+        Assert.Equal(SecurityRejectionEventKind.IpAccessDenied, buffer.LastRecord?.Kind);
+        Assert.Equal("203.0.113.20", buffer.LastRecord?.IpAccessDenied?.Ip);
+        Assert.Equal("trace-ip-denied", buffer.LastRecord?.IpAccessDenied?.TraceId);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DoesNotThrowSecondaryExceptionWhenDenyResponseAlreadyStarted()
+    {
+        var middleware = new IpAccessControlMiddleware(_ => Task.CompletedTask);
+        var context = CreateContext("/api/v1/auth/login", "203.0.113.20");
+        context.Features.Set<Microsoft.AspNetCore.Http.Features.IHttpResponseFeature>(new StartedResponseFeature());
+        var buffer = new FakeSecurityRejectionEventBuffer();
+
+        await middleware.InvokeAsync(
+            context,
+            Configuration(new Dictionary<string, string?>
+            {
+                ["Security:IpAccessControl:Enabled"] = "true",
+                ["Security:IpAccessControl:AllowedRules:0"] = "192.168.10.0/24"
+            }),
+            new IpRuleMatcher(),
+            buffer,
+            new FakeAuthClock());
+
+        Assert.True(context.Response.HasStarted);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(1, buffer.Count);
     }
 
     [Fact]
@@ -91,8 +111,7 @@ public sealed class IpAccessControlMiddlewareTests
                 ["Security:IpAccessControl:AllowedRules:0"] = "192.168.10.0/24"
             }),
             new IpRuleMatcher(),
-            new FakeAuthRepository(),
-            new FakeSecurityAlertService(),
+            new FakeSecurityRejectionEventBuffer(),
             new FakeAuthClock());
 
         Assert.True(nextCalled);
@@ -119,11 +138,23 @@ public sealed class IpAccessControlMiddlewareTests
                 ["Security:IpAccessControl:AllowedRules:0"] = "192.168.10.0/24"
             }),
             new IpRuleMatcher(),
-            new FakeAuthRepository(),
-            new FakeSecurityAlertService(),
+            new FakeSecurityRejectionEventBuffer(),
             new FakeAuthClock());
 
         Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task Middleware_EnqueuesDeniedIpEventsWithoutSynchronousPersistence()
+    {
+        var source = await File.ReadAllTextAsync(
+            RepoPath("backend", "src", "WeCms.Api", "Middleware", "IpAccessControlMiddleware.cs"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("ISecurityRejectionEventBuffer", source, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordSecurityEventAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PublishIfRequiredAsync", source, StringComparison.Ordinal);
     }
 
     private static DefaultHttpContext CreateContext(string path, string remoteIp)
@@ -142,94 +173,38 @@ public sealed class IpAccessControlMiddlewareTests
             .Build();
     }
 
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
+    }
+
     private sealed class FakeAuthClock : IAuthClock
     {
         public DateTimeOffset UtcNow { get; } = new(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
     }
 
-    private sealed class FakeAuthRepository : IAuthRepository
-    {
-        public int SecurityEventCount { get; private set; }
-
-        public string LastSecurityEventType { get; private set; } = string.Empty;
-
-        public string LastSecurityEventSeverity { get; private set; } = string.Empty;
-
-        public string LastTraceId { get; private set; } = string.Empty;
-
-        public Task<AuthUserRecord?> FindUserByUsernameAsync(string username, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<AuthUserRecord?> FindUserByIdAsync(long userId, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<RefreshTokenRecord?> FindRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<string>> ListRoleCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task RecordSecurityEventAsync(SecurityEventRecord record, CancellationToken cancellationToken)
-        {
-            SecurityEventCount++;
-            LastSecurityEventType = record.EventType;
-            LastSecurityEventSeverity = record.Severity;
-            LastTraceId = record.TraceId ?? string.Empty;
-            return Task.CompletedTask;
-        }
-
-        public Task RecordAuditLogAsync(AuditLogRecord record, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task CompleteSuccessfulLoginAsync(SuccessfulLoginRecord record, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task CompleteRefreshRotationAsync(RefreshRotationRecord record, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task RevokeRefreshTokenFamilyAsync(string familyId, DateTimeOffset revokedAt, CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class FakeSecurityAlertService : ISecurityAlertService
+    private sealed class FakeSecurityRejectionEventBuffer : ISecurityRejectionEventBuffer
     {
         public int Count { get; private set; }
 
-        public Task PublishIfRequiredAsync(SecurityAlertRecord record, CancellationToken cancellationToken)
+        public SecurityRejectionEvent? LastRecord { get; private set; }
+
+        public bool TryEnqueue(SecurityRejectionEvent record)
         {
             Count++;
-            return Task.CompletedTask;
+            LastRecord = record;
+            return true;
         }
     }
 }

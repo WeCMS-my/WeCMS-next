@@ -15,8 +15,9 @@ checks = {
         ("backend/tests/WeCms.Tests.Unit/Auth/CookieAuthOriginValidatorTests.cs", "auth.cookie_origin_rejected"),
     ],
     "IP access rejection": [
-        ("backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs", "security.ip_rejected"),
-        ("backend/tests/WeCms.Tests.Unit/Api/IpAccessControlMiddlewareTests.cs", "security.ip_rejected"),
+        ("backend/src/WeCms.Api/Security/SecurityRejectionEventBuffer.cs", "security.ip_rejected"),
+        ("backend/src/WeCms.Api/Middleware/IpAccessControlMiddleware.cs", "ISecurityRejectionEventBuffer"),
+        ("backend/tests/WeCms.Tests.Unit/Api/IpAccessControlMiddlewareTests.cs", "SecurityRejectionEventKind.IpAccessDenied"),
     ],
     "security ban hit": [
         ("backend/src/WeCms.Modules.Security/SecurityBanService.cs", "security.ban_hit"),
@@ -33,7 +34,9 @@ checks = {
         ("backend/tests/WeCms.Tests.Integration/Auth/AuthIntegrationTests.cs", "two_factor_replay"),
     ],
     "rate limit hit": [
-        ("backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs", "IRateLimitSecurityEventService"),
+        ("backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs", "ISecurityRejectionEventBuffer"),
+        ("backend/src/WeCms.Api/Security/SecurityRejectionEventBuffer.cs", "IRateLimitSecurityEventService"),
+        ("backend/tests/WeCms.Tests.Unit/Api/RateLimitingSourceTests.cs", "GetRequiredService<ISecurityRejectionEventBuffer>()"),
         ("backend/src/WeCms.Modules.Security/RateLimitRecords.cs", "rate_limit_hit"),
         ("backend/tests/WeCms.Tests.Integration/Security/RateLimitSecurityEventRepositoryTests.cs", "rate_limit_hit"),
     ],

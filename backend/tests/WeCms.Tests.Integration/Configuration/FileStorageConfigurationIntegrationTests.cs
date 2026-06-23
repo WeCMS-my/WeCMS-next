@@ -21,7 +21,9 @@ public sealed class FileStorageConfigurationIntegrationTests
             ["Security:TwoFactor:SecretProtectionKey"] = new string('b', 32),
             ["Security:AllowedOrigins:0"] = "https://admin.example.com",
             ["FileStorage:Provider"] = "local",
-            ["FileStorage:VirusScanEnabled"] = "false",
+            ["FileStorage:VirusScanEnabled"] = "true",
+            ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+            ["FileStorage:VirusScan:Host"] = "scanner.internal",
             ["Database:SeedAdminPassword"] = "SeedPassword!12345A"
         });
 
@@ -47,7 +49,9 @@ public sealed class FileStorageConfigurationIntegrationTests
                 ["Security:AllowedOrigins:0"] = "https://admin.example.com",
                 ["FileStorage:Provider"] = "local",
                 ["FileStorage:Local:BasePath"] = storagePath,
-                ["FileStorage:VirusScanEnabled"] = "false",
+                ["FileStorage:VirusScanEnabled"] = "true",
+                ["FileStorage:VirusScan:Provider"] = "clamav-tcp",
+                ["FileStorage:VirusScan:Host"] = "scanner.internal",
                 ["Database:SeedAdminPassword"] = "SeedPassword!12345A"
             });
 
@@ -79,6 +83,8 @@ public sealed class FileStorageConfigurationIntegrationTests
     {
         var merged = new Dictionary<string, string?>(values)
         {
+            ["Security:SecureHeaders:CspEnabled"] = "true",
+            ["Security:SecureHeaders:Csp"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
             ["Security:SecureHeaders:CspReportOnlyEnabled"] = "true",
             ["Security:SecureHeaders:CspReportOnly"] = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
         };

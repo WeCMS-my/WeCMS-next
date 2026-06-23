@@ -120,6 +120,29 @@ public sealed class ResponseAndExceptionTests
         Assert.Equal("trace-system", json.RootElement.GetProperty("traceId").GetString());
     }
 
+    [Fact]
+    public async Task ExceptionMiddleware_DoesNotThrowSecondaryExceptionAfterResponseStarted()
+    {
+        var context = new DefaultHttpContext();
+        context.TraceIdentifier = "trace-started";
+        context.Features.Set<Microsoft.AspNetCore.Http.Features.IHttpResponseFeature>(new StartedResponseFeature());
+        var requestLifetime = new AbortedRequestLifetimeFeature();
+        context.Features.Set<Microsoft.AspNetCore.Http.Features.IHttpRequestLifetimeFeature>(requestLifetime);
+        var logger = new CapturingLogger<ExceptionMiddleware>();
+        var middleware = new ExceptionMiddleware(
+            _ =>
+            {
+                throw new InvalidOperationException("late failure");
+            },
+            logger);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(context.Response.HasStarted);
+        Assert.True(requestLifetime.AbortCalled);
+        Assert.Contains(logger.Messages, message => message.Contains("trace-started", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData(ApiCodes.ValidationError, StatusCodes.Status400BadRequest)]
     [InlineData(ApiCodes.Unauthorized, StatusCodes.Status401Unauthorized)]

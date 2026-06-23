@@ -37,7 +37,7 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `Security:ForwardedHeaders:ForwardLimit` | Yes | Dev/Staging/Production | `1` | Public | Yes | Production rejects values outside 1-32 | Ops |
 | `Security:ForwardedHeaders:KnownProxies` | Required when enabled | Staging/Production | `10.0.0.10` | Sensitive topology | No | Production rejects enabled forwarded headers without proxies or networks | Ops |
 | `Security:ForwardedHeaders:KnownNetworks` | Required when enabled | Staging/Production | `10.0.0.0/24` | Sensitive topology | No | Production rejects invalid CIDR networks | Ops |
-| `Security:SecureHeaders:CspEnabled` | Yes | Dev/Staging/Production | `false` | Public | Yes | Production requires CSP value when enabled | Security |
+| `Security:SecureHeaders:CspEnabled` | Yes | Dev/Staging/Production | `true` | Public | No in Production | Production requires enforce CSP and a valid CSP value | Security |
 | `Security:SecureHeaders:CspReportOnlyEnabled` | Yes | Dev/Staging/Production | `true` | Public | Yes | Production requires CSP report-only value when enabled | Security |
 | `Security:SecureHeaders:PermissionsPolicy` | Yes | Dev/Staging/Production | `geolocation=(), microphone=(), camera=()` | Public | Yes | Middleware applies configured value | Security |
 | `Security:SecureHeaders:Csp` | Required when enforce enabled | Staging/Production | `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'` | Public | No | Production requires `object-src 'none'` and `frame-ancestors` | Security |
@@ -59,9 +59,9 @@ Template: `backend/src/WeCms.Api/appsettings.Production.example.json`.
 | `FileStorage:PublicBaseUrl` | Optional | Staging/Production | `https://files.example.com` | Public deploy setting | Empty allowed for local API-served downloads | Documented for future object storage providers | Ops |
 | `FileStorage:MaxUploadBytes` | Yes | Dev/Staging/Production | `10485760` | Public | Yes | Documents deploy cap; per-policy upload caps remain enforced | Backend |
 | `FileStorage:AllowedMimeTypes` | Yes | Dev/Staging/Production | `image/png,image/jpeg` | Public | Yes | Documents deploy MIME families; per-policy allowlists remain enforced | Backend |
-| `FileStorage:VirusScanEnabled` | Yes | Staging/Production | `false` | Public | Yes | Production requires `FileStorage:VirusScan:Provider=clamav-tcp` when `true` | Security |
-| `FileStorage:VirusScan:Provider` | Required when scan enabled | Staging/Production | `clamav-tcp` | Public | `none` only when scan disabled | Production rejects missing or unsupported providers when scanning is enabled | Security |
-| `FileStorage:VirusScan:Host` | Required when scan enabled | Staging/Production | `scanner.internal` | Internal deploy setting | No when scan enabled | Production rejects empty host when scanning is enabled | Ops/Security |
+| `FileStorage:VirusScanEnabled` | Yes | Staging/Production | `true` | Public | No in Production | Production requires enabled virus scanning | Security |
+| `FileStorage:VirusScan:Provider` | Required when scan enabled | Staging/Production | `clamav-tcp` | Public | No in Production | Production rejects missing or unsupported providers | Security |
+| `FileStorage:VirusScan:Host` | Required when scan enabled | Staging/Production | `scanner.internal` | Internal deploy setting | No in Production | Production rejects empty or placeholder host | Ops/Security |
 | `FileStorage:VirusScan:Port` | No | Staging/Production | `3310` | Public | Yes, defaults to `3310` | Production rejects values outside 1-65535 | Ops/Security |
 | `FileStorage:VirusScan:TimeoutSeconds` | No | Staging/Production | `10` | Public | Yes, defaults to `10` | Production rejects values outside 1-300 | Ops/Security |
 | `FileStorage:VirusScan:ChunkSizeBytes` | No | Staging/Production | `8192` | Public | Yes, defaults to `8192` | Production rejects values outside 1024-1048576 | Ops/Security |
@@ -100,7 +100,7 @@ Production:
 - Secrets must be injected outside git.
 - `Security:AllowedOrigins` must be HTTPS, explicit, and non-localhost.
 - `Security:ForwardedHeaders` must include known proxies or networks when enabled.
-- CSP report-only or enforce mode must be enabled and must include `object-src 'none'` plus `frame-ancestors`.
+- CSP enforce mode must be enabled with a reviewed `Security:SecureHeaders:Csp`; report-only may remain enabled only as an additional signal.
 - `Database:SeedAdminPassword` must be strong and must not equal `Admin@123`.
 - Runtime must not auto-run migrations in Production. Use the `--migrate` command with a migration account.
 

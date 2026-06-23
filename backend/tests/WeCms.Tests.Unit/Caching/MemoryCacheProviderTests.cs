@@ -149,6 +149,33 @@ public sealed class MemoryCacheProviderTests
     }
 
     [Fact]
+    public async Task CacheInvalidator_InvalidatesPrefixWithoutEnumeratingTrackedKeys()
+    {
+        using var provider = CreateProvider();
+        var cache = provider.GetRequiredService<ICache>();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var key = "wecms:test:tenant:configuration:settings:v1:a";
+
+        await cache.SetAsync(key, new CacheSample("old"), cancellationToken: cancellationToken);
+        await cache.SetAsync("wecms:test:tenant:identity:users:v1:c", new CacheSample("c"), cancellationToken: cancellationToken);
+
+        await cache.RemoveByPrefixAsync("wecms:test:tenant:configuration:", cancellationToken);
+
+        Assert.Null(await cache.GetAsync<CacheSample>(key, cancellationToken));
+        Assert.Equal(new CacheSample("c"), await cache.GetAsync<CacheSample>("wecms:test:tenant:identity:users:v1:c", cancellationToken));
+
+        await cache.SetAsync(key, new CacheSample("fresh"), cancellationToken: cancellationToken);
+
+        Assert.Equal(new CacheSample("fresh"), await cache.GetAsync<CacheSample>(key, cancellationToken));
+
+        var source = await File.ReadAllTextAsync(
+            RepoPath("backend", "src", "WeCms.Caching", "MemoryCacheProvider.cs"),
+            cancellationToken);
+        Assert.Contains("prefixInvalidationVersions", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (var key in keys.Keys)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AddWeCmsCaching_RegistersMemoryCacheProviderAndAbstractions()
     {
         using var provider = CreateProvider(options =>
@@ -183,6 +210,22 @@ public sealed class MemoryCacheProviderTests
         services.AddWeCmsCaching(configure);
 
         return services.BuildServiceProvider();
+    }
+
+    private static string RepoPath(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "backend", "WeCms.slnx")))
+            {
+                return Path.Combine([directory.FullName, .. segments]);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
     }
 
     private sealed record CacheSample(string Value);

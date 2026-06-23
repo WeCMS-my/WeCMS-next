@@ -73,7 +73,7 @@ public sealed class SecurityBanMiddleware
     {
         if (context.Response.HasStarted)
         {
-            throw new InvalidOperationException("Cannot write API error response after the response has started.");
+            return;
         }
 
         context.Response.Clear();
