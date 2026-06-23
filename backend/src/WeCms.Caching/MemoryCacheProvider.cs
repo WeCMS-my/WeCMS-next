@@ -8,10 +8,13 @@ public sealed class MemoryCacheProvider : ICache
     private readonly IMemoryCache memoryCache;
     private readonly ICacheSerializer serializer;
     private readonly CacheOptions cacheOptions;
+    private readonly object _gate = new();
     private readonly ConcurrentDictionary<string, byte> keys = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> prefixInvalidationVersions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new(StringComparer.Ordinal);
+    private const int MaxPrefixInvalidationVersions = 256;
     private long cacheVersion;
+    private long prefixInvalidationVersionFloor = -1;
 
     public MemoryCacheProvider(
         IMemoryCache memoryCache,
@@ -111,7 +114,14 @@ public sealed class MemoryCacheProvider : ICache
         ValidateKey(prefix);
 
         var version = Interlocked.Increment(ref cacheVersion);
-        prefixInvalidationVersions.AddOrUpdate(prefix, version, (_, current) => Math.Max(current, version));
+        lock (_gate)
+        {
+            prefixInvalidationVersions.AddOrUpdate(prefix, version, (_, current) => Math.Max(current, version));
+            if (prefixInvalidationVersions.Count > MaxPrefixInvalidationVersions)
+            {
+                CompactPrefixInvalidationsLocked();
+            }
+        }
 
         return ValueTask.CompletedTask;
     }
@@ -138,6 +148,11 @@ public sealed class MemoryCacheProvider : ICache
 
     private bool IsInvalidated(string key, long payloadVersion)
     {
+        if (payloadVersion <= Volatile.Read(ref prefixInvalidationVersionFloor))
+        {
+            return true;
+        }
+
         foreach (var invalidation in prefixInvalidationVersions)
         {
             if (invalidation.Value > payloadVersion && key.StartsWith(invalidation.Key, StringComparison.Ordinal))
@@ -147,6 +162,64 @@ public sealed class MemoryCacheProvider : ICache
         }
 
         return false;
+    }
+
+    private void CompactPrefixInvalidationsLocked()
+    {
+        if (prefixInvalidationVersions.Count <= MaxPrefixInvalidationVersions)
+        {
+            return;
+        }
+
+        var ordered = prefixInvalidationVersions.OrderBy(entry => entry.Value).ToArray();
+        if (ordered.Length == 0)
+        {
+            return;
+        }
+
+        var droppedVersions = new List<long>();
+        var keepPrefixes = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = ordered.Length - 1; index >= 0; index--)
+        {
+            var candidate = ordered[index].Key;
+            var coveredByKept = false;
+            foreach (var kept in keepPrefixes)
+            {
+                if (candidate.StartsWith(kept, StringComparison.Ordinal))
+                {
+                    coveredByKept = true;
+                    break;
+                }
+            }
+
+            if (!coveredByKept)
+            {
+                keepPrefixes.Add(candidate);
+                if (keepPrefixes.Count == MaxPrefixInvalidationVersions)
+                {
+                    break;
+                }
+            }
+        }
+
+        foreach (var invalidation in ordered)
+        {
+            if (!keepPrefixes.Contains(invalidation.Key))
+            {
+                droppedVersions.Add(invalidation.Value);
+                prefixInvalidationVersions.TryRemove(invalidation.Key, out _);
+            }
+        }
+
+        if (droppedVersions.Count > 0)
+        {
+            var newFloor = droppedVersions.Min();
+            var currentFloor = Volatile.Read(ref prefixInvalidationVersionFloor);
+            if (newFloor > currentFloor)
+            {
+                Interlocked.Exchange(ref prefixInvalidationVersionFloor, newFloor);
+            }
+        }
     }
 
     private MemoryCacheEntryOptions BuildEntryOptions(string key, CacheEntryOptions? options)

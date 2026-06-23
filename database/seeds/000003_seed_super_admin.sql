@@ -16,8 +16,8 @@ SET status = 'enabled',
     deleted_at = NULL
 WHERE code = 'super_admin';
 
-INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, created_at, updated_at)
-SELECT 'admin', 'Administrator', '{{ADMIN_PASSWORD_HASH}}', 'enabled', TRUE, {{ADMIN_MUST_CHANGE_PASSWORD}}, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)
+INSERT INTO sys_user (username, display_name, password_hash, status, must_change_password, created_at, updated_at)
+SELECT 'admin', 'Administrator', '{{ADMIN_PASSWORD_HASH}}', 'enabled', {{ADMIN_MUST_CHANGE_PASSWORD}}, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)
 WHERE NOT EXISTS (
   SELECT 1 FROM sys_user WHERE username = 'admin'
 );

@@ -3,11 +3,12 @@ using System.Net;
 using System.Reflection;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Api.RateLimiting;
+using WeCms.Api.Security;
 using WeCms.Modules.Security;
 using WeCms.Shared.Security;
 
@@ -16,98 +17,79 @@ namespace WeCms.Tests.Unit.Security;
 public sealed class RateLimitingTests
 {
     [Fact]
-    public void RateLimitHitBuffer_AggregatesSameKeyWithinWindow()
+    public async Task SecurityRejectionEventBuffer_AggregatesRateLimitEventsWithinOneMinuteWindow()
     {
-        var buffer = new InMemoryRateLimitHitBuffer(
-            new RateLimitHitBufferOptions(
-                TimeSpan.FromMinutes(1),
-                MaxAggregateKeys: 16));
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
         var now = DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture);
 
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now)));
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now.AddSeconds(10))));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now, traceId: "trace-rate-1"))));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now.AddSeconds(10), traceId: "trace-rate-2"))));
 
-        var summaries = buffer.DrainDue(now.AddMinutes(1));
+        var events = await buffer.DrainDueAsync(now.AddMinutes(1).AddSeconds(1), 100);
+        Assert.True(events.Length == 1);
+        var securityEvent = events[0];
+        var rateLimitHit = securityEvent.RateLimitHit;
+        Assert.NotNull(rateLimitHit);
 
-        var summary = Assert.Single(summaries);
-        Assert.Equal(2, summary.HitCount);
-        Assert.Equal(RateLimitPolicyNames.AuthLogin, summary.Policy);
-        Assert.Equal("/api/v1/auth/login", summary.Path);
-        Assert.Equal("192.168.1.10", summary.Ip);
+        Assert.Equal(SecurityRejectionEventKind.RateLimit, securityEvent.Kind);
+        Assert.Equal(2, rateLimitHit.RejectedCount);
+        Assert.Equal("trace-rate-2", rateLimitHit.TraceId);
+        Assert.Equal("192.168.1.10", rateLimitHit.Ip);
+        Assert.Equal("/api/v1/auth/login", rateLimitHit.Path);
+        Assert.Equal(RateLimitPolicyNames.AuthLogin, rateLimitHit.Policy);
     }
 
     [Fact]
-    public void RateLimitHitBuffer_KeepsDifferentKeysSeparate()
+    public async Task SecurityRejectionEventBuffer_SeparatesDifferentRateLimitKeys()
     {
-        var buffer = new InMemoryRateLimitHitBuffer(
-            new RateLimitHitBufferOptions(
-                TimeSpan.FromMinutes(1),
-                MaxAggregateKeys: 16));
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
         var now = DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture);
 
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now)));
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthRefresh, "/api/v1/auth/refresh", "192.168.1.10", now)));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now, userId: 7, traceId: "trace-rate-1"))));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthRefresh, "/api/v1/auth/login", "192.168.1.10", now, userId: 8, traceId: "trace-rate-2"))));
 
-        var summaries = buffer.DrainDue(now.AddMinutes(1));
-
-        Assert.Equal(2, summaries.Count);
-        Assert.Contains(summaries, item => item.Policy == RateLimitPolicyNames.AuthLogin);
-        Assert.Contains(summaries, item => item.Policy == RateLimitPolicyNames.AuthRefresh);
+        var events = await buffer.DrainDueAsync(now.AddMinutes(1).AddSeconds(1), 100);
+        Assert.Equal(2, events.Length);
+        Assert.Contains(events, @event => @event.RateLimitHit?.UserId == 7);
+        Assert.Contains(events, @event => @event.RateLimitHit?.UserId == 8);
     }
 
     [Fact]
-    public async Task RateLimitSecurityEventFlushService_OpensCircuitAfterRepeatedFailuresAndRecovers()
+    public async Task SecurityRejectionEventBuffer_SplitsAggregationByOneMinuteWindow()
     {
-        var clock = new FakeSecurityClock(DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture));
-        var buffer = new InMemoryRateLimitHitBuffer(new RateLimitHitBufferOptions(TimeSpan.Zero, MaxAggregateKeys: 16));
-        var recorder = new FailingThenRecordingRateLimitSecurityEventService(failuresBeforeSuccess: 3);
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton<IRateLimitSecurityEventService>(recorder)
-            .BuildServiceProvider();
-        var service = new RateLimitSecurityEventFlushHostedService(
-            buffer,
-            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
-            clock,
-            new RateLimitSecurityEventFlushOptions(
-                FlushInterval: TimeSpan.FromMinutes(5),
-                MaxBatchSize: 100,
-                FailureThreshold: 2,
-                CircuitBreakerCooldown: TimeSpan.FromMinutes(1)),
-            NullLogger<RateLimitSecurityEventFlushHostedService>.Instance);
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
+        var now = DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture);
 
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", clock.UtcNow)));
-        await service.FlushDueAsync(CancellationToken.None);
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", clock.UtcNow)));
-        await service.FlushDueAsync(CancellationToken.None);
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now, traceId: "trace-rate-1"))));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now.AddSeconds(90), traceId: "trace-rate-2"))));
 
-        Assert.True(service.CircuitBreakerOpen);
-        Assert.Equal(2, recorder.Attempts);
+        var firstWindowEvents = await buffer.DrainDueAsync(now.AddMinutes(1).AddSeconds(1), 100);
+        Assert.True(firstWindowEvents.Length == 1);
+        var firstWindowEvent = firstWindowEvents[0];
+        var firstWindowHit = firstWindowEvent.RateLimitHit;
+        Assert.NotNull(firstWindowHit);
+        Assert.Equal("trace-rate-1", firstWindowHit.TraceId);
+        Assert.Equal(1, firstWindowHit.RejectedCount);
 
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", clock.UtcNow)));
-        await service.FlushDueAsync(CancellationToken.None);
-        Assert.Equal(2, recorder.Attempts);
-
-        clock.Advance(TimeSpan.FromMinutes(1));
-        await service.FlushDueAsync(CancellationToken.None);
-        Assert.Equal(3, recorder.Attempts);
-
-        clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.True(buffer.TryRecord(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", clock.UtcNow)));
-        await service.FlushDueAsync(CancellationToken.None);
-
-        Assert.False(service.CircuitBreakerOpen);
-        Assert.Equal(4, recorder.Attempts);
-        Assert.Single(recorder.Records);
+        var secondWindowEvents = await buffer.DrainDueAsync(now.AddMinutes(2).AddSeconds(1), 100);
+        Assert.True(secondWindowEvents.Length == 1);
+        var secondWindowEvent = secondWindowEvents[0];
+        var secondWindowHit = secondWindowEvent.RateLimitHit;
+        Assert.NotNull(secondWindowHit);
+        Assert.Equal("trace-rate-2", secondWindowHit.TraceId);
+        Assert.Equal(1, secondWindowHit.RejectedCount);
     }
 
     [Fact]
-    public async Task OnRejectedAsync_RecordsThroughBufferWithoutDirectRecorder()
+    public async Task OnRejectedAsync_RecordsThroughSecurityRejectionBufferWithoutDirectRecorder()
     {
-        var buffer = new RecordingRateLimitHitBuffer();
+        var clock = new FakeAuthClock(DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture));
+        var buffer = new FakeSecurityRejectionEventBuffer();
         var services = new ServiceCollection()
-            .AddSingleton<ISecurityClock>(new FakeSecurityClock(DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture)))
-            .AddSingleton<IRateLimitHitBuffer>(buffer)
+            .AddSingleton<IAuthClock>(clock)
+            .AddSingleton<ISecurityRejectionEventBuffer>(buffer)
             .BuildServiceProvider();
+
         var httpContext = CreateContext("/api/v1/auth/login", "POST", "192.168.1.10");
         httpContext.RequestServices = services;
         httpContext.Response.Body = new MemoryStream();
@@ -115,7 +97,9 @@ public sealed class RateLimitingTests
         await InvokeOnRejectedAsync(httpContext);
 
         Assert.NotNull(buffer.Record);
+        Assert.Equal(SecurityRejectionEventKind.RateLimit, buffer.Record.Kind);
         Assert.Equal(StatusCodes.Status429TooManyRequests, httpContext.Response.StatusCode);
+        Assert.Equal("/api/v1/auth/login", buffer.Record.RateLimitHit?.Path);
     }
 
     [Fact]
@@ -263,9 +247,10 @@ public sealed class RateLimitingTests
         string path,
         string ip,
         DateTimeOffset now,
-        long? userId = null)
+        long? userId = null,
+        string traceId = "trace-rate")
     {
-        return new RateLimitHitRecord(policy, "POST", path, userId, "admin", ip, "unit-test", "trace-rate", now);
+        return new RateLimitHitRecord(policy, "POST", path, userId, "admin", ip, "unit-test", traceId, now);
     }
 
     private static async Task InvokeOnRejectedAsync(HttpContext httpContext)
@@ -313,60 +298,25 @@ public sealed class RateLimitingTests
         }
     }
 
-    private sealed class RecordingRateLimitHitBuffer : IRateLimitHitBuffer
+    private sealed class FakeSecurityRejectionEventBuffer : ISecurityRejectionEventBuffer
     {
-        public RateLimitHitRecord? Record { get; private set; }
+        public SecurityRejectionEvent? Record { get; private set; }
 
-        public bool TryRecord(RateLimitHitRecord record)
+        public bool TryEnqueue(SecurityRejectionEvent record)
         {
             Record = record;
             return true;
         }
-
-        public IReadOnlyList<RateLimitHitSummary> DrainDue(DateTimeOffset now, int maxItems)
-        {
-            return [];
-        }
     }
 
-    private sealed class FailingThenRecordingRateLimitSecurityEventService : IRateLimitSecurityEventService
+    private sealed class FakeAuthClock : IAuthClock
     {
-        private readonly int _failuresBeforeSuccess;
-
-        public FailingThenRecordingRateLimitSecurityEventService(int failuresBeforeSuccess)
-        {
-            _failuresBeforeSuccess = failuresBeforeSuccess;
-        }
-
-        public int Attempts { get; private set; }
-        public List<RateLimitHitRecord> Records { get; } = [];
-
-        public Task RecordHitAsync(RateLimitHitRecord record, CancellationToken cancellationToken)
-        {
-            Attempts++;
-            if (Attempts <= _failuresBeforeSuccess)
-            {
-                throw new InvalidOperationException("simulated recorder failure");
-            }
-
-            Records.Add(record);
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeSecurityClock : ISecurityClock
-    {
-        public FakeSecurityClock(DateTimeOffset utcNow)
+        public FakeAuthClock(DateTimeOffset utcNow)
         {
             UtcNow = utcNow;
         }
 
-        public DateTimeOffset UtcNow { get; private set; }
-
-        public void Advance(TimeSpan value)
-        {
-            UtcNow = UtcNow.Add(value);
-        }
+        public DateTimeOffset UtcNow { get; }
     }
 
     private sealed class FakeRateLimitLease : RateLimitLease

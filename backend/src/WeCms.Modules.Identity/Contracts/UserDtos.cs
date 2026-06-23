@@ -15,7 +15,6 @@ public sealed record UserSummaryDto(
     string? Phone,
     long? DeptId,
     string Status,
-    bool IsSuperAdmin,
     DateTimeOffset? LastLoginAt,
     DateTimeOffset CreatedAt);
 
@@ -27,7 +26,6 @@ public sealed record UserDetailDto(
     string? Phone,
     long? DeptId,
     string Status,
-    bool IsSuperAdmin,
     long PermissionVersion,
     DateTimeOffset? LastLoginAt,
     IReadOnlyList<long> RoleIds,

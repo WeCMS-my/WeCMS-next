@@ -155,7 +155,7 @@ public sealed class AccountTwoFactorServiceTests
 
         public Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<string>>([]);
 
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MenuSummaryDto>>([]);
+        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MenuSummaryDto>>([]);
 
         public Task RecordFailedLoginAsync(FailedLoginRecord record, CancellationToken cancellationToken) => Task.CompletedTask;
 

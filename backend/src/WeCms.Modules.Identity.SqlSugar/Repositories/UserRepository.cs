@@ -62,7 +62,6 @@ public sealed partial class UserRepository : IUserRepository
                    u.phone AS Phone,
                    u.dept_id AS DeptId,
                    u.status AS Status,
-                   u.is_super_admin AS IsSuperAdmin,
                    u.last_login_at AS LastLoginAt,
                    u.created_at AS CreatedAt
             FROM sys_user u
@@ -97,7 +96,6 @@ public sealed partial class UserRepository : IUserRepository
                    u.phone AS Phone,
                    u.dept_id AS DeptId,
                    u.status AS Status,
-                   u.is_super_admin AS IsSuperAdmin,
                    u.permission_version AS PermissionVersion,
                    u.last_login_at AS LastLoginAt,
                    u.created_at AS CreatedAt,
@@ -163,8 +161,8 @@ public sealed partial class UserRepository : IUserRepository
 
         await ExpectOneAsync(
             """
-            INSERT INTO sys_user (username, display_name, email, phone, password_hash, status, is_super_admin, dept_id, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
-            VALUES (@username, @displayName, @email, @phone, @passwordHash, 'enabled', FALSE, @deptId, FALSE, @securityStamp, 0, @createdAt, @updatedAt, NULL)
+            INSERT INTO sys_user (username, display_name, email, phone, password_hash, status, dept_id, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
+            VALUES (@username, @displayName, @email, @phone, @passwordHash, 'enabled', @deptId, FALSE, @securityStamp, 0, @createdAt, @updatedAt, NULL)
             """,
             cancellationToken,
             new SugarParameter("@username", record.Username),

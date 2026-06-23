@@ -26,7 +26,7 @@ public sealed class AccessProfileServiceTests
         };
         var service = CreateService(repository);
 
-        var profile = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        var profile = await service.GetAsync(99, CancellationToken.None);
 
         Assert.Equal(12, profile.PermissionVersion);
         Assert.Equal(["admin", "operator"], profile.Roles);
@@ -37,11 +37,10 @@ public sealed class AccessProfileServiceTests
         Assert.Equal("sys.system", root.Code);
         Assert.Equal("sys.users", Assert.Single(root.Children).Code);
         Assert.Equal(99, repository.CapturedUserId);
-        Assert.False(repository.CapturedIsSuperAdmin);
     }
 
     [Fact]
-    public async Task GetAsync_CachesProfileByUserSuperAdminAndPermissionVersion()
+    public async Task GetAsync_CachesProfileByUserAndPermissionVersion()
     {
         var repository = new FakeAccessProfileRepository
         {
@@ -53,8 +52,8 @@ public sealed class AccessProfileServiceTests
         var cache = new FakeAccessProfileCache();
         var service = CreateService(repository, cache);
 
-        var first = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
-        var second = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        var first = await service.GetAsync(99, CancellationToken.None);
+        var second = await service.GetAsync(99, CancellationToken.None);
 
         Assert.Same(first, second);
         Assert.Equal(2, repository.PermissionVersionCalls);
@@ -77,10 +76,10 @@ public sealed class AccessProfileServiceTests
         var cache = new FakeAccessProfileCache();
         var service = CreateService(repository, cache);
 
-        _ = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        _ = await service.GetAsync(99, CancellationToken.None);
         repository.PermissionVersion = 13;
         repository.Roles = ["operator"];
-        var changed = await service.GetAsync(99, isSuperAdmin: false, CancellationToken.None);
+        var changed = await service.GetAsync(99, CancellationToken.None);
 
         Assert.Equal(["operator"], changed.Roles);
         Assert.Equal(2, repository.RoleCalls);
@@ -91,12 +90,12 @@ public sealed class AccessProfileServiceTests
     public async Task AccessProfileService_UsesVersionedCacheAbstraction()
     {
         var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "AccessProfiles", "AccessProfileService.cs"), TestContext.Current.CancellationToken);
-        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "Security", "AccessProfileCache.cs"), TestContext.Current.CancellationToken);
+        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "AccessProfiles", "AccessProfileCache.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("IAccessProfileCache", source, StringComparison.Ordinal);
-        Assert.Contains("_cache.GetAsync(userId, isSuperAdmin, permissionVersion", source, StringComparison.Ordinal);
-        Assert.Contains("_cache.SetAsync(userId, isSuperAdmin, profile", source, StringComparison.Ordinal);
-        Assert.Contains("ICache", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("_cache.GetAsync(userId, permissionVersion", source, StringComparison.Ordinal);
+        Assert.Contains("_cache.SetAsync(userId, profile", source, StringComparison.Ordinal);
+        Assert.Contains("IMemoryCache", cacheSource, StringComparison.Ordinal);
         Assert.Contains("permissionVersion", cacheSource, StringComparison.Ordinal);
     }
 
@@ -135,8 +134,6 @@ public sealed class AccessProfileServiceTests
 
         public long CapturedUserId { get; private set; }
 
-        public bool CapturedIsSuperAdmin { get; private set; }
-
         public int PermissionVersionCalls { get; private set; }
 
         public int RoleCalls { get; private set; }
@@ -164,10 +161,9 @@ public sealed class AccessProfileServiceTests
             return Task.FromResult(Permissions);
         }
 
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, CancellationToken cancellationToken)
         {
             MenuCalls++;
-            CapturedIsSuperAdmin = isSuperAdmin;
             return Task.FromResult(Menus);
         }
     }
@@ -180,27 +176,25 @@ public sealed class AccessProfileServiceTests
 
         public ValueTask<AccessProfileDto?> GetAsync(
             long userId,
-            bool isSuperAdmin,
             long permissionVersion,
             CancellationToken cancellationToken)
         {
-            return ValueTask.FromResult(_values.TryGetValue(Key(userId, isSuperAdmin, permissionVersion), out var profile) ? profile : null);
+            return ValueTask.FromResult(_values.TryGetValue(Key(userId, permissionVersion), out var profile) ? profile : null);
         }
 
         public ValueTask SetAsync(
             long userId,
-            bool isSuperAdmin,
             AccessProfileDto profile,
             CancellationToken cancellationToken)
         {
             SetCalls++;
-            _values[Key(userId, isSuperAdmin, profile.PermissionVersion)] = profile;
+            _values[Key(userId, profile.PermissionVersion)] = profile;
             return ValueTask.CompletedTask;
         }
 
-        private static string Key(long userId, bool isSuperAdmin, long permissionVersion)
+        private static string Key(long userId, long permissionVersion)
         {
-            return $"{userId}:{isSuperAdmin}:{permissionVersion}";
+            return $"{userId}:{permissionVersion}";
         }
     }
 }

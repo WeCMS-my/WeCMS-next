@@ -223,7 +223,6 @@ public sealed partial class AuthIntegrationTests
                 display_name,
                 password_hash,
                 status,
-                is_super_admin,
                 must_change_password,
                 security_stamp,
                 permission_version,
@@ -236,7 +235,6 @@ public sealed partial class AuthIntegrationTests
                 @displayName,
                 @passwordHash,
                 'enabled',
-                FALSE,
                 FALSE,
                 @securityStamp,
                 0,
@@ -434,7 +432,6 @@ public sealed partial class AuthIntegrationTests
     {
         public ValueTask<AccessProfileDto?> GetAsync(
             long userId,
-            bool isSuperAdmin,
             long permissionVersion,
             CancellationToken cancellationToken)
         {
@@ -443,7 +440,6 @@ public sealed partial class AuthIntegrationTests
 
         public ValueTask SetAsync(
             long userId,
-            bool isSuperAdmin,
             AccessProfileDto profile,
             CancellationToken cancellationToken)
         {

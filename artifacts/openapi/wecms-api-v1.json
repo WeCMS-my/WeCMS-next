@@ -6105,8 +6105,7 @@
         "required": [
           "id",
           "username",
-          "displayName",
-          "isSuperAdmin"
+          "displayName"
         ],
         "properties": {
           "id": {
@@ -6118,9 +6117,6 @@
           },
           "displayName": {
             "type": "string"
-          },
-          "isSuperAdmin": {
-            "type": "boolean"
           }
         }
       },
@@ -6507,7 +6503,6 @@
           "username",
           "displayName",
           "status",
-          "isSuperAdmin",
           "createdAt"
         ],
         "properties": {
@@ -6543,9 +6538,6 @@
           "status": {
             "type": "string"
           },
-          "isSuperAdmin": {
-            "type": "boolean"
-          },
           "lastLoginAt": {
             "type": [
               "string",
@@ -6566,7 +6558,6 @@
           "username",
           "displayName",
           "status",
-          "isSuperAdmin",
           "permissionVersion",
           "roleIds",
           "positionIds",
@@ -6605,9 +6596,6 @@
           },
           "status": {
             "type": "string"
-          },
-          "isSuperAdmin": {
-            "type": "boolean"
           },
           "permissionVersion": {
             "type": "integer",

@@ -350,7 +350,6 @@ public sealed class UserServiceTests
                 null,
                 null,
                 "enabled",
-                true,
                 0,
                 null,
                 [1],

@@ -276,7 +276,7 @@ public sealed class SecurityBanService : ISecurityBanService
             return;
         }
 
-        if (!await _repository.IsSuperAdminAsync(context.ActorUserId, cancellationToken))
+        if (!await _repository.UserHasRoleCodeAsync(context.ActorUserId, "super_admin", cancellationToken))
         {
             throw new DomainException(ApiCodes.Forbidden, "Only super_admin can unban a critical self-related security ban.");
         }

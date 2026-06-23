@@ -159,7 +159,7 @@ public sealed class AuthService : IAuthService
             throw new DomainException(ApiCodes.Unauthorized, "Authentication is required.");
         }
 
-        var accessProfile = await _accessProfileService.GetAsync(user.Id, user.IsSuperAdmin, cancellationToken);
+        var accessProfile = await _accessProfileService.GetAsync(user.Id, cancellationToken);
         var menus = AuthAccessProfileMapper.ToAuthMenuTree(accessProfile.Menus);
 
         return new AuthMeResponse(ToDto(user), accessProfile.PermissionVersion, accessProfile.Roles, accessProfile.Permissions, menus);
@@ -225,6 +225,6 @@ public sealed class AuthService : IAuthService
 
     private static AuthUserDto ToDto(AuthUserRecord user)
     {
-        return new AuthUserDto(user.Id, user.Username, user.DisplayName, user.IsSuperAdmin);
+        return new AuthUserDto(user.Id, user.Username, user.DisplayName);
     }
 }

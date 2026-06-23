@@ -21,7 +21,7 @@ public sealed class AccessProfileRepositoryTests : PerTestDatabaseResetBase
         var version = await repository.GetPermissionVersionAsync(adminUserId, CancellationToken.None);
         var roles = await repository.ListRoleCodesAsync(adminUserId, CancellationToken.None);
         var permissions = await repository.ListPermissionCodesAsync(adminUserId, CancellationToken.None);
-        var menus = await repository.ListVisibleMenusAsync(adminUserId, isSuperAdmin: true, CancellationToken.None);
+        var menus = await repository.ListVisibleMenusAsync(adminUserId, CancellationToken.None);
 
         Assert.True(version >= 0);
         Assert.Contains("super_admin", roles);

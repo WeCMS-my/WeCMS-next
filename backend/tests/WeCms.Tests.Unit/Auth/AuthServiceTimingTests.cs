@@ -25,7 +25,7 @@ public sealed partial class AuthServiceTests
         var disabledHash = PasswordHasher.HashForTest("correct");
         var repository = new FakeAuthRepository
         {
-            User = new AuthUserRecord(1, "disabled", "Disabled", disabledHash, "disabled", false)
+            User = new AuthUserRecord(1, "disabled", "Disabled", disabledHash, "disabled")
         };
         var passwordHasher = new CountingPasswordHasher();
         var service = CreateService(repository, passwordHasher);

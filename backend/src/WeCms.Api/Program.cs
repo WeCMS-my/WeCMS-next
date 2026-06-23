@@ -5,7 +5,6 @@ using Autofac.Extensions.DependencyInjection;
 using WeCms.Aop;
 using WeCms.Api.Endpoints;
 using WeCms.Api.Extensions;
-using WeCms.Api.AccessProfiles;
 using WeCms.Api.Files;
 using WeCms.Api.Json;
 using WeCms.Api.Middleware;
@@ -17,7 +16,6 @@ using WeCms.Data.SqlSugar;
 using WeCms.EventBus;
 using WeCms.EventBus.SqlSugar;
 using WeCms.Modules.AccessControl;
-using WeCms.Modules.AccessControl.AccessProfiles;
 using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Modules.AccessControl.Repositories;
 using WeCms.Modules.AccessControl.SqlSugar;
@@ -87,14 +85,10 @@ builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddSingleton<SecurityRejectionEventBuffer>();
 builder.Services.AddSingleton<ISecurityRejectionEventBuffer>(provider => provider.GetRequiredService<SecurityRejectionEventBuffer>());
-builder.Services.AddSingleton<ISecurityRejectionEventReader>(provider => provider.GetRequiredService<SecurityRejectionEventBuffer>());
+builder.Services.Configure<IpAccessControlOptions>(
+    builder.Configuration.GetSection(IpAccessControlOptions.SectionName));
 builder.Services.AddHostedService<SecurityRejectionEventFlushHostedService>();
 builder.Services.AddWeCmsAccessControl();
-builder.Services.AddScoped<IAccessProfileService>(provider => new CachedAccessProfileService(
-    provider.GetRequiredService<AccessProfileService>(),
-    provider.GetRequiredService<IAccessProfileRepository>(),
-    provider.GetRequiredService<ICache>(),
-    provider.GetRequiredService<ICacheKeyBuilder>()));
 builder.Services.AddWeCmsAudit();
 builder.Services.AddWeCmsConfiguration();
 builder.Services.AddWeCmsIdentity(builder.Configuration);
@@ -104,7 +98,6 @@ builder.Services.AddWeCmsSecurity();
 builder.Services.AddWeCmsFileCenter(_ => CreateFileScanService(builder.Configuration));
 builder.Services.AddScoped<IAccountAvatarFileService, AccountAvatarFileService>();
 builder.Services.AddScoped<PermissionVersionService>();
-builder.Services.AddScoped<IAccessProfileCache, AccessProfileCache>();
 builder.Services.AddScoped<ISecurityBanLookupCache, SecurityBanLookupCache>();
 builder.Services.AddScoped<IAccessControlPermissionVersionService>(provider => provider.GetRequiredService<PermissionVersionService>());
 builder.Services.AddScoped<IIdentityPermissionVersionService>(provider => provider.GetRequiredService<PermissionVersionService>());

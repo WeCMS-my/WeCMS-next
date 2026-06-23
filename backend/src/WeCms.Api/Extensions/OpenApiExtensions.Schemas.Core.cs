@@ -108,13 +108,12 @@ public static partial class OpenApiExtensions
             ["AuthUserDto"] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "isSuperAdmin"),
+                ["required"] = Required("id", "username", "displayName"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
                     ["username"] = StringSchema(),
-                    ["displayName"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema()
+                    ["displayName"] = StringSchema()
                 }
             },
             [nameof(AccountTwoFactorStatusResponse)] = new JsonObject
@@ -267,7 +266,7 @@ public static partial class OpenApiExtensions
             [nameof(UserSummaryDto)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "createdAt"),
+                ["required"] = Required("id", "username", "displayName", "status", "createdAt"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
@@ -277,7 +276,6 @@ public static partial class OpenApiExtensions
                     ["phone"] = NullableStringSchema(),
                     ["deptId"] = IntegerSchema(nullable: true),
                     ["status"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema(),
                     ["lastLoginAt"] = DateTimeSchema(nullable: true),
                     ["createdAt"] = DateTimeSchema()
                 }
@@ -285,7 +283,7 @@ public static partial class OpenApiExtensions
             [nameof(UserDetailDto)] = new JsonObject
             {
                 ["type"] = "object",
-                ["required"] = Required("id", "username", "displayName", "status", "isSuperAdmin", "permissionVersion", "roleIds", "positionIds", "createdAt", "updatedAt"),
+                ["required"] = Required("id", "username", "displayName", "status", "permissionVersion", "roleIds", "positionIds", "createdAt", "updatedAt"),
                 ["properties"] = new JsonObject
                 {
                     ["id"] = IntegerSchema(),
@@ -295,7 +293,6 @@ public static partial class OpenApiExtensions
                     ["phone"] = NullableStringSchema(),
                     ["deptId"] = IntegerSchema(nullable: true),
                     ["status"] = StringSchema(),
-                    ["isSuperAdmin"] = BooleanSchema(),
                     ["permissionVersion"] = IntegerSchema(),
                     ["lastLoginAt"] = DateTimeSchema(nullable: true),
                     ["roleIds"] = ArrayOf(IntegerSchema()),

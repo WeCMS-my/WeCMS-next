@@ -33,7 +33,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
             if (actorUserId <= 0)
             {
                 db.Ado.ExecuteCommand(
-                    "INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at) VALUES ('admin', 'admin', 'x', 'enabled', true, false, 'seed', 0, NOW(6), NOW(6), NULL)");
+                    "INSERT INTO sys_user (username, display_name, password_hash, status, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at) VALUES ('admin', 'admin', 'x', 'enabled', false, 'seed', 0, NOW(6), NOW(6), NULL)");
                 actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             }
 
@@ -107,7 +107,7 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
             if (actorUserId <= 0)
             {
                 db.Ado.ExecuteCommand(
-                    "INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at) VALUES ('admin', 'admin', 'x', 'enabled', true, false, 'seed', 0, NOW(6), NOW(6), NULL)");
+                    "INSERT INTO sys_user (username, display_name, password_hash, status, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at) VALUES ('admin', 'admin', 'x', 'enabled', false, 'seed', 0, NOW(6), NOW(6), NULL)");
                 actorUserId = Scalar<long>(db, "SELECT id FROM sys_user WHERE username = 'admin' LIMIT 1");
             }
 

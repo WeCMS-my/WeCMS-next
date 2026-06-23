@@ -67,7 +67,6 @@ export interface AuthUserDto {
   id: number;
   username: string;
   displayName: string;
-  isSuperAdmin: boolean;
 }
 
 export interface AccountTwoFactorStatusResponse {
@@ -184,7 +183,6 @@ export interface UserSummaryDto {
   phone?: string | null;
   deptId?: number | null;
   status: string;
-  isSuperAdmin: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
 }
@@ -197,7 +195,6 @@ export interface UserDetailDto {
   phone?: string | null;
   deptId?: number | null;
   status: string;
-  isSuperAdmin: boolean;
   permissionVersion: number;
   lastLoginAt?: string | null;
   roleIds: number[];

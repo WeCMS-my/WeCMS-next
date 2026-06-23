@@ -82,8 +82,8 @@ public sealed class UserTwoFactorRepositoryTests : PerTestDatabaseResetBase
     {
         await db.Ado.ExecuteCommandAsync(
             """
-            INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
-            VALUES (@username, @displayName, 'x', 'enabled', FALSE, FALSE, 'stamp', 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL)
+            INSERT INTO sys_user (username, display_name, password_hash, status, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
+            VALUES (@username, @displayName, 'x', 'enabled', FALSE, 'stamp', 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL)
             """,
             new SugarParameter("@username", username),
             new SugarParameter("@displayName", username));

@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,33 +10,72 @@ namespace WeCms.Tests.Unit.Api;
 public sealed class SecurityRejectionEventFlushHostedServiceTests
 {
     [Fact]
-    public async Task FlushBatchAsync_AggregatesRateLimitRejectedCount()
+    public async Task FlushBatchAsync_PersistsAggregatedRateLimitEventAsSingleRecord()
     {
         var rateLimitService = new FakeRateLimitSecurityEventService();
         using var serviceProvider = new ServiceCollection()
             .AddSingleton<IRateLimitSecurityEventService>(rateLimitService)
             .BuildServiceProvider();
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
+        var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
+
+        Assert.True(buffer.TryEnqueue(
+            SecurityRejectionEvent.FromRateLimit(CreateRateLimitHit("trace-rate-1", now))));
+        Assert.True(buffer.TryEnqueue(
+            SecurityRejectionEvent.FromRateLimit(CreateRateLimitHit("trace-rate-2", now.AddSeconds(10)))));
+        var events = await buffer.DrainDueAsync(now.AddMinutes(1).AddSeconds(1), 100);
+        Assert.Single(events);
+
         var service = new SecurityRejectionEventFlushHostedService(
-            new EmptySecurityRejectionEventReader(),
+            buffer,
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<SecurityRejectionEventFlushHostedService>.Instance);
-        var first = CreateRateLimitHit("trace-rate-1");
-        var second = CreateRateLimitHit("trace-rate-2");
 
         await InvokeFlushBatchAsync(
             service,
-            [
-                SecurityRejectionEvent.FromRateLimit(first),
-                SecurityRejectionEvent.FromRateLimit(second)
-            ]);
+            events);
 
         var record = Assert.Single(rateLimitService.Records);
         Assert.Equal(2, record.RejectedCount);
-        Assert.Equal(first.Policy, record.Policy);
-        Assert.Equal(first.Path, record.Path);
+        Assert.Equal(RateLimitPolicyNames.AuthLogin, record.Policy);
+        Assert.Equal("/api/v1/auth/login", record.Path);
     }
 
-    private static RateLimitHitRecord CreateRateLimitHit(string traceId)
+    [Fact]
+    public async Task FlushBatchAsync_DoesNotAggregateAcrossDifferentWindowStarts()
+    {
+        var rateLimitService = new FakeRateLimitSecurityEventService();
+        using var serviceProvider = new ServiceCollection()
+            .AddSingleton<IRateLimitSecurityEventService>(rateLimitService)
+            .BuildServiceProvider();
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
+        var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
+
+        Assert.True(buffer.TryEnqueue(
+            SecurityRejectionEvent.FromRateLimit(CreateRateLimitHit("trace-rate-1", now))));
+        Assert.True(buffer.TryEnqueue(
+            SecurityRejectionEvent.FromRateLimit(CreateRateLimitHit("trace-rate-2", now.AddMinutes(1).AddMilliseconds(500)))));
+
+        var events = await buffer.DrainDueAsync(now.AddMinutes(2).AddSeconds(1), 100);
+        Assert.Equal(2, events.Length);
+
+        var service = new SecurityRejectionEventFlushHostedService(
+            buffer,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<SecurityRejectionEventFlushHostedService>.Instance);
+
+        await InvokeFlushBatchAsync(
+            service,
+            events);
+
+        Assert.Equal(2, rateLimitService.Records.Count);
+        Assert.Equal(1, rateLimitService.Records[0].RejectedCount);
+        Assert.Equal("trace-rate-1", rateLimitService.Records[0].TraceId);
+        Assert.Equal(1, rateLimitService.Records[1].RejectedCount);
+        Assert.Equal("trace-rate-2", rateLimitService.Records[1].TraceId);
+    }
+
+    private static RateLimitHitRecord CreateRateLimitHit(string traceId, DateTimeOffset createdAt)
     {
         return new RateLimitHitRecord(
             RateLimitPolicyNames.AuthLogin,
@@ -48,7 +86,7 @@ public sealed class SecurityRejectionEventFlushHostedServiceTests
             "192.168.1.10",
             "unit-test",
             traceId,
-            new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero));
+            createdAt);
     }
 
     private static async Task InvokeFlushBatchAsync(
@@ -72,21 +110,6 @@ public sealed class SecurityRejectionEventFlushHostedServiceTests
         {
             Records.Add(record);
             return Task.CompletedTask;
-        }
-    }
-
-    private sealed class EmptySecurityRejectionEventReader : ISecurityRejectionEventReader
-    {
-        public async IAsyncEnumerable<SecurityRejectionEvent> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            await Task.CompletedTask;
-            yield break;
-        }
-
-        public bool TryRead(out SecurityRejectionEvent record)
-        {
-            record = null!;
-            return false;
         }
     }
 }

@@ -19,7 +19,7 @@ public sealed class AuthSecurityTests
             "Administrator",
             string.Empty,
             "enabled",
-            false, false,
+            false,
             "stamp-1");
         var token = service.Issue(user, now);
 

@@ -197,8 +197,9 @@ public interface ISecurityBanRepository
         SecurityBanRevokeRecord record,
         CancellationToken cancellationToken);
 
-    Task<bool> IsSuperAdminAsync(
+    Task<bool> UserHasRoleCodeAsync(
         long userId,
+        string roleCode,
         CancellationToken cancellationToken);
 
     Task RecordAuditAsync(

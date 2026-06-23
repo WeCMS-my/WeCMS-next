@@ -25,7 +25,6 @@ public sealed class AuthRepository : IAuthRepository
                    display_name AS DisplayName,
                    password_hash AS PasswordHash,
                    status AS Status,
-                   is_super_admin AS IsSuperAdmin,
                    permission_version AS PermissionVersion,
                    must_change_password AS MustChangePassword,
                    security_stamp AS SecurityStamp
@@ -50,7 +49,6 @@ public sealed class AuthRepository : IAuthRepository
                    display_name AS DisplayName,
                    password_hash AS PasswordHash,
                    status AS Status,
-                   is_super_admin AS IsSuperAdmin,
                    permission_version AS PermissionVersion,
                    must_change_password AS MustChangePassword,
                    security_stamp AS SecurityStamp
@@ -75,7 +73,6 @@ public sealed class AuthRepository : IAuthRepository
                    u.username,
                    u.display_name,
                    u.status,
-                   u.is_super_admin,
                    u.permission_version,
                    u.must_change_password AS MustChangePassword,
                    rt.token_hash,
@@ -108,7 +105,6 @@ public sealed class AuthRepository : IAuthRepository
             Convert.ToString(row["username"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             Convert.ToString(row["display_name"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             Convert.ToString(row["status"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
-            Convert.ToBoolean(row["is_super_admin"], global::System.Globalization.CultureInfo.InvariantCulture),
             Convert.ToString(row["token_hash"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             Convert.ToString(row["family_id"], global::System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
             new DateTimeOffset(DateTime.SpecifyKind((DateTime)row["expires_at"], DateTimeKind.Utc)),
@@ -302,8 +298,6 @@ public sealed class AuthRepository : IAuthRepository
 
         public string Status { get; set; } = string.Empty;
 
-        public bool IsSuperAdmin { get; set; }
-
         public long PermissionVersion { get; set; }
 
         public bool MustChangePassword { get; set; }
@@ -312,7 +306,7 @@ public sealed class AuthRepository : IAuthRepository
 
         public AuthUserRecord ToRecord()
         {
-            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, IsSuperAdmin, MustChangePassword, SecurityStamp, PermissionVersion);
+            return new AuthUserRecord(Id, Username, DisplayName, PasswordHash, Status, MustChangePassword, SecurityStamp, PermissionVersion);
         }
     }
 

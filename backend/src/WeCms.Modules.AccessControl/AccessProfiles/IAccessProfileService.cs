@@ -4,5 +4,5 @@ namespace WeCms.Modules.AccessControl.AccessProfiles;
 
 public interface IAccessProfileService
 {
-    Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken);
+    Task<AccessProfileDto> GetAsync(long userId, CancellationToken cancellationToken);
 }

@@ -196,12 +196,12 @@ public sealed class SecurityBanServiceTests
     }
 
     [Fact]
-    public async Task UnbanAsync_RejectsCriticalSelfUserBanForNonSuperAdmin()
+    public async Task UnbanAsync_RejectsCriticalSelfUserBanForUserWithoutAdminRole()
     {
         var repository = new FakeSecurityBanRepository
         {
             BanDetail = new SecurityBanDetailDto(7, SecurityBanTypes.User, "9", "manual", "critical", "admin", null, null, null, null, Now, Now, null, null),
-            IsSuperAdmin = false
+            UserHasAdminRole = false
         };
         var service = CreateService(repository);
 
@@ -316,7 +316,7 @@ public sealed class SecurityBanServiceTests
 
         public string LastAuditAction { get; private set; } = string.Empty;
 
-        public bool IsSuperAdmin { get; init; } = true;
+        public bool UserHasAdminRole { get; init; } = true;
 
         public Task<SecurityBanRecord?> FindActiveAsync(string banType, string target, DateTimeOffset now, CancellationToken cancellationToken)
         {
@@ -352,9 +352,9 @@ public sealed class SecurityBanServiceTests
             return Task.FromResult(11L);
         }
 
-        public Task<bool> IsSuperAdminAsync(long userId, CancellationToken cancellationToken)
+        public Task<bool> UserHasRoleCodeAsync(long userId, string roleCode, CancellationToken cancellationToken)
         {
-            return Task.FromResult(IsSuperAdmin);
+            return Task.FromResult(UserHasAdminRole && roleCode == "super_admin");
         }
 
         public Task RecordAuditAsync(SecurityBanAuditRecord record, CancellationToken cancellationToken)

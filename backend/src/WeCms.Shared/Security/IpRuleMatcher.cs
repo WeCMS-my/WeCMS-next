@@ -3,9 +3,15 @@ using System.Net.Sockets;
 
 namespace WeCms.Shared.Security;
 
+public readonly record struct ParsedIpRule(IPAddress Network, int PrefixLength);
+
 public interface IIpRuleMatcher
 {
     bool IsMatch(string rules, IPAddress address);
+
+    IReadOnlyList<ParsedIpRule> ParseRules(string[] allowedRules);
+
+    bool IsMatch(IReadOnlyList<ParsedIpRule> rules, IPAddress address);
 }
 
 public sealed class IpRuleMatcher : IIpRuleMatcher
@@ -14,9 +20,37 @@ public sealed class IpRuleMatcher : IIpRuleMatcher
     {
         ArgumentNullException.ThrowIfNull(address);
 
-        foreach (var rule in SplitRules(rules))
+        return IsMatch(ParseRules(SplitRules(rules).ToArray()), address);
+    }
+
+    public IReadOnlyList<ParsedIpRule> ParseRules(string[] allowedRules)
+    {
+        var parsedRules = new List<ParsedIpRule>();
+        foreach (var ruleText in allowedRules)
         {
-            if (IsRuleMatch(rule, NormalizeAddress(address)))
+            if (string.IsNullOrWhiteSpace(ruleText))
+            {
+                continue;
+            }
+
+            parsedRules.Add(ParseRule(ruleText.Trim()));
+        }
+
+        return parsedRules;
+    }
+
+    public bool IsMatch(IReadOnlyList<ParsedIpRule> rules, IPAddress address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (rules is null || rules.Count == 0)
+        {
+            return false;
+        }
+
+        address = NormalizeAddress(address);
+        foreach (var rule in rules)
+        {
+            if (IsRuleMatch(rule, address))
             {
                 return true;
             }
@@ -25,43 +59,32 @@ public sealed class IpRuleMatcher : IIpRuleMatcher
         return false;
     }
 
-    private static bool IsRuleMatch(string rule, IPAddress address)
+    public static IReadOnlyList<string> SplitRules(string rules)
     {
-        var slashIndex = rule.IndexOf('/', StringComparison.Ordinal);
-        if (slashIndex < 0)
+        if (string.IsNullOrWhiteSpace(rules))
         {
-            return TryParseAddress(rule, out var exactAddress)
-                ? NormalizeAddress(exactAddress).Equals(address)
-                : throw InvalidRule(rule);
+            return [];
         }
 
-        var addressText = rule[..slashIndex];
-        var prefixText = rule[(slashIndex + 1)..];
-        if (!TryParseAddress(addressText, out var networkAddress)
-            || !int.TryParse(prefixText, global::System.Globalization.NumberStyles.None, global::System.Globalization.CultureInfo.InvariantCulture, out var prefixLength))
-        {
-            throw InvalidRule(rule);
-        }
+        return rules.Split([',', '\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
 
-        networkAddress = NormalizeAddress(networkAddress);
-        var maxPrefixLength = networkAddress.AddressFamily == AddressFamily.InterNetwork ? 32 : 128;
-        if (prefixLength < 0 || prefixLength > maxPrefixLength)
-        {
-            throw InvalidRule(rule);
-        }
-
-        if (networkAddress.AddressFamily != address.AddressFamily)
+    private static bool IsRuleMatch(ParsedIpRule rule, IPAddress address)
+    {
+        if (rule.Network.AddressFamily != address.AddressFamily)
         {
             return false;
         }
 
-        return IsCidrMatch(networkAddress.GetAddressBytes(), address.GetAddressBytes(), prefixLength);
-    }
+        if (rule.PrefixLength == GetAddressBitLength(address.AddressFamily))
+        {
+            return rule.Network.Equals(address);
+        }
 
-    private static bool IsCidrMatch(byte[] networkBytes, byte[] addressBytes, int prefixLength)
-    {
-        var fullBytes = prefixLength / 8;
-        var remainingBits = prefixLength % 8;
+        var networkBytes = rule.Network.GetAddressBytes();
+        var addressBytes = address.GetAddressBytes();
+        var fullBytes = rule.PrefixLength / 8;
+        var remainingBits = rule.PrefixLength % 8;
 
         for (var index = 0; index < fullBytes; index++)
         {
@@ -80,17 +103,41 @@ public sealed class IpRuleMatcher : IIpRuleMatcher
         return (networkBytes[fullBytes] & mask) == (addressBytes[fullBytes] & mask);
     }
 
-    private static IEnumerable<string> SplitRules(string rules)
+    private static ParsedIpRule ParseRule(string rule)
     {
-        if (string.IsNullOrWhiteSpace(rules))
+        var slashIndex = rule.IndexOf('/', StringComparison.Ordinal);
+        if (slashIndex < 0)
         {
-            yield break;
+            if (!TryParseAddress(rule, out var exactAddress))
+            {
+                throw InvalidRule(rule);
+            }
+
+            exactAddress = NormalizeAddress(exactAddress);
+            return new ParsedIpRule(exactAddress, GetAddressBitLength(exactAddress.AddressFamily));
         }
 
-        foreach (var rule in rules.Split([',', '\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        var addressText = rule[..slashIndex];
+        var prefixText = rule[(slashIndex + 1)..];
+        if (!TryParseAddress(addressText, out var networkAddress)
+            || !int.TryParse(prefixText, global::System.Globalization.NumberStyles.None, global::System.Globalization.CultureInfo.InvariantCulture, out var prefixLength))
         {
-            yield return rule;
+            throw InvalidRule(rule);
         }
+
+        networkAddress = NormalizeAddress(networkAddress);
+        var maxPrefixLength = GetAddressBitLength(networkAddress.AddressFamily);
+        if (prefixLength < 0 || prefixLength > maxPrefixLength)
+        {
+            throw InvalidRule(rule);
+        }
+
+        return new ParsedIpRule(networkAddress, prefixLength);
+    }
+
+    private static int GetAddressBitLength(AddressFamily addressFamily)
+    {
+        return addressFamily == AddressFamily.InterNetwork ? 32 : 128;
     }
 
     private static bool TryParseAddress(string value, out IPAddress address)

@@ -22,6 +22,7 @@ public static class AccessControlServiceCollectionExtensions
         services.AddScoped<AccessProfileService>();
         services.AddScoped<IAccessProfileService>(provider => provider.GetRequiredService<AccessProfileService>());
         services.AddScoped<IPermissionManagementService, PermissionManagementService>();
+        services.AddSingleton<IAccessProfileCache, AccessProfileCache>();
         services.AddScoped<IMenuService, MenuService>();
         services.AddScoped<IRoleService, RoleService>();
         services

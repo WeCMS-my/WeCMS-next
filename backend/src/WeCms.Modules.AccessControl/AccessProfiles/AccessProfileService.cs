@@ -16,10 +16,10 @@ public sealed class AccessProfileService : IAccessProfileService
         _cache = cache;
     }
 
-    public async Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+    public async Task<AccessProfileDto> GetAsync(long userId, CancellationToken cancellationToken)
     {
         var permissionVersion = await _repository.GetPermissionVersionAsync(userId, cancellationToken);
-        var cached = await _cache.GetAsync(userId, isSuperAdmin, permissionVersion, cancellationToken);
+        var cached = await _cache.GetAsync(userId, permissionVersion, cancellationToken);
         if (cached is not null)
         {
             return cached;
@@ -27,7 +27,7 @@ public sealed class AccessProfileService : IAccessProfileService
 
         var roles = await _repository.ListRoleCodesAsync(userId, cancellationToken);
         var permissions = await _repository.ListPermissionCodesAsync(userId, cancellationToken);
-        var menus = await _repository.ListVisibleMenusAsync(userId, isSuperAdmin, cancellationToken);
+        var menus = await _repository.ListVisibleMenusAsync(userId, cancellationToken);
         var buttons = permissions
             .Where(static permission => permission.Contains(ButtonPermissionMarker, StringComparison.Ordinal))
             .OrderBy(static permission => permission, StringComparer.Ordinal)
@@ -39,7 +39,7 @@ public sealed class AccessProfileService : IAccessProfileService
             permissions,
             buttons,
             MenuTreeBuilder.Build(menus));
-        await _cache.SetAsync(userId, isSuperAdmin, profile, cancellationToken);
+        await _cache.SetAsync(userId, profile, cancellationToken);
         return profile;
     }
 }

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using WeCms.Api.Json;
 using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
@@ -11,87 +11,112 @@ namespace WeCms.Api.Middleware;
 public sealed class IpAccessControlMiddleware
 {
     private const string DeniedMessage = "IP access is not allowed.";
+    private const string DropLogMessage = "Security rejection event was dropped due to full security rejection event buffer.";
 
     private readonly RequestDelegate _next;
+    private readonly IIpRuleMatcher _ipRuleMatcher;
+    private readonly ISecurityRejectionEventBuffer _securityRejectionEventBuffer;
+    private readonly ILogger<IpAccessControlMiddleware> _logger;
+    private readonly IAuthClock _clock;
+    private readonly object _settingsLock = new();
+    private IpAccessControlSettings _settings;
+    private readonly IDisposable? _optionsChange;
 
-    public IpAccessControlMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
-
-    public async Task InvokeAsync(
-        HttpContext context,
-        IConfiguration configuration,
+    public IpAccessControlMiddleware(
+        RequestDelegate next,
+        IOptionsMonitor<IpAccessControlOptions> optionsMonitor,
         IIpRuleMatcher ipRuleMatcher,
         ISecurityRejectionEventBuffer securityRejectionEventBuffer,
-        IAuthClock clock)
+        IAuthClock clock,
+        ILogger<IpAccessControlMiddleware> logger)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(ipRuleMatcher);
-        ArgumentNullException.ThrowIfNull(securityRejectionEventBuffer);
-        ArgumentNullException.ThrowIfNull(clock);
+        _next = next;
+        _ipRuleMatcher = ipRuleMatcher;
+        _securityRejectionEventBuffer = securityRejectionEventBuffer;
+        _logger = logger;
+        _clock = clock;
+        _settings = CreateSettings(optionsMonitor.CurrentValue, ipRuleMatcher);
+        _optionsChange = optionsMonitor.OnChange((IpAccessControlOptions options, string? _) =>
+            UpdateSettings(options, ipRuleMatcher));
+    }
 
-        if (!ReadBool(configuration, "Security:IpAccessControl:Enabled", defaultValue: false)
-            || ShouldSkipHealthEndpoint(context, configuration)
-            || ShouldSkipAuthEndpoint(context, configuration))
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var settings = GetSettings();
+        if (!settings.Enabled
+            || ShouldSkipHealthEndpoint(context, settings)
+            || ShouldSkipAuthEndpoint(context, settings))
         {
             await _next(context);
             return;
         }
 
-        var rules = ReadRules(configuration);
-        if (string.IsNullOrWhiteSpace(rules))
+        if (settings.ParsedRules.Count == 0)
         {
             throw new InvalidOperationException("Security:IpAccessControl:AllowedRules must contain at least one rule when enabled.");
         }
 
         var remoteIp = context.Connection.RemoteIpAddress;
-        if (remoteIp is not null && ipRuleMatcher.IsMatch(rules, remoteIp))
+        if (remoteIp is not null && _ipRuleMatcher.IsMatch(settings.ParsedRules, remoteIp))
         {
             await _next(context);
             return;
         }
 
-        var now = clock.UtcNow;
-        _ = securityRejectionEventBuffer.TryEnqueue(
-            SecurityRejectionEvent.FromIpAccessDenied(
+        var now = _clock.UtcNow;
+        if (!_securityRejectionEventBuffer.TryEnqueue(SecurityRejectionEvent.FromIpAccessDenied(
                 new IpAccessDeniedSecurityEvent(
                     remoteIp?.ToString() ?? string.Empty,
                     context.TraceIdentifier,
-                    now)));
+                    now))))
+        {
+            _logger.LogWarning(DropLogMessage);
+        }
 
         await WriteForbiddenAsync(context);
     }
 
-    private static bool ShouldSkipHealthEndpoint(HttpContext context, IConfiguration configuration)
+    public ValueTask DisposeAsync()
     {
-        return ReadBool(configuration, "Security:IpAccessControl:SkipHealthEndpoints", defaultValue: true)
+        _optionsChange?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private IpAccessControlSettings GetSettings()
+    {
+        lock (_settingsLock)
+        {
+            return _settings;
+        }
+    }
+
+    private void UpdateSettings(IpAccessControlOptions options, IIpRuleMatcher ipRuleMatcher)
+    {
+        lock (_settingsLock)
+        {
+            _settings = CreateSettings(options, ipRuleMatcher);
+        }
+    }
+
+    private static IpAccessControlSettings CreateSettings(IpAccessControlOptions options, IIpRuleMatcher ipRuleMatcher)
+    {
+        return new IpAccessControlSettings(
+            options.Enabled,
+            options.SkipHealthEndpoints,
+            options.ApplyToAuthEndpoints,
+            ipRuleMatcher.ParseRules(options.AllowedRules));
+    }
+
+    private bool ShouldSkipHealthEndpoint(HttpContext context, IpAccessControlSettings settings)
+    {
+        return settings.SkipHealthEndpoints
             && context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool ShouldSkipAuthEndpoint(HttpContext context, IConfiguration configuration)
+    private bool ShouldSkipAuthEndpoint(HttpContext context, IpAccessControlSettings settings)
     {
-        return !ReadBool(configuration, "Security:IpAccessControl:ApplyToAuthEndpoints", defaultValue: true)
+        return !settings.ApplyToAuthEndpoints
             && context.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ReadRules(IConfiguration configuration)
-    {
-        var values = configuration.GetSection("Security:IpAccessControl:AllowedRules")
-            .GetChildren()
-            .Select(child => child.Value)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!.Trim())
-            .ToArray();
-
-        if (values.Length == 0)
-        {
-            var scalarValue = configuration["Security:IpAccessControl:AllowedRules"];
-            return scalarValue?.Trim() ?? string.Empty;
-        }
-
-        return string.Join('\n', values);
     }
 
     private static async Task WriteForbiddenAsync(HttpContext context)
@@ -112,20 +137,20 @@ public sealed class IpAccessControlMiddleware
             WeCmsJsonSerializerContext.Default.ApiResultObject,
             context.RequestAborted);
     }
-
-    private static bool ReadBool(IConfiguration configuration, string key, bool defaultValue)
-    {
-        var value = configuration[key];
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return defaultValue;
-        }
-
-        if (bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        throw new InvalidOperationException($"{key} must be true or false.");
-    }
 }
+
+public sealed record IpAccessControlOptions
+{
+    public const string SectionName = "Security:IpAccessControl";
+
+    public bool Enabled { get; init; }
+    public bool SkipHealthEndpoints { get; init; } = true;
+    public bool ApplyToAuthEndpoints { get; init; } = true;
+    public string[] AllowedRules { get; init; } = [];
+}
+
+internal sealed record IpAccessControlSettings(
+    bool Enabled,
+    bool SkipHealthEndpoints,
+    bool ApplyToAuthEndpoints,
+    IReadOnlyList<ParsedIpRule> ParsedRules);

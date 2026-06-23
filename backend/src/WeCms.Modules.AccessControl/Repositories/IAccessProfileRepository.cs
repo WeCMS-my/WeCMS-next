@@ -10,5 +10,5 @@ public interface IAccessProfileRepository
 
     Task<IReadOnlyList<string>> ListPermissionCodesAsync(long userId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, CancellationToken cancellationToken);
 }

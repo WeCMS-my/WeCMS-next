@@ -36,7 +36,7 @@ public sealed partial class AuthServiceTests
     {
         var repository = new FakeAuthRepository
         {
-            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", false)
+            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled")
         };
         var service = CreateService(repository);
 
@@ -57,7 +57,7 @@ public sealed partial class AuthServiceTests
     {
         var repository = new FakeAuthRepository
         {
-            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", false)
+            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled")
         };
         var limiter = new FakeLoginFailureLimiter { Decision = LoginFailureDecision.Blocked };
         var service = CreateService(repository, limiter);
@@ -84,7 +84,7 @@ public sealed partial class AuthServiceTests
                 "Administrator",
                 PasswordHasher.HashForTest("correct"),
                 "enabled",
-                false, true)
+                true)
         };
         var service = CreateService(repository);
 
@@ -105,7 +105,7 @@ public sealed partial class AuthServiceTests
     {
         var repository = new FakeAuthRepository
         {
-            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", true),
+            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled"),
             Roles = ["super_admin"],
             Permissions = ["sys:system:secure-ping"],
             VisibleMenus =
@@ -140,7 +140,7 @@ public sealed partial class AuthServiceTests
     {
         var repository = new FakeAuthRepository
         {
-            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled", true),
+            User = new AuthUserRecord(1, "admin", "Administrator", PasswordHasher.HashForTest("correct"), "enabled"),
             Roles = ["super_admin"],
             Permissions = ["sys:system:secure-ping"],
             VisibleMenus =
@@ -165,7 +165,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
             Roles = ["super_admin"],
             Permissions = ["sys:system:secure-ping"]
         };
@@ -209,7 +209,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 null,
@@ -236,7 +236,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
         };
         var service = CreateService(repository);
 
@@ -257,7 +257,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
             ThrowAlreadyRevokedOnRotation = true,
             RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
                 10,
@@ -265,7 +265,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
@@ -290,7 +290,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 16, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero), null, null),
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero), null, null),
             ThrowAlreadyRevokedOnRotation = true,
             RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
                 10,
@@ -298,7 +298,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 16, 0, 0, 1, TimeSpan.Zero),
@@ -323,7 +323,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null),
             ThrowAlreadyRevokedOnRotation = true,
             RefreshTokenAfterRotationFailure = new RefreshTokenRecord(
                 10,
@@ -331,7 +331,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 0, TimeSpan.Zero),
@@ -360,7 +360,7 @@ public sealed partial class AuthServiceTests
             "admin",
             "Administrator",
             "enabled",
-            true, issued.Hash,
+            issued.Hash,
             "family-1",
             new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
             null,
@@ -391,7 +391,7 @@ public sealed partial class AuthServiceTests
             "admin",
             "Administrator",
             "enabled",
-            true, issued.Hash,
+            issued.Hash,
             "family-1",
             new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
             null,
@@ -423,7 +423,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-1",
                 new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 15, 23, 59, 59, TimeSpan.Zero),
@@ -448,7 +448,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null)
         };
         var service = CreateService(repository);
 
@@ -468,7 +468,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null, null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "enabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 15, 1, 0, 0, TimeSpan.Zero), null, null)
         };
         var service = CreateService(repository);
 
@@ -487,7 +487,7 @@ public sealed partial class AuthServiceTests
         var issued = new RefreshTokenService(new FixedAuthTokenEntropy()).Issue(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
         var repository = new FakeAuthRepository
         {
-            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "disabled", true, issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null)
+            RefreshToken = new RefreshTokenRecord(10, 1, "admin", "Administrator", "disabled", issued.Hash, "family-1", new DateTimeOffset(2026, 6, 17, 0, 0, 0, TimeSpan.Zero), null, null)
         };
         var service = CreateService(repository);
 
@@ -512,7 +512,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-logout",
                 new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
                 null,
@@ -558,7 +558,7 @@ public sealed partial class AuthServiceTests
                 "admin",
                 "Administrator",
                 "enabled",
-                true, issued.Hash,
+                issued.Hash,
                 "family-logout",
                 new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 6, 16, 0, 1, 0, TimeSpan.Zero),

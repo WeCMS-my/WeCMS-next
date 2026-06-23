@@ -115,7 +115,7 @@ public sealed class AuthSessionIssuer : IAuthSessionIssuer
             cancellationToken);
         await _loginFailureLimiter.ResetAsync(user.Username, requestContext.Ip, cancellationToken);
 
-        var accessProfile = await _accessProfileService.GetAsync(user.Id, user.IsSuperAdmin, cancellationToken);
+        var accessProfile = await _accessProfileService.GetAsync(user.Id, cancellationToken);
         var menus = AuthAccessProfileMapper.ToAuthMenuTree(accessProfile.Menus);
 
         return BuildResult(user, accessToken, refreshToken, accessProfile.PermissionVersion, accessProfile.Roles, accessProfile.Permissions, menus, now);
@@ -147,7 +147,7 @@ public sealed class AuthSessionIssuer : IAuthSessionIssuer
 
     private static AuthUserDto ToDto(AuthUserRecord user)
     {
-        return new AuthUserDto(user.Id, user.Username, user.DisplayName, user.IsSuperAdmin);
+        return new AuthUserDto(user.Id, user.Username, user.DisplayName);
     }
 
 }

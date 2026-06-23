@@ -138,23 +138,30 @@ public sealed class SecurityBanRepository : ISecurityBanRepository
         }
     }
 
-    public async Task<bool> IsSuperAdminAsync(
+    public async Task<bool> UserHasRoleCodeAsync(
         long userId,
+        string roleCode,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var result = await _db.Ado.GetScalarAsync(
             """
-            SELECT is_super_admin
-            FROM sys_user
-            WHERE id = @userId
-              AND deleted_at IS NULL
-            LIMIT 1
+            SELECT COUNT(1)
+            FROM sys_user u
+            INNER JOIN sys_user_role ur ON ur.user_id = u.id
+            INNER JOIN sys_role r ON r.id = ur.role_id
+            WHERE u.id = @userId
+              AND u.status = 'enabled'
+              AND u.deleted_at IS NULL
+              AND r.code = @roleCode
+              AND r.status = 'enabled'
+              AND r.deleted_at IS NULL
             """,
-            new SugarParameter("@userId", userId));
+            new SugarParameter("@userId", userId),
+            new SugarParameter("@roleCode", roleCode));
 
-        return result is not null && Convert.ToBoolean(result, global::System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt32(result, global::System.Globalization.CultureInfo.InvariantCulture) > 0;
     }
 
     public async Task RecordAuditAsync(

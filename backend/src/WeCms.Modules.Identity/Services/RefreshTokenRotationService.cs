@@ -154,7 +154,6 @@ public sealed class RefreshTokenRotationService : IRefreshTokenRotationService
             existingToken.DisplayName,
             PasswordHash: string.Empty,
             existingToken.UserStatus,
-            existingToken.IsSuperAdmin,
             existingToken.MustChangePassword,
             existingToken.SecurityStamp,
             PermissionVersion: existingToken.PermissionVersion);
@@ -208,14 +207,14 @@ public sealed class RefreshTokenRotationService : IRefreshTokenRotationService
             throw;
         }
 
-        var accessProfile = await _accessProfileService.GetAsync(user.Id, user.IsSuperAdmin, cancellationToken);
+        var accessProfile = await _accessProfileService.GetAsync(user.Id, cancellationToken);
         var menus = AuthAccessProfileMapper.ToAuthMenuTree(accessProfile.Menus);
 
         return new AuthSessionResult(
             new LoginResponse(
                 accessToken.Token,
                 accessToken.ExpiresAt,
-                new AuthUserDto(user.Id, user.Username, user.DisplayName, user.IsSuperAdmin),
+                new AuthUserDto(user.Id, user.Username, user.DisplayName),
                 accessProfile.PermissionVersion,
                 accessProfile.Roles,
                 accessProfile.Permissions,

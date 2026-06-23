@@ -236,7 +236,7 @@ public sealed class CookieAuthOriginValidatorTests
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

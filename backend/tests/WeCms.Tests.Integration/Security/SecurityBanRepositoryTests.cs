@@ -70,7 +70,7 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
     }
 
     [DbFact]
-    public async Task AuditSecurityEventAndSuperAdminAsync_WriteExpectedRows()
+    public async Task AuditSecurityEventAndAdminRoleLookupAsync_WriteExpectedRows()
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
@@ -78,9 +78,9 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
         var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
-        var userId = await InsertUserAsync(db, "security-admin", true);
+        var userId = await InsertUserAsync(db, "security-admin", assignAdminRole: true);
 
-        Assert.True(await repository.IsSuperAdminAsync(userId, CancellationToken.None));
+        Assert.True(await repository.UserHasRoleCodeAsync(userId, "super_admin", CancellationToken.None));
 
         await repository.RecordAuditAsync(
             new SecurityBanAuditRecord(userId, "security-admin", "unban", 7, "127.0.0.1", "integration", "trace", "success", "done", now),
@@ -122,20 +122,33 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
         return (T)Convert.ChangeType(db.Ado.GetScalar(sql), typeof(T), global::System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static async Task<long> InsertUserAsync(ISqlSugarClient db, string username, bool isSuperAdmin)
+    private static async Task<long> InsertUserAsync(ISqlSugarClient db, string username, bool assignAdminRole)
     {
         await db.Ado.ExecuteCommandAsync(
             """
-            INSERT INTO sys_user (username, display_name, password_hash, status, is_super_admin, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
-            VALUES (@username, @displayName, 'x', 'enabled', @isSuperAdmin, FALSE, 'stamp', 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL)
+            INSERT INTO sys_user (username, display_name, password_hash, status, must_change_password, security_stamp, permission_version, created_at, updated_at, deleted_at)
+            VALUES (@username, @displayName, 'x', 'enabled', FALSE, 'stamp', 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), NULL)
             """,
             new SugarParameter("@username", username),
-            new SugarParameter("@displayName", username),
-            new SugarParameter("@isSuperAdmin", isSuperAdmin));
+            new SugarParameter("@displayName", username));
 
-        return Convert.ToInt64(
+        var userId = Convert.ToInt64(
             await db.Ado.GetScalarAsync("SELECT id FROM sys_user WHERE username = @username", new SugarParameter("@username", username)),
             global::System.Globalization.CultureInfo.InvariantCulture);
+        if (assignAdminRole)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO sys_user_role (user_id, role_id, created_at)
+                SELECT @userId, r.id, UTC_TIMESTAMP(6)
+                FROM sys_role r
+                WHERE r.code = 'super_admin'
+                  AND r.deleted_at IS NULL
+                """,
+                new SugarParameter("@userId", userId));
+        }
+
+        return userId;
     }
 
     private static string RepoPath(params string[] segments)

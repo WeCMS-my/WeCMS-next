@@ -240,7 +240,7 @@ public sealed partial class AuthServiceTests
             return Task.FromResult(RefreshToken?.TokenHash == tokenHash ? RefreshToken : null);
         }
 
-        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        public Task<AccessProfileDto> GetAsync(long userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(new AccessProfileDto(
                 User?.PermissionVersion ?? 0,
@@ -339,8 +339,7 @@ public sealed partial class AuthServiceTests
                 refreshToken.Username,
                 refreshToken.DisplayName,
                 string.Empty,
-                refreshToken.UserStatus,
-                refreshToken.IsSuperAdmin);
+                refreshToken.UserStatus);
         }
 
         public string LastSecurityEventType { get; private set; } = string.Empty;
@@ -375,7 +374,7 @@ public sealed partial class AuthServiceTests
             }
         }
 
-        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        public Task<AccessProfileDto> GetAsync(long userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(new AccessProfileDto(0, [], [], [], []));
         }
@@ -533,7 +532,7 @@ public sealed partial class AuthServiceTests
     {
         public static readonly EmptyAccessProfileService Instance = new();
 
-        public Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+        public Task<AccessProfileDto> GetAsync(long userId, CancellationToken cancellationToken)
         {
             return Task.FromResult(new AccessProfileDto(0, [], [], [], []));
         }

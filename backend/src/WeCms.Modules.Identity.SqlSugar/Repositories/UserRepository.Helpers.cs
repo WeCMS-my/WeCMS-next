@@ -126,13 +126,12 @@ public sealed partial class UserRepository
         public string? Phone { get; set; }
         public long? DeptId { get; set; }
         public string Status { get; set; } = string.Empty;
-        public bool IsSuperAdmin { get; set; }
         public DateTime? LastLoginAt { get; set; }
         public DateTime CreatedAt { get; set; }
 
         public UserSummaryDto ToDto()
         {
-            return new UserSummaryDto(Id, Username, DisplayName, Email, Phone, DeptId, Status, IsSuperAdmin, ToOffset(LastLoginAt), ToOffset(CreatedAt)!.Value);
+            return new UserSummaryDto(Id, Username, DisplayName, Email, Phone, DeptId, Status, ToOffset(LastLoginAt), ToOffset(CreatedAt)!.Value);
         }
     }
 
@@ -151,7 +150,6 @@ public sealed partial class UserRepository
                 Phone,
                 DeptId,
                 Status,
-                IsSuperAdmin,
                 PermissionVersion,
                 ToOffset(LastLoginAt),
                 roleIds,

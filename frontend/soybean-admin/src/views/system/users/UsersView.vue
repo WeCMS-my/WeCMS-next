@@ -105,11 +105,6 @@ const columns = computed(() => [
       { default: () => row.status === "enabled" ? "启用" : "禁用" }
     )
   },
-  {
-    title: "超级管理员",
-    key: "isSuperAdmin",
-    render: (row: UserSummaryDto) => row.isSuperAdmin ? "是" : "否"
-  },
   { title: "最近登录", key: "lastLoginAt" },
   { title: "创建时间", key: "createdAt" },
   {

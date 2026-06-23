@@ -15,7 +15,6 @@ CREATE TABLE sys_user (
   display_name VARCHAR(120) NOT NULL,
   password_hash VARCHAR(512) NOT NULL,
   status VARCHAR(32) NOT NULL,
-  is_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
   last_login_at DATETIME(6) NULL,
   last_login_ip VARCHAR(64) NULL,
   created_at DATETIME(6) NOT NULL,
@@ -165,7 +164,7 @@ CREATE TABLE sys_audit_log (
 
 -- Historical migration segment
 ALTER TABLE sys_user
-  ADD COLUMN dept_id BIGINT NULL AFTER is_super_admin,
+  ADD COLUMN dept_id BIGINT NULL AFTER status,
   ADD COLUMN email VARCHAR(160) NULL AFTER display_name,
   ADD COLUMN phone VARCHAR(40) NULL AFTER email,
   ADD COLUMN security_stamp VARCHAR(64) NOT NULL DEFAULT '' AFTER must_change_password,

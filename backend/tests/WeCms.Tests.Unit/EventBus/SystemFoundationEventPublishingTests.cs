@@ -348,7 +348,7 @@ public sealed class SystemFoundationEventPublishingTests
     private sealed class FakeUserRepository(List<string> operations) : IUserRepository
     {
         public Task<PagedResult<UserSummaryDto>> ListAsync(UserListCriteria criteria, CancellationToken cancellationToken) => Task.FromResult(new PagedResult<UserSummaryDto>([], criteria.Page, criteria.PageSize, 0));
-        public Task<UserDetailDto?> GetAsync(long id, CancellationToken cancellationToken) => Task.FromResult<UserDetailDto?>(new UserDetailDto(id, "operator", "Operator", null, null, null, "enabled", false, 0, null, [3], [], DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
+        public Task<UserDetailDto?> GetAsync(long id, CancellationToken cancellationToken) => Task.FromResult<UserDetailDto?>(new UserDetailDto(id, "operator", "Operator", null, null, null, "enabled", 0, null, [3], [], DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
         public Task<bool> UsernameExistsAsync(string username, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> EmailExistsAsync(string email, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> PhoneExistsAsync(string phone, long? exceptUserId, CancellationToken cancellationToken) => Task.FromResult(false);

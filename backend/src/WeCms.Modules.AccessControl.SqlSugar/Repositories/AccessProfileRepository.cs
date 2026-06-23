@@ -69,13 +69,11 @@ public sealed class AccessProfileRepository : IAccessProfileRepository
             new SugarParameter("@userId", userId));
     }
 
-    public async Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MenuSummaryDto>> ListVisibleMenusAsync(long userId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var rows = isSuperAdmin
-            ? await ListAllVisibleMenuRowsAsync()
-            : await ListVisibleMenuRowsForUserAsync(userId);
+        var rows = await ListVisibleMenuRowsForUserAsync(userId);
 
         return rows.Select(row => row.ToSummaryDto()).ToArray();
     }

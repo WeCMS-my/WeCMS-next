@@ -29,9 +29,6 @@ public sealed class UserEntity : EntityBase
     [SugarColumn(Length = 32)]
     public string Status { get; set; } = string.Empty;
 
-    [SugarColumn(ColumnName = "is_super_admin")]
-    public bool IsSuperAdmin { get; set; }
-
     [SugarColumn(ColumnName = "dept_id", IsNullable = true)]
     public long? DeptId { get; set; }
 

@@ -176,6 +176,27 @@ public sealed class MemoryCacheProviderTests
     }
 
     [Fact]
+    public async Task CacheInvalidator_CompactsPrefixInvalidationsWithoutLosingValidity()
+    {
+        using var provider = CreateProvider();
+        var cache = provider.GetRequiredService<ICache>();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var targetPrefix = "wecms:test:tenant:configuration:";
+        var targetKey = $"{targetPrefix}settings:v1:item";
+
+        await cache.SetAsync(targetKey, new CacheSample("old"), cancellationToken: cancellationToken);
+        await cache.RemoveByPrefixAsync(targetPrefix, cancellationToken);
+
+        for (var i = 0; i < 280; i++)
+        {
+            await cache.RemoveByPrefixAsync($"wecms:test:tenant:flush:{i}:", cancellationToken);
+        }
+
+        var afterCompactionValue = await cache.GetAsync<CacheSample>(targetKey, cancellationToken);
+        Assert.Null(afterCompactionValue);
+    }
+
+    [Fact]
     public void AddWeCmsCaching_RegistersMemoryCacheProviderAndAbstractions()
     {
         using var provider = CreateProvider(options =>

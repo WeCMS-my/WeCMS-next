@@ -44,7 +44,6 @@ public sealed record AuthUserRecord(
     string DisplayName,
     string PasswordHash,
     string Status,
-    bool IsSuperAdmin,
     bool MustChangePassword = false,
     string SecurityStamp = "",
     long PermissionVersion = 0);
@@ -156,7 +155,6 @@ public sealed record RefreshTokenRecord(
     string Username,
     string DisplayName,
     string UserStatus,
-    bool IsSuperAdmin,
     string TokenHash,
     string FamilyId,
     DateTimeOffset ExpiresAt,

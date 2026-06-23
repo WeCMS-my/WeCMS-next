@@ -146,7 +146,7 @@ public sealed class RoleService : IRoleService
         var role = await GetAsync(id, cancellationToken);
         EnsureRoleNotLocked(role, "Locked role permissions cannot be modified.");
         var permissionIds = await EnsureExistingIdsAsync(request.PermissionIds, _repository.ExistingPermissionIdsAsync, "permissionIds", cancellationToken);
-        if (IsSuperAdmin(role) && permissionIds.Count == 0)
+        if (IsSeededAdministratorRole(role) && permissionIds.Count == 0)
         {
             throw new DomainException(ApiCodes.BusinessError, "Cannot remove all super_admin permissions.");
         }
@@ -243,13 +243,13 @@ public sealed class RoleService : IRoleService
 
     private static void EnsureNotSuperAdmin(RoleDetailDto role, string action)
     {
-        if (IsSuperAdmin(role))
+        if (IsSeededAdministratorRole(role))
         {
             throw new DomainException(ApiCodes.BusinessError, $"Cannot {action} super_admin.");
         }
     }
 
-    private static bool IsSuperAdmin(RoleDetailDto role)
+    private static bool IsSeededAdministratorRole(RoleDetailDto role)
     {
         return string.Equals(role.Code, SuperAdminCode, StringComparison.Ordinal);
     }
