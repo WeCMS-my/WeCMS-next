@@ -19,7 +19,8 @@ public static class AccessControlServiceCollectionExtensions
         services.AddScoped<PermissionChecker>();
         services.AddScoped<IPermissionChecker>(provider => provider.GetRequiredService<PermissionChecker>());
         services.AddScoped<IEndpointPermissionFilter, PermissionEndpointFilter>();
-        services.AddScoped<IAccessProfileService, AccessProfileService>();
+        services.AddScoped<AccessProfileService>();
+        services.AddScoped<IAccessProfileService>(provider => provider.GetRequiredService<AccessProfileService>());
         services.AddScoped<IPermissionManagementService, PermissionManagementService>();
         services.AddScoped<IMenuService, MenuService>();
         services.AddScoped<IRoleService, RoleService>();

@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Caching.Memory;
+using WeCms.Api.AccessProfiles;
+using WeCms.Caching;
 using WeCms.Data.SqlSugar;
 using WeCms.Api.Security;
 using WeCms.Modules.AccessControl.AccessProfiles;
@@ -73,7 +76,16 @@ public sealed partial class AuthIntegrationTests
         var twoFactorOptions = new TwoFactorOptions("integration-two-factor-secret-key-32", "WeCMS", 30, 6, 1, 10);
         var twoFactorRepository = new UserTwoFactorRepository(db);
         var authRepository = new AuthRepository(db, securityEventClassifier);
-        var accessProfileService = new AccessProfileService(new AccessProfileRepository(db));
+        var accessProfileCacheOptions = new CacheOptions { ApplicationName = "wecms", EnvironmentName = "integration" };
+        var accessProfileRepository = new AccessProfileRepository(db);
+        var accessProfileService = new CachedAccessProfileService(
+            new AccessProfileService(accessProfileRepository),
+            accessProfileRepository,
+            new MemoryCacheProvider(
+                new MemoryCache(new MemoryCacheOptions()),
+                new SystemTextJsonCacheSerializer(),
+                accessProfileCacheOptions),
+            new DefaultCacheKeyBuilder(accessProfileCacheOptions));
         var unitOfWork = new SqlSugarUnitOfWork(db);
         var clock = new FixedAuthClock(now);
         var securityAlertService = new SecurityAlertService(new NoopSecurityAlertSink());

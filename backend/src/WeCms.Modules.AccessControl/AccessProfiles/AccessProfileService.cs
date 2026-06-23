@@ -17,6 +17,15 @@ public sealed class AccessProfileService : IAccessProfileService
     public async Task<AccessProfileDto> GetAsync(long userId, bool isSuperAdmin, CancellationToken cancellationToken)
     {
         var permissionVersion = await _repository.GetPermissionVersionAsync(userId, cancellationToken);
+        return await GetAsync(userId, isSuperAdmin, permissionVersion, cancellationToken);
+    }
+
+    public async Task<AccessProfileDto> GetAsync(
+        long userId,
+        bool isSuperAdmin,
+        long permissionVersion,
+        CancellationToken cancellationToken)
+    {
         var roles = await _repository.ListRoleCodesAsync(userId, cancellationToken);
         var permissions = await _repository.ListPermissionCodesAsync(userId, cancellationToken);
         var menus = await _repository.ListVisibleMenusAsync(userId, isSuperAdmin, cancellationToken);
