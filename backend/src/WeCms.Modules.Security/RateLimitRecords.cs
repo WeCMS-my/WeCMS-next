@@ -12,7 +12,8 @@ public sealed record RateLimitHitRecord(
     string Ip,
     string UserAgent,
     string TraceId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    int HitCount = 1);
 
 public sealed record RateLimitSecurityEventRecord(
     string EventType,
@@ -61,7 +62,10 @@ public sealed class RateLimitSecurityEventService : IRateLimitSecurityEventServi
         var method = NormalizeRequired(record.HttpMethod, "httpMethod", 16).ToUpperInvariant();
         var ip = NormalizeRequired(record.Ip, "ip", 64);
         var traceId = NormalizeRequired(record.TraceId, "traceId", 64);
-        var message = $"Rate limit hit for {record.Policy} on {method} {path}.";
+        var hitCount = record.HitCount > 0 ? record.HitCount : 1;
+        var message = hitCount == 1
+            ? $"Rate limit hit for {record.Policy} on {method} {path}."
+            : $"Rate limit hit for {record.Policy} on {method} {path}. Aggregated hits: {hitCount.ToString(global::System.Globalization.CultureInfo.InvariantCulture)}.";
 
         var securityEvent = new RateLimitSecurityEventRecord(
             "rate_limit_hit",

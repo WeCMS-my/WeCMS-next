@@ -12,6 +12,11 @@ public static class SecurityServiceCollectionExtensions
         services.AddScoped<ISecurityEventService, SecurityEventService>();
         services.AddScoped<ISecurityBanService, SecurityBanService>();
         services.AddScoped<IRateLimitSecurityEventService, RateLimitSecurityEventService>();
+        services.AddSingleton(RateLimitHitBufferOptions.Default);
+        services.AddSingleton(RateLimitSecurityEventFlushOptions.Default);
+        services.AddSingleton<InMemoryRateLimitHitBuffer>();
+        services.AddSingleton<IRateLimitHitBuffer>(provider => provider.GetRequiredService<InMemoryRateLimitHitBuffer>());
+        services.AddSingleton<IRateLimitHitAggregator>(provider => provider.GetRequiredService<InMemoryRateLimitHitBuffer>());
         services.AddScoped<ISecurityAlertService, SecurityAlertService>();
         services.AddScoped<ISecurityAlertSink, LoggingSecurityAlertSink>();
         services.AddIntegrationEvent<SecurityBanCreatedEvent>(SecurityBanCreatedEvent.EventType);

@@ -33,7 +33,8 @@ checks = {
         ("backend/tests/WeCms.Tests.Integration/Auth/AuthIntegrationTests.cs", "two_factor_replay"),
     ],
     "rate limit hit": [
-        ("backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs", "IRateLimitSecurityEventService"),
+        ("backend/src/WeCms.Api/RateLimiting/WeCmsRateLimitingExtensions.cs", "IRateLimitHitBuffer"),
+        ("backend/src/WeCms.Api/RateLimiting/RateLimitSecurityEventFlushHostedService.cs", "IRateLimitSecurityEventService"),
         ("backend/src/WeCms.Modules.Security/RateLimitRecords.cs", "rate_limit_hit"),
         ("backend/tests/WeCms.Tests.Integration/Security/RateLimitSecurityEventRepositoryTests.cs", "rate_limit_hit"),
     ],
