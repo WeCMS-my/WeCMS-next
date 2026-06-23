@@ -15,6 +15,7 @@ required_files = [
     "docs/specs/ph5-release-runbook/tasks.md",
     "docs/specs/ph5-release-runbook/checklist.md",
     "docs/runbooks/release-checklist.md",
+    "docs/ops/system-foundation-operations.md",
     "docs/runbooks/rollback.md",
     "docs/runbooks/incident-response.md",
 ]
@@ -35,6 +36,7 @@ release_tokens = [
     "frontend",
     "Database backup completed",
     "Migration plan reviewed",
+    "System foundation operations reviewed",
     "environment variables reviewed",
     "Secrets verified",
     "/health/ready",
@@ -54,6 +56,7 @@ release_tokens = [
     "Known residual risks",
     "Go / No-Go",
     "docs/runbooks/database-backup-restore.md",
+    "docs/ops/system-foundation-operations.md",
     "docs/runbooks/rollback.md",
 ]
 for token in release_tokens:
@@ -99,7 +102,7 @@ for token in ["Triage:", "Containment:", "Recovery:", "Postmortem:", "sys_securi
         violations.append(f"incident response missing {token}")
 
 readme = read("README.md")
-for token in ["docs/runbooks/release-checklist.md", "docs/runbooks/rollback.md", "docs/runbooks/incident-response.md"]:
+for token in ["docs/runbooks/release-checklist.md", "docs/ops/system-foundation-operations.md", "docs/runbooks/rollback.md", "docs/runbooks/incident-response.md"]:
     if token not in readme:
         violations.append(f"README missing {token}")
 

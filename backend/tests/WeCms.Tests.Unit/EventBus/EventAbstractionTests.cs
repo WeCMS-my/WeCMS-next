@@ -338,6 +338,59 @@ public sealed class OutboxDispatcherTests
     }
 
     [Fact]
+    public async Task OutboxDispatcher_RejectsBatchSizeAboveLimitBeforeLocking()
+    {
+        var now = new DateTimeOffset(2026, 6, 21, 4, 0, 0, TimeSpan.Zero);
+        var repository = new FakeOutboxMessageRepository();
+        var dispatcher = CreateDispatcher(repository, new FakeEventHandlerExecutor(), now, batchSize: 101);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.DispatchAsync(CancellationToken.None));
+
+        Assert.Contains("batch size", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(repository.LockBatchSizes);
+    }
+
+    [Fact]
+    public async Task OutboxDispatcher_InvalidPayloadIsMarkedFailedForRetry()
+    {
+        var now = new DateTimeOffset(2026, 6, 21, 4, 0, 0, TimeSpan.Zero);
+        var eventId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var repository = new FakeOutboxMessageRepository
+        {
+            LockedMessages =
+            [
+                CreateMessage(104, eventId, now, payloadJson: "{not-json")
+            ]
+        };
+        var dispatcher = CreateDispatcher(repository, new FakeEventHandlerExecutor(), now);
+
+        await dispatcher.DispatchAsync(CancellationToken.None);
+
+        Assert.Empty(repository.ProcessedIds);
+        var failure = repository.FailedMessages.Single();
+        Assert.Equal(104, failure.Id);
+        Assert.Equal(now.AddMinutes(5), failure.NextAvailableAt);
+    }
+
+    [Fact]
+    public async Task OutboxDispatcher_TruncatesRetryError()
+    {
+        var now = new DateTimeOffset(2026, 6, 21, 4, 0, 0, TimeSpan.Zero);
+        var repository = new FakeOutboxMessageRepository
+        {
+            LockedMessages = [CreateMessage(105, Guid.Parse("66666666-6666-6666-6666-666666666666"), now)]
+        };
+        var executor = new FakeEventHandlerExecutor { Failure = new InvalidOperationException(new string('x', 1_200)) };
+        var dispatcher = CreateDispatcher(repository, executor, now);
+
+        await dispatcher.DispatchAsync(CancellationToken.None);
+
+        var failure = repository.FailedMessages.Single();
+        Assert.Equal(1_000, failure.Error.Length);
+        Assert.DoesNotContain("InvalidOperationException", failure.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task EventHandlers_AreIdempotent()
     {
         var services = new ServiceCollection();
@@ -362,7 +415,8 @@ public sealed class OutboxDispatcherTests
         FakeOutboxMessageRepository repository,
         FakeEventHandlerExecutor executor,
         DateTimeOffset now,
-        IEventHandlerIdempotencyStore? idempotencyStore = null)
+        IEventHandlerIdempotencyStore? idempotencyStore = null,
+        int batchSize = 10)
     {
         return new OutboxDispatcher(
             repository,
@@ -371,7 +425,7 @@ public sealed class OutboxDispatcherTests
             idempotencyStore ?? new InMemoryEventHandlerIdempotencyStore(),
             new FakeOutboxLockTokenProvider(),
             new FakeTimeProvider(now),
-            new OutboxDispatcherOptions { BatchSize = 10, RetryDelay = TimeSpan.FromMinutes(5) },
+            new OutboxDispatcherOptions { BatchSize = batchSize, RetryDelay = TimeSpan.FromMinutes(5) },
             Microsoft.Extensions.Logging.Abstractions.NullLogger<OutboxDispatcher>.Instance);
     }
 
@@ -403,7 +457,7 @@ public sealed class OutboxDispatcherTests
         return (TimeSpan)method.Invoke(null, [outcome, pollInterval, idlePollInterval, failurePollInterval])!;
     }
 
-    private static OutboxMessageRecord CreateMessage(long id, Guid eventId, DateTimeOffset now)
+    private static OutboxMessageRecord CreateMessage(long id, Guid eventId, DateTimeOffset now, string? payloadJson = null)
     {
         return new OutboxMessageRecord(
             id,
@@ -411,7 +465,7 @@ public sealed class OutboxDispatcherTests
             "test.dispatch",
             null,
             null,
-            $$"""{"id":"{{eventId:D}}"}""",
+            payloadJson ?? $$"""{"id":"{{eventId:D}}"}""",
             OutboxMessageStatus.Processing,
             0,
             now,

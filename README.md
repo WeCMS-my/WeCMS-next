@@ -12,6 +12,8 @@
 
 当前补齐阶段不回流 CMS 内容管理到一期，不做旧 ThinkPHP runtime compatibility，不做旧数据迁移，不引入 AI runtime，也不复制旧 AdminGate。旧系统 AdminGate / CSRF 中有价值的安全职责必须按新架构拆解到认证、授权、权限码、审计、限流、安全事件、IP 规则和 Cookie 型认证接口防护中。
 
+**Foundation stable：** 当前基础系统冻结入口为 [`docs/reports/wecms-foundation-stable-final-acceptance.md`](docs/reports/wecms-foundation-stable-final-acceptance.md)，release note 为 [`docs/releases/v0.2.0-foundation.md`](docs/releases/v0.2.0-foundation.md)，变更历史入口为 [`CHANGELOG.md`](CHANGELOG.md)。本稳定点冻结 `.NET 10 + JIT + Minimal API + SqlSugar + SoybeanAdmin + OpenAPI` 基线，以及 `AGENTS.md`、`code_review.md`、`.trae/rules/wecms-engineering-principles.md`、`scripts/quality-gate-backend.sh`、`scripts/quality-gate-frontend.sh`、`scripts/quality-gate-production.sh` 组成的治理与质量门禁表面。
+
 ## 技术栈
 
 | 层 | 技术 |
@@ -74,7 +76,7 @@ dotnet user-secrets set "ConnectionStrings:Default" "server=127.0.0.1;port=3306;
 也可复制 `backend/src/WeCms.Api/appsettings.Development.example.json` 为本地模板，并按需覆盖 `user-secrets` 或环境变量。
 `appsettings.Development.json` 中的 `pwd=__SET_BY_USER_SECRETS__` 是不可运行占位，必须通过 user-secrets、环境变量或 `WECMS_TEST_MYSQL_CONNECTION_STRING` 提供真实本地测试连接串。
 
-生产配置清单见 [`docs/ops/production-configuration.md`](docs/ops/production-configuration.md)。安全基线见 [`docs/ops/security-baseline.md`](docs/ops/security-baseline.md)，反向代理部署见 [`docs/ops/deployment-reverse-proxy.md`](docs/ops/deployment-reverse-proxy.md)，数据库生产治理见 [`docs/ops/database-production.md`](docs/ops/database-production.md)，日志与健康检查见 [`docs/ops/logging-observability.md`](docs/ops/logging-observability.md)，安全告警见 [`docs/ops/security-alerting.md`](docs/ops/security-alerting.md)，文件存储生产化见 [`docs/ops/file-storage-production.md`](docs/ops/file-storage-production.md)，前端生产化见 [`docs/ops/frontend-production.md`](docs/ops/frontend-production.md)，备份恢复见 [`docs/runbooks/database-backup-restore.md`](docs/runbooks/database-backup-restore.md)，发布检查见 [`docs/runbooks/release-checklist.md`](docs/runbooks/release-checklist.md)，生产部署记录见 [`docs/runbooks/production-deployment-record.md`](docs/runbooks/production-deployment-record.md)，回滚见 [`docs/runbooks/rollback.md`](docs/runbooks/rollback.md)，事件响应见 [`docs/runbooks/incident-response.md`](docs/runbooks/incident-response.md)，最终生产验收见 [`docs/reports/wecms-production-hardening-final-acceptance.md`](docs/reports/wecms-production-hardening-final-acceptance.md)。生产模板见 `backend/src/WeCms.Api/appsettings.Production.example.json`；该模板只说明结构，不能直接作为可运行生产配置。
+生产配置清单见 [`docs/ops/production-configuration.md`](docs/ops/production-configuration.md)。系统基础运维见 [`docs/ops/system-foundation-operations.md`](docs/ops/system-foundation-operations.md)，安全基线见 [`docs/ops/security-baseline.md`](docs/ops/security-baseline.md)，反向代理部署见 [`docs/ops/deployment-reverse-proxy.md`](docs/ops/deployment-reverse-proxy.md)，数据库生产治理见 [`docs/ops/database-production.md`](docs/ops/database-production.md)，日志与健康检查见 [`docs/ops/logging-observability.md`](docs/ops/logging-observability.md)，安全告警见 [`docs/ops/security-alerting.md`](docs/ops/security-alerting.md)，文件存储生产化见 [`docs/ops/file-storage-production.md`](docs/ops/file-storage-production.md)，前端生产化见 [`docs/ops/frontend-production.md`](docs/ops/frontend-production.md)，备份恢复见 [`docs/runbooks/database-backup-restore.md`](docs/runbooks/database-backup-restore.md)，发布检查见 [`docs/runbooks/release-checklist.md`](docs/runbooks/release-checklist.md)，生产部署记录见 [`docs/runbooks/production-deployment-record.md`](docs/runbooks/production-deployment-record.md)，回滚见 [`docs/runbooks/rollback.md`](docs/runbooks/rollback.md)，事件响应见 [`docs/runbooks/incident-response.md`](docs/runbooks/incident-response.md)，最终生产验收见 [`docs/reports/wecms-production-hardening-final-acceptance.md`](docs/reports/wecms-production-hardening-final-acceptance.md)。生产模板见 `backend/src/WeCms.Api/appsettings.Production.example.json`；该模板只说明结构，不能直接作为可运行生产配置。
 
 ### 4. 运行前端
 
@@ -311,6 +313,9 @@ artifacts/
 - [工程骨架验证文档](docs/context/WeCMS_工程骨架验证文档.md)
 - [完整迁移重构计划（历史命名路径）](docs/context/WeCMS_Next_NET10_AOT_SoybeanAdmin_完整迁移重构计划.md)
 - [系统基础开发指南](docs/dirs/system-foundation-development-guide.md)
+- [Foundation Stable 最终验收报告](docs/reports/wecms-foundation-stable-final-acceptance.md)
+- [v0.2.0-foundation Release Note](docs/releases/v0.2.0-foundation.md)
+- [CHANGELOG](CHANGELOG.md)
 
 ## 许可证
 

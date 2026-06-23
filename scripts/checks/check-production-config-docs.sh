@@ -12,6 +12,7 @@ violations: list[str] = []
 
 required_files = [
     "docs/ops/production-configuration.md",
+    "docs/ops/system-foundation-operations.md",
     "docs/ops/security-baseline.md",
     "docs/ops/deployment-reverse-proxy.md",
     "docs/ops/database-production.md",
@@ -61,6 +62,23 @@ for relative in required_files:
         "docs/ops/security-alerting.md",
     }:
         violations.append(f"README missing link to {relative}")
+
+system_foundation_ops = read("docs/ops/system-foundation-operations.md")
+for token in [
+    "Module Ownership",
+    "/health/live",
+    "/health/ready",
+    "/health/dependencies",
+    "OpenAPI",
+    "sys_security_event",
+    "sys_outbox_message",
+    "PredicateBuilder",
+    "Application Service AOP",
+    "No CMS module",
+    "No AI runtime",
+]:
+    if token not in system_foundation_ops:
+        violations.append(f"system foundation operations docs missing {token}")
 
 if violations:
     print("check-production-config-docs: failed", file=sys.stderr)

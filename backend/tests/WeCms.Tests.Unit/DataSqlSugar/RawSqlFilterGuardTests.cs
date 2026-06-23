@@ -222,6 +222,94 @@ public sealed class RawSqlFilterGuardTests
     }
 
     [Fact]
+    public void RequireDeletedAtFilter_WithUnionRequiresEachBranchPredicate()
+    {
+        var sql =
+            """
+            SELECT u.id FROM sys_user u WHERE u.deleted_at IS NULL
+            UNION ALL
+            SELECT u.id FROM sys_user u WHERE u.status = @status
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "UnionAsync", SoftDeleteTables));
+
+        Assert.Contains("u.deleted_at", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequireDeletedAtFilter_WithCteGuardedTableFailsFast()
+    {
+        var sql =
+            """
+            WITH active_users AS (
+                SELECT id FROM sys_user WHERE deleted_at IS NULL
+            )
+            SELECT id FROM active_users
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "CteAsync", SoftDeleteTables));
+
+        Assert.Contains("split the SQL or use PredicateBuilder", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequireDeletedAtFilter_WithUnaliasedSubqueryGuardedTableFailsFast()
+    {
+        var sql =
+            """
+            SELECT p.id
+            FROM sys_permission p
+            WHERE p.deleted_at IS NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM sys_user
+                  WHERE deleted_at IS NULL
+              )
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "ExistsAsync", SoftDeleteTables));
+
+        Assert.Contains("split the SQL or use PredicateBuilder", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequireDeletedAtFilter_WithUpdateJoinRequiresAliasPredicate()
+    {
+        var sql =
+            """
+            UPDATE sys_user u
+            INNER JOIN sys_role r ON r.id = u.dept_id
+            SET u.status = @status
+            WHERE u.deleted_at IS NULL
+              AND r.code = @code
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "UpdateJoinAsync", SoftDeleteTables));
+
+        Assert.Contains("r.deleted_at", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequireDeletedAtFilter_WithDeleteAliasRequiresAliasPredicate()
+    {
+        var sql =
+            """
+            DELETE FROM sys_user u
+            WHERE deleted_at IS NULL
+              AND u.id = @id
+            """;
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => RawSqlFilterGuard.RequireDeletedAtFilter(sql, "DeleteAsync", SoftDeleteTables));
+
+        Assert.Contains("u.deleted_at", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RequireDeletedAtFilter_ThrowsWhenSqlEmpty()
     {
         var exception = Assert.Throws<ArgumentException>(

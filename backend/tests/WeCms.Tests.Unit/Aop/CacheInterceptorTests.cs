@@ -149,6 +149,55 @@ public sealed class CacheInterceptorTests
     }
 
     [Fact]
+    public async Task CacheInterceptor_ConcurrentMisses_RunFactoryOnce()
+    {
+        using var provider = CreateProvider();
+        var interceptor = provider.GetRequiredService<CacheInterceptor>();
+        var context = new CacheInvocationContext("tenant-a", ["same-key"]);
+        var attribute = new CacheableAttribute("identity:users:detail");
+        var calls = 0;
+
+        var tasks = Enumerable.Range(0, 8)
+            .Select(_ => interceptor.InvokeCacheableAsync(
+                attribute,
+                context,
+                async _ =>
+                {
+                    Interlocked.Increment(ref calls);
+                    await Task.Delay(25, TestContext.Current.CancellationToken);
+                    return new CacheSample("loaded-once");
+                },
+                cancellationToken: TestContext.Current.CancellationToken))
+            .ToArray();
+
+        var results = await Task.WhenAll(tasks);
+
+        Assert.All(results, result => Assert.Equal(new CacheSample("loaded-once"), result));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task CacheInterceptor_DoesNotEvictWhenMutationFails()
+    {
+        using var provider = CreateProvider();
+        var interceptor = provider.GetRequiredService<CacheInterceptor>();
+        var cache = provider.GetRequiredService<ICache>();
+        var context = new CacheInvocationContext("tenant-a", [9]);
+        var attribute = new CacheEvictAttribute("configuration:settings:detail");
+        var key = interceptor.BuildKey(attribute, context);
+        await cache.SetAsync(key, new CacheSample("still-current"), cancellationToken: TestContext.Current.CancellationToken);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => interceptor.InvokeEvictAsync(
+            attribute,
+            context,
+            _ => throw new InvalidOperationException("mutation failed"),
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal("mutation failed", exception.Message);
+        Assert.Equal(new CacheSample("still-current"), await cache.GetAsync<CacheSample>(key, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void CacheInterceptor_UsesTenantAwareKey()
     {
         using var provider = CreateProvider();
