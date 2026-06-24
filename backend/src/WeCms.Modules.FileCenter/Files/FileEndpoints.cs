@@ -26,6 +26,7 @@ public static class FileEndpoints
             .RequireEndpointPermission(FilePermissions.Upload)
             .RequireRateLimiting(RateLimitPolicyNames.FileUpload);
         group.MapGet("/files", ListAsync).RequireEndpointPermission(FilePermissions.List);
+        group.MapGet("/files/large-files/metrics", UploadMetricsAsync).RequireEndpointPermission(FilePermissions.List);
         group.MapGet("/files/{id:long}", DetailAsync).RequireEndpointPermission(FilePermissions.Detail);
         group.MapGet("/files/{id:long}/download", DownloadAsync).RequireEndpointPermission(FilePermissions.Download);
         group.MapGet("/files/{id:long}/preview", PreviewAsync).RequireEndpointPermission(FilePermissions.Download);
@@ -43,6 +44,11 @@ public static class FileEndpoints
     private static async Task<ApiResult<FileDetailDto>> DetailAsync(long id, IFileService service, CancellationToken cancellationToken)
     {
         return ApiResult<FileDetailDto>.Ok(await service.GetAsync(id, cancellationToken));
+    }
+
+    private static Task<ApiResult<FileUploadConcurrencyMetricsDto>> UploadMetricsAsync(IFileUploadConcurrencyGate uploadConcurrencyGate)
+    {
+        return Task.FromResult(ApiResult<FileUploadConcurrencyMetricsDto>.Ok(uploadConcurrencyGate.GetMetrics()));
     }
 
     private static async Task<ApiResult<FileMutationResponse>> CreateAsync([FromForm] CreateFileRequest request, [FromForm] IFormFile file, HttpContext httpContext, IFileService service, IFileCenterClock clock, CancellationToken cancellationToken)

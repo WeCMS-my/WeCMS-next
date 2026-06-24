@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using System.Net;
+using WeCms.Modules.FileCenter.Files;
 
 namespace WeCms.Api.Configuration;
 
@@ -35,6 +36,7 @@ public static class ProductionConfigurationValidator
         RequireForwardedHeaders(configuration);
         RequireSecureHeaders(configuration);
         RequireFileStorage(configuration, environment);
+        RequireFileUploadOptions(configuration);
         RequireSeedAdminPassword(configuration["Database:SeedAdminPassword"]);
     }
 
@@ -217,6 +219,59 @@ public static class ProductionConfigurationValidator
         RequireVirusScan(configuration);
     }
 
+    private static void RequireFileUploadOptions(IConfiguration configuration)
+    {
+        _ = ReadInt(
+            configuration,
+            $"{FileUploadOptions.SectionName}:ChunkSizeBytes",
+            FileUploadOptions.DefaultChunkSizeBytes,
+            1024,
+            1024 * 1024);
+        _ = ReadLong(
+            configuration,
+            $"{FileUploadOptions.SectionName}:MemoryFallbackThresholdBytes",
+            FileUploadOptions.DefaultMemoryFallbackThresholdBytes,
+            1024,
+            1024L * 1024L * 1024L);
+        _ = ReadInt(
+            configuration,
+            $"{FileUploadOptions.SectionName}:RetryCount",
+            FileUploadOptions.DefaultRetryCount,
+            0,
+            50);
+        _ = ReadInt(
+            configuration,
+            $"{FileUploadOptions.SectionName}:RetryDelayMilliseconds",
+            FileUploadOptions.DefaultRetryDelayMilliseconds,
+            0,
+            60_000);
+        _ = ReadInt(
+            configuration,
+            $"{FileUploadOptions.SectionName}:TempFileRetentionHours",
+            FileUploadOptions.DefaultTempFileRetentionHours,
+            1,
+            FileUploadOptions.MaxTempFileRetentionHours);
+        _ = ReadInt(
+            configuration,
+            $"{FileUploadOptions.SectionName}:MaxConcurrentLargeFileUploads",
+            FileUploadOptions.DefaultMaxConcurrentLargeFileUploads,
+            1,
+            FileUploadOptions.MaxConcurrentLargeFileUploadsLimit);
+
+        var configuredTempPath = configuration[$"{FileUploadOptions.SectionName}:TempFilePath"];
+        if (string.IsNullOrWhiteSpace(configuredTempPath))
+        {
+            return;
+        }
+
+        if (!Path.IsPathFullyQualified(configuredTempPath))
+        {
+            throw new InvalidOperationException("FileStorage:Upload:TempFilePath must be an absolute path in Production.");
+        }
+
+        EnsureWritableDirectory(configuredTempPath);
+    }
+
     private static void RequireVirusScan(IConfiguration configuration)
     {
         if (!ReadBool(configuration, "FileStorage:VirusScanEnabled", defaultValue: false))
@@ -317,6 +372,22 @@ public static class ProductionConfigurationValidator
         }
 
         if (int.TryParse(value, out var parsed) && parsed >= minValue && parsed <= maxValue)
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException($"{key} must be an integer between {minValue} and {maxValue}.");
+    }
+
+    private static long ReadLong(IConfiguration configuration, string key, long defaultValue, long minValue, long maxValue)
+    {
+        var value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        if (long.TryParse(value, out var parsed) && parsed >= minValue && parsed <= maxValue)
         {
             return parsed;
         }

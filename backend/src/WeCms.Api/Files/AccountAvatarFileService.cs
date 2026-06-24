@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using WeCms.Modules.FileCenter.Files;
 using WeCms.Modules.Identity.Contracts;
 using WeCms.Modules.Identity.Services;
@@ -12,17 +13,23 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
     private readonly IFileScanService _fileScanService;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
     private readonly IFileUploadPolicyResolver _policyResolver;
+    private readonly IFileUploadConcurrencyGate _uploadConcurrencyGate;
+    private readonly FileUploadOptions _fileUploadOptions;
 
     public AccountAvatarFileService(
         IFileStorage storage,
         IFileScanService fileScanService,
         IFileObjectKeyGenerator objectKeyGenerator,
-        IFileUploadPolicyResolver policyResolver)
+        IFileUploadPolicyResolver policyResolver,
+        IFileUploadConcurrencyGate uploadConcurrencyGate,
+        IOptions<FileUploadOptions> fileUploadOptions)
     {
         _storage = storage;
         _fileScanService = fileScanService;
         _objectKeyGenerator = objectKeyGenerator;
         _policyResolver = policyResolver;
+        _uploadConcurrencyGate = uploadConcurrencyGate;
+        _fileUploadOptions = fileUploadOptions.Value;
     }
 
     public async Task<AccountAvatarStoredFile> StoreAsync(
@@ -41,27 +48,39 @@ public sealed class AccountAvatarFileService : IAccountAvatarFileService
             throw Validation($"Avatar size must be between 1 and {policy.MaxSizeBytes} bytes.");
         }
 
-        await using var uploadContent = await FileUploadContent.ReadAsync(file, policy.MaxSizeBytes, cancellationToken);
-        if (uploadContent.SizeBytes != request.SizeBytes)
+        if (!_uploadConcurrencyGate.TryAcquire(request.SizeBytes, out var uploadConcurrencyLease))
         {
-            throw Validation("Avatar content does not match declared metadata.");
+            throw new DomainException(ApiCodes.TooManyRequests, "Too many large file uploads are in progress.");
         }
 
-        await policy.ValidateContentAsync(uploadContent.Content, uploadContent.SizeBytes, mimeType, ext, cancellationToken);
-        await ScanAvatarAsync(uploadContent, originalName, mimeType, request.SizeBytes, policy.Code, cancellationToken);
-
-        var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(now, ext)}";
-        uploadContent.Rewind();
-        var stored = await _storage.StoreAsync(uploadContent.Content, objectKey, ext, policy.MaxSizeBytes, cancellationToken);
-        if (stored.SizeBytes != request.SizeBytes
-            || !string.Equals(stored.Sha256, sha256, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(stored.MimeType, mimeType, StringComparison.OrdinalIgnoreCase))
+        await using (uploadConcurrencyLease)
         {
-            await _storage.DeleteAsync(objectKey, cancellationToken);
-            throw Validation("Avatar content does not match declared metadata.");
-        }
+            await using var uploadContent = await FileUploadContent.ReadAsync(
+                file,
+                policy.MaxSizeBytes,
+                _fileUploadOptions,
+                cancellationToken);
+            if (uploadContent.SizeBytes != request.SizeBytes)
+            {
+                throw Validation("Avatar content does not match declared metadata.");
+            }
 
-        return new AccountAvatarStoredFile(objectKey, stored.MimeType, ext);
+            await policy.ValidateContentAsync(uploadContent.Content, uploadContent.SizeBytes, mimeType, ext, cancellationToken);
+            await ScanAvatarAsync(uploadContent, originalName, mimeType, request.SizeBytes, policy.Code, cancellationToken);
+
+            var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(now, ext)}";
+            uploadContent.Rewind();
+            var stored = await _storage.StoreAsync(uploadContent.Content, objectKey, ext, policy.MaxSizeBytes, cancellationToken);
+            if (stored.SizeBytes != request.SizeBytes
+                || !string.Equals(stored.Sha256, sha256, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(stored.MimeType, mimeType, StringComparison.OrdinalIgnoreCase))
+            {
+                await _storage.DeleteAsync(objectKey, cancellationToken);
+                throw Validation("Avatar content does not match declared metadata.");
+            }
+
+            return new AccountAvatarStoredFile(objectKey, stored.MimeType, ext);
+        }
     }
 
     public async Task<AccountAvatarDownload> OpenAsync(

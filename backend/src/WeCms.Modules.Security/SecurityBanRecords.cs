@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using WeCms.Shared;
 
 namespace WeCms.Modules.Security;
@@ -29,6 +30,25 @@ public sealed record SecurityStatusDto(
     long ActiveUserBans,
     long CriticalActiveBans,
     DateTimeOffset GeneratedAt);
+
+public sealed record SecurityRejectionSnapshotDto(
+    long AggregateCount,
+    long DroppedCounter,
+    DateTimeOffset? LastDropAt,
+    IReadOnlyDictionary<string, long> DroppedByKind);
+
+public sealed record SecurityRejectionMetricsDto(
+    [property: JsonPropertyName("security_rejection_buffer_aggregates")] long SecurityRejectionBufferAggregates,
+    [property: JsonPropertyName("security_rejection_buffer_dropped_total")] long SecurityRejectionBufferDroppedTotal,
+    [property: JsonPropertyName("security_rejection_buffer_dropped_by_kind")] IReadOnlyDictionary<string, long> SecurityRejectionBufferDroppedByKind,
+    [property: JsonPropertyName("security_rejection_buffer_last_drop_at")] DateTimeOffset? SecurityRejectionBufferLastDropAt);
+
+public interface ISecurityRejectionDiagnostics
+{
+    SecurityRejectionSnapshotDto GetSnapshot();
+
+    SecurityRejectionMetricsDto GetMetrics();
+}
 
 public sealed record SecurityBanListQuery(
     int Page = 1,

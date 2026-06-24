@@ -81,6 +81,26 @@ public sealed class RateLimitingTests
     }
 
     [Fact]
+    public void SecurityRejectionEventBuffer_GetMetrics_ReturnsDiagnosticsState()
+    {
+        var buffer = new SecurityRejectionEventBuffer(NullLogger<SecurityRejectionEventBuffer>.Instance);
+
+        var now = DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture);
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromRateLimit(CreateHit(RateLimitPolicyNames.AuthLogin, "/api/v1/auth/login", "192.168.1.10", now, traceId: "trace-rate-1"))));
+        Assert.True(buffer.TryEnqueue(SecurityRejectionEvent.FromIpAccessDenied(new IpAccessDeniedSecurityEvent("203.0.113.20", "trace-ip", now, 2))));
+
+        var metrics = buffer.GetMetrics();
+
+        Assert.Equal(3, metrics.SecurityRejectionBufferAggregates);
+        Assert.Equal(0, metrics.SecurityRejectionBufferDroppedTotal);
+        Assert.True(metrics.SecurityRejectionBufferDroppedByKind.TryGetValue("RateLimit", out var rateLimitDropped));
+        Assert.Equal(0, rateLimitDropped);
+        Assert.True(metrics.SecurityRejectionBufferDroppedByKind.TryGetValue("IpAccessDenied", out var ipDeniedDropped));
+        Assert.Equal(0, ipDeniedDropped);
+        Assert.Null(metrics.SecurityRejectionBufferLastDropAt);
+    }
+
+    [Fact]
     public async Task OnRejectedAsync_RecordsThroughSecurityRejectionBufferWithoutDirectRecorder()
     {
         var clock = new FakeAuthClock(DateTimeOffset.Parse("2026-06-23T00:00:00Z", CultureInfo.InvariantCulture));
@@ -306,6 +326,24 @@ public sealed class RateLimitingTests
         {
             Record = record;
             return true;
+        }
+
+        public SecurityRejectionSnapshotDto GetSnapshot()
+        {
+            return new SecurityRejectionSnapshotDto(
+                0,
+                0,
+                null,
+                new Dictionary<string, long>());
+        }
+
+        public SecurityRejectionMetricsDto GetMetrics()
+        {
+            return new SecurityRejectionMetricsDto(
+                0,
+                0,
+                new Dictionary<string, long>(),
+                null);
         }
     }
 

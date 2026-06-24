@@ -125,6 +125,74 @@ public sealed class ProductionConfigurationValidatorTests
     }
 
     [Fact]
+    public void Validate_ProductionRejectsNegativeUploadRetryDelay()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword(),
+                ["FileStorage:Upload:RetryDelayMilliseconds"] = "-1"
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Upload:RetryDelayMilliseconds must be an integer between 0 and 60000.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsNegativeUploadTempFileRetentionHours()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword(),
+                ["FileStorage:Upload:TempFileRetentionHours"] = "0"
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Upload:TempFileRetentionHours must be an integer between 1 and 720.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsZeroLargeFileUploadConcurrency()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword(),
+                ["FileStorage:Upload:MaxConcurrentLargeFileUploads"] = "0"
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Upload:MaxConcurrentLargeFileUploads must be an integer between 1 and 128.", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ProductionRejectsRelativeUploadTempPath()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => ProductionConfigurationValidator.Validate(Configuration(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = ValidConnectionString(),
+                ["Auth:AccessTokenSecret"] = ValidSecret(),
+                ["Security:TwoFactor:SecretProtectionKey"] = ValidSecret(),
+                ["Security:AllowedOrigins:0"] = "https://admin.example.com",
+                ["Database:SeedAdminPassword"] = ValidSeedPassword(),
+                ["FileStorage:Upload:TempFilePath"] = "relative\\wecms\\upload"
+            }), Environment("Production")));
+
+        Assert.Equal("FileStorage:Upload:TempFilePath must be an absolute path in Production.", exception.Message);
+    }
+
+    [Fact]
     public void Validate_ProductionRejectsMissingFileStorageDirectory()
     {
         var exception = Assert.Throws<InvalidOperationException>(

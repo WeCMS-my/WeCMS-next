@@ -2205,6 +2205,45 @@
         "x-wecms-rate-limit": "file_upload_policy"
       }
     },
+    "/api/v1/system/files/large-files/metrics": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "GET /api/v1/system/files/large-files/metrics",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/FileUploadConcurrencyMetricsDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-module": "file-center",
+        "x-wecms-permission": "sys:file:list"
+      }
+    },
     "/api/v1/system/files/{id:long}": {
       "delete": {
         "tags": [
@@ -4833,6 +4872,84 @@
           "action": "unban"
         },
         "x-wecms-rate-limit": "security_unban_policy"
+      }
+    },
+    "/api/v1/system/security/rejections": {
+      "get": {
+        "tags": [
+          "Security"
+        ],
+        "summary": "GET /api/v1/system/security/rejections",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SecurityRejectionSnapshotDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-module": "security",
+        "x-wecms-permission": "sys:security:status"
+      }
+    },
+    "/api/v1/system/security/rejections/metrics": {
+      "get": {
+        "tags": [
+          "Security"
+        ],
+        "summary": "GET /api/v1/system/security/rejections/metrics",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResult"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SecurityRejectionMetricsDto"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-wecms-module": "security",
+        "x-wecms-permission": "sys:security:status"
       }
     },
     "/api/v1/system/security/status": {
@@ -9432,6 +9549,70 @@
           }
         }
       },
+      "SecurityRejectionSnapshotDto": {
+        "type": "object",
+        "required": [
+          "aggregateCount",
+          "droppedCounter",
+          "droppedByKind"
+        ],
+        "properties": {
+          "aggregateCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "droppedCounter": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastDropAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "droppedByKind": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "SecurityRejectionMetricsDto": {
+        "type": "object",
+        "required": [
+          "security_rejection_buffer_aggregates",
+          "security_rejection_buffer_dropped_total",
+          "security_rejection_buffer_dropped_by_kind"
+        ],
+        "properties": {
+          "security_rejection_buffer_aggregates": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "security_rejection_buffer_dropped_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "security_rejection_buffer_last_drop_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "security_rejection_buffer_dropped_by_kind": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
       "PagedFileSummary": {
         "type": "object",
         "required": [
@@ -9552,6 +9733,33 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "FileUploadConcurrencyMetricsDto": {
+        "type": "object",
+        "required": [
+          "file_upload_large_file_concurrency_limit",
+          "file_upload_large_file_active",
+          "file_upload_large_file_rejected_total",
+          "file_upload_large_file_threshold_bytes"
+        ],
+        "properties": {
+          "file_upload_large_file_concurrency_limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "file_upload_large_file_active": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "file_upload_large_file_rejected_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "file_upload_large_file_threshold_bytes": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

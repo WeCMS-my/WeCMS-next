@@ -25,7 +25,9 @@ public static class FileCenterServiceCollectionExtensions
         services.AddSingleton<IFileUploadPolicy, DocumentUploadPolicy>();
         services.AddSingleton<IFileUploadPolicyResolver, FileUploadPolicyResolver>();
         services.AddSingleton<IFileObjectKeyGenerator, FileObjectKeyGenerator>();
+        services.AddSingleton<IFileUploadConcurrencyGate, FileUploadConcurrencyGate>();
         services.AddScoped<IFileService, FileService>();
+        services.AddHostedService<FileUploadTempCleanupService>();
         return services;
     }
 }

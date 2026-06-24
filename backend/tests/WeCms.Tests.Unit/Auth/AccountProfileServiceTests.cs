@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using WeCms.Api.Files;
 using WeCms.Modules.FileCenter.Files;
 using WeCms.Shared;
@@ -205,7 +206,9 @@ public sealed class AccountProfileServiceTests
                 fileStorage,
                 fileScanner,
                 new FakeObjectKeyGenerator(),
-                new FakeFileUploadPolicyResolver()),
+                new FakeFileUploadPolicyResolver(),
+                new FileUploadConcurrencyGate(Options.Create(FileUploadOptions.Default)),
+                Options.Create(FileUploadOptions.Default)),
             unitOfWork ?? new FakeUnitOfWork());
     }
 

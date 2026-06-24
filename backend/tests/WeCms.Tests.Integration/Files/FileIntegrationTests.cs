@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using SqlSugar;
 using Microsoft.Extensions.Logging.Abstractions;
 using WeCms.Infrastructure.Files;
@@ -42,7 +43,10 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
                 new LocalFileStorage(storageDirectory),
                 new WeCms.Shared.NoopFileScanService(),
                 new DeterministicObjectKeyGenerator(),
-                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]),
+                new FileUploadConcurrencyGate(Options.Create(FileUploadOptions.Default)),
+                Options.Create(FileUploadOptions.Default),
+                NullLogger<FileService>.Instance);
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);
@@ -116,7 +120,10 @@ public sealed class FileIntegrationTests : PerTestDatabaseResetBase
                 new LocalFileStorage(Path.Combine(AppContext.BaseDirectory, "storage", "files")),
                 new WeCms.Shared.NoopFileScanService(),
                 new DeterministicObjectKeyGenerator(),
-                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]), NullLogger<FileService>.Instance);
+                new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]),
+                new FileUploadConcurrencyGate(Options.Create(FileUploadOptions.Default)),
+                Options.Create(FileUploadOptions.Default),
+                NullLogger<FileService>.Instance);
 
             var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x32, 0x0A };
             var formFile = CreateFormFile("invoice.pdf", content);

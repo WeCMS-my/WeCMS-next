@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using WeCms.Shared;
 
@@ -12,6 +13,8 @@ public sealed class FileService : IFileService
     private readonly IFileScanService _fileScanService;
     private readonly IFileObjectKeyGenerator _objectKeyGenerator;
     private readonly IFileUploadPolicyResolver _policyResolver;
+    private readonly IFileUploadConcurrencyGate _uploadConcurrencyGate;
+    private readonly FileUploadOptions _fileUploadOptions;
     private readonly ILogger<FileService> _logger;
 
     public FileService(
@@ -20,6 +23,8 @@ public sealed class FileService : IFileService
         IFileScanService fileScanService,
         IFileObjectKeyGenerator objectKeyGenerator,
         IFileUploadPolicyResolver policyResolver,
+        IFileUploadConcurrencyGate uploadConcurrencyGate,
+        IOptions<FileUploadOptions> fileUploadOptions,
         ILogger<FileService> logger)
     {
         _repository = repository;
@@ -27,6 +32,8 @@ public sealed class FileService : IFileService
         _fileScanService = fileScanService;
         _objectKeyGenerator = objectKeyGenerator;
         _policyResolver = policyResolver;
+        _uploadConcurrencyGate = uploadConcurrencyGate;
+        _fileUploadOptions = fileUploadOptions.Value;
         _logger = logger;
     }
 
@@ -66,53 +73,65 @@ public sealed class FileService : IFileService
                 throw Validation("file is required and must not be empty.");
             }
 
-            await using var uploadContent = await FileUploadContent.ReadAsync(file, policy.MaxSizeBytes, cancellationToken);
-            if (uploadContent.SizeBytes != request.SizeBytes)
+            if (!_uploadConcurrencyGate.TryAcquire(request.SizeBytes, out var uploadConcurrencyLease))
             {
-                throw Validation("sizeBytes does not match uploaded content.");
+                throw new DomainException(ApiCodes.TooManyRequests, "Too many large file uploads are in progress.");
             }
 
-            await policy.ValidateContentAsync(uploadContent.Content, uploadContent.SizeBytes, requestMimeType, fileExt, cancellationToken);
-            await ScanAsync(uploadContent, originalName, requestMimeType, request.SizeBytes, policy.Code, cancellationToken);
+            await using (uploadConcurrencyLease)
+            {
+                await using var uploadContent = await FileUploadContent.ReadAsync(
+                    file,
+                    policy.MaxSizeBytes,
+                    _fileUploadOptions,
+                    cancellationToken);
+                if (uploadContent.SizeBytes != request.SizeBytes)
+                {
+                    throw Validation("sizeBytes does not match uploaded content.");
+                }
 
-            var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(context.Now, fileExt)}";
-            FileStorageResult stored;
-            try
-            {
-                uploadContent.Rewind();
-                stored = await _storage.StoreAsync(uploadContent.Content, objectKey, fileExt, policy.MaxSizeBytes, cancellationToken);
-            }
-            catch (DomainException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                await DeleteFileAsync(objectKey, cancellationToken);
-                throw new InvalidOperationException("Upload content cannot be stored.", exception);
-            }
+                await policy.ValidateContentAsync(uploadContent.Content, uploadContent.SizeBytes, requestMimeType, fileExt, cancellationToken);
+                await ScanAsync(uploadContent, originalName, requestMimeType, request.SizeBytes, policy.Code, cancellationToken);
 
-            if (stored.SizeBytes != request.SizeBytes)
-            {
-                await DeleteFileAsync(objectKey, cancellationToken);
-                throw Validation("sizeBytes does not match uploaded content.");
-            }
+                var objectKey = $"{policy.StorageScope}/{_objectKeyGenerator.GenerateObjectKey(context.Now, fileExt)}";
+                FileStorageResult stored;
+                try
+                {
+                    uploadContent.Rewind();
+                    stored = await _storage.StoreAsync(uploadContent.Content, objectKey, fileExt, policy.MaxSizeBytes, cancellationToken);
+                }
+                catch (DomainException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    await DeleteFileAsync(objectKey, cancellationToken);
+                    throw new InvalidOperationException("Upload content cannot be stored.", exception);
+                }
 
-            if (!string.Equals(stored.Sha256, requestSha256, StringComparison.OrdinalIgnoreCase))
-            {
-                await DeleteFileAsync(objectKey, cancellationToken);
-                throw Validation("sha256 does not match uploaded content.");
-            }
+                if (stored.SizeBytes != request.SizeBytes)
+                {
+                    await DeleteFileAsync(objectKey, cancellationToken);
+                    throw Validation("sizeBytes does not match uploaded content.");
+                }
 
-            if (!string.Equals(stored.MimeType, requestMimeType, StringComparison.OrdinalIgnoreCase))
-            {
-                await DeleteFileAsync(objectKey, cancellationToken);
-                throw Validation("mimeType does not match uploaded content.");
-            }
+                if (!string.Equals(stored.Sha256, requestSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    await DeleteFileAsync(objectKey, cancellationToken);
+                    throw Validation("sha256 does not match uploaded content.");
+                }
 
-            var id = await _repository.CreateAsync(new FileCreateRecord("local", "system", objectKey, originalName, fileExt, stored.MimeType, stored.SizeBytes, stored.Sha256, "active", context.ActorUserId, context.Now), cancellationToken);
-            await AuditAsync(context, "upload", id, "File uploaded and metadata created.", cancellationToken);
-            return new FileMutationResponse(id);
+                if (!string.Equals(stored.MimeType, requestMimeType, StringComparison.OrdinalIgnoreCase))
+                {
+                    await DeleteFileAsync(objectKey, cancellationToken);
+                    throw Validation("mimeType does not match uploaded content.");
+                }
+
+                var id = await _repository.CreateAsync(new FileCreateRecord("local", "system", objectKey, originalName, fileExt, stored.MimeType, stored.SizeBytes, stored.Sha256, "active", context.ActorUserId, context.Now), cancellationToken);
+                await AuditAsync(context, "upload", id, "File uploaded and metadata created.", cancellationToken);
+                return new FileMutationResponse(id);
+            }
         }
         catch (DomainException exception)
         {

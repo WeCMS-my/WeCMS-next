@@ -226,9 +226,60 @@ public static partial class OpenApiExtensions
             ["PagedSecurityEventSummary"] = PagedSchema(nameof(SecurityEventSummaryDto)),
             [nameof(SecurityEventSummaryDto)] = SecurityEventSchema(),
             [nameof(SecurityEventDetailDto)] = SecurityEventSchema(),
+            [nameof(SecurityRejectionSnapshotDto)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required("aggregateCount", "droppedCounter", "droppedByKind"),
+                ["properties"] = new JsonObject
+                {
+                    ["aggregateCount"] = IntegerSchema(),
+                    ["droppedCounter"] = IntegerSchema(),
+                    ["lastDropAt"] = DateTimeSchema(nullable: true),
+                    ["droppedByKind"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["additionalProperties"] = IntegerSchema()
+                    }
+                }
+            },
+            [nameof(SecurityRejectionMetricsDto)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required(
+                    "security_rejection_buffer_aggregates",
+                    "security_rejection_buffer_dropped_total",
+                    "security_rejection_buffer_dropped_by_kind"),
+                ["properties"] = new JsonObject
+                {
+                    ["security_rejection_buffer_aggregates"] = IntegerSchema(),
+                    ["security_rejection_buffer_dropped_total"] = IntegerSchema(),
+                    ["security_rejection_buffer_last_drop_at"] = DateTimeSchema(nullable: true),
+                    ["security_rejection_buffer_dropped_by_kind"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["additionalProperties"] = IntegerSchema()
+                    }
+                }
+            },
             ["PagedFileSummary"] = PagedSchema(nameof(FileSummaryDto)),
             [nameof(FileSummaryDto)] = FileSchema(),
             [nameof(FileDetailDto)] = FileSchema(),
+            [nameof(FileUploadConcurrencyMetricsDto)] = new JsonObject
+            {
+                ["type"] = "object",
+                ["required"] = Required(
+                    "file_upload_large_file_concurrency_limit",
+                    "file_upload_large_file_active",
+                    "file_upload_large_file_rejected_total",
+                    "file_upload_large_file_threshold_bytes"),
+                ["properties"] = new JsonObject
+                {
+                    ["file_upload_large_file_concurrency_limit"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" },
+                    ["file_upload_large_file_active"] = IntegerSchema(),
+                    ["file_upload_large_file_rejected_total"] = IntegerSchema(),
+                    ["file_upload_large_file_threshold_bytes"] = IntegerSchema()
+                }
+            },
             [nameof(CreateFileRequest)] = new JsonObject
             {
                 ["type"] = "object",

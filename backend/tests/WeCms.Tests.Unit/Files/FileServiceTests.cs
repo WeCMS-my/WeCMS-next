@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http;
 using WeCms.Modules.FileCenter;
 using WeCms.Modules.FileCenter.Files;
@@ -223,6 +224,41 @@ public sealed class FileServiceTests
 
         Assert.Equal(ApiCodes.ValidationError, exception.Code);
         Assert.Equal("file_upload_rejected", repository.LastSecurityEvent?.EventType);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsLargeUploadWhenConcurrencyGateIsFull()
+    {
+        var repository = new FakeFileRepository();
+        var options = new FileUploadOptions
+        {
+            MemoryFallbackThresholdBytes = 1,
+            MaxConcurrentLargeFileUploads = 1
+        };
+        var gate = new FileUploadConcurrencyGate(Options.Create(options));
+        Assert.True(gate.TryAcquire(5, out var heldLease));
+
+        await using (heldLease)
+        {
+            var service = CreateService(repository, options: options, uploadConcurrencyGate: gate);
+            var content = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D };
+            var file = CreateFormFile("upload.pdf", "application/pdf", content);
+
+            var exception = await Assert.ThrowsAsync<DomainException>(() =>
+                service.CreateAsync(
+                    new CreateFileRequest("upload.pdf", "application/pdf", content.Length, ComputeSha256(content)),
+                    file,
+                    Context(),
+                    CancellationToken.None));
+
+            Assert.Equal(ApiCodes.TooManyRequests, exception.Code);
+            Assert.Equal("file_upload_rejected", repository.LastSecurityEvent?.EventType);
+            var metrics = gate.GetMetrics();
+            Assert.Equal(1, metrics.FileUploadLargeFileActive);
+            Assert.Equal(1, metrics.FileUploadLargeFileRejectedTotal);
+        }
+
+        Assert.Equal(0, gate.GetMetrics().FileUploadLargeFileActive);
     }
 
 
@@ -527,14 +563,23 @@ public sealed class FileServiceTests
         }
     }
 
-    private static FileService CreateService(IFileRepository? repository = null, IFileStorage? storage = null, IFileScanService? scanner = null, RecordingLogger? logger = null)
+    private static FileService CreateService(
+        IFileRepository? repository = null,
+        IFileStorage? storage = null,
+        IFileScanService? scanner = null,
+        RecordingLogger? logger = null,
+        FileUploadOptions? options = null,
+        IFileUploadConcurrencyGate? uploadConcurrencyGate = null)
     {
+        var uploadOptions = options ?? FileUploadOptions.Default;
         return new FileService(
             repository ?? new FakeFileRepository(),
             storage ?? new FakeFileStorage(),
             scanner ?? new CleanFileScanService(),
             new FakeObjectKeyGenerator(),
             new FileUploadPolicyResolver([new AvatarUploadPolicy(), new ImageUploadPolicy(), new DocumentUploadPolicy()]),
+            uploadConcurrencyGate ?? new FileUploadConcurrencyGate(Options.Create(uploadOptions)),
+            Options.Create(uploadOptions),
             logger ?? new RecordingLogger());
     }
 

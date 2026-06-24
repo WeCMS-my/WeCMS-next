@@ -8,7 +8,7 @@ using WeCms.Shared.Security;
 
 namespace WeCms.Api.Middleware;
 
-public sealed class IpAccessControlMiddleware
+public sealed class IpAccessControlMiddleware : IAsyncDisposable
 {
     private const string DeniedMessage = "IP access is not allowed.";
     private const string DropLogMessage = "Security rejection event was dropped due to full security rejection event buffer.";

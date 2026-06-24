@@ -4,6 +4,7 @@ using WeCms.Modules.Configuration.Dicts;
 using WeCms.Modules.FileCenter.Files;
 using WeCms.Modules.Configuration.I18n;
 using WeCms.Modules.Audit.Logs;
+using WeCms.Api.Security;
 using AuditLogPermissions = WeCms.Modules.Audit.Logs.LogPermissions;
 using SecurityEventPermissions = WeCms.Modules.Security.Events.SecurityEventPermissions;
 using WeCms.Modules.Security.Events;
@@ -136,6 +137,8 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/audit-logs", "get"), (true, AuditLogPermissions.AuditLogList) },
             { ("/api/v1/system/audit-logs/{id:long}", "get"), (true, AuditLogPermissions.AuditLogDetail) },
             { ("/api/v1/system/security/status", "get"), (true, SecurityPermissions.Status) },
+            { ("/api/v1/system/security/rejections", "get"), (true, SecurityPermissions.Status) },
+            { ("/api/v1/system/security/rejections/metrics", "get"), (true, SecurityPermissions.Status) },
             { ("/api/v1/system/security/bans", "get"), (true, SecurityPermissions.BanList) },
             { ("/api/v1/system/security/bans/{id:long}", "get"), (true, SecurityPermissions.BanDetail) },
             { ("/api/v1/system/security/bans/{id:long}/unban", "post"), (true, SecurityPermissions.BanUnban) },
@@ -143,6 +146,7 @@ public sealed partial class OpenApiExportTests
             { ("/api/v1/system/security-events", "get"), (true, SecurityEventPermissions.SecurityEventList) },
             { ("/api/v1/system/security-events/{id:long}", "get"), (true, SecurityEventPermissions.SecurityEventDetail) },
             { ("/api/v1/system/files", "get"), (true, FilePermissions.List) },
+            { ("/api/v1/system/files/large-files/metrics", "get"), (true, FilePermissions.List) },
             { ("/api/v1/system/files/{id:long}", "get"), (true, FilePermissions.Detail) },
             { ("/api/v1/system/files", "post"), (true, FilePermissions.Upload) },
             { ("/api/v1/system/files/{id:long}/download", "get"), (true, FilePermissions.Download) },
@@ -301,6 +305,8 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/audit-logs", "get", AuditLogPermissions.AuditLogList, true, null),
         new RegisteredEndpoint("/api/v1/system/audit-logs/{id:long}", "get", AuditLogPermissions.AuditLogDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/security/status", "get", SecurityPermissions.Status, true, null),
+        new RegisteredEndpoint("/api/v1/system/security/rejections", "get", SecurityPermissions.Status, true, nameof(SecurityRejectionSnapshotDto)),
+        new RegisteredEndpoint("/api/v1/system/security/rejections/metrics", "get", SecurityPermissions.Status, true, nameof(SecurityRejectionMetricsDto)),
         new RegisteredEndpoint("/api/v1/system/security/bans", "get", SecurityPermissions.BanList, true, null),
         new RegisteredEndpoint("/api/v1/system/security/bans/{id:long}", "get", SecurityPermissions.BanDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/security/bans/{id:long}/unban", "post", SecurityPermissions.BanUnban, true, nameof(UnbanSecurityBanRequest)),
@@ -308,6 +314,7 @@ public sealed partial class OpenApiExportTests
         new RegisteredEndpoint("/api/v1/system/security-events", "get", SecurityEventPermissions.SecurityEventList, true, null),
         new RegisteredEndpoint("/api/v1/system/security-events/{id:long}", "get", SecurityEventPermissions.SecurityEventDetail, true, null),
         new RegisteredEndpoint("/api/v1/system/files", "get", FilePermissions.List, true, null),
+        new RegisteredEndpoint("/api/v1/system/files/large-files/metrics", "get", FilePermissions.List, true, nameof(FileUploadConcurrencyMetricsDto)),
         new RegisteredEndpoint("/api/v1/system/files/{id:long}", "get", FilePermissions.Detail, true, null),
         new RegisteredEndpoint("/api/v1/system/files", "post", FilePermissions.Upload, true, nameof(CreateFileRequest)),
         new RegisteredEndpoint("/api/v1/system/files/{id:long}/download", "get", FilePermissions.Download, true, null),

@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using WeCms.Aop;
+using WeCms.Api.AccessControl;
 using WeCms.Api.Endpoints;
 using WeCms.Api.Extensions;
 using WeCms.Api.Files;
@@ -16,6 +17,7 @@ using WeCms.Data.SqlSugar;
 using WeCms.EventBus;
 using WeCms.EventBus.SqlSugar;
 using WeCms.Modules.AccessControl;
+using WeCms.Modules.AccessControl.AccessProfiles;
 using WeCms.Modules.AccessControl.Permissions;
 using WeCms.Modules.AccessControl.Repositories;
 using WeCms.Modules.AccessControl.SqlSugar;
@@ -85,8 +87,12 @@ builder.Services.AddSingleton<IIpRuleMatcher, IpRuleMatcher>();
 builder.Services.AddSingleton<ISecurityEventClassifier, SecurityEventClassifier>();
 builder.Services.AddSingleton<SecurityRejectionEventBuffer>();
 builder.Services.AddSingleton<ISecurityRejectionEventBuffer>(provider => provider.GetRequiredService<SecurityRejectionEventBuffer>());
+builder.Services.AddSingleton<ISecurityRejectionDiagnostics>(provider => provider.GetRequiredService<SecurityRejectionEventBuffer>());
+builder.Services.AddSingleton<IAccessProfileCache, CachingAccessProfileCache>();
 builder.Services.Configure<IpAccessControlOptions>(
     builder.Configuration.GetSection(IpAccessControlOptions.SectionName));
+builder.Services.Configure<FileUploadOptions>(
+    builder.Configuration.GetSection(FileUploadOptions.SectionName));
 builder.Services.AddHostedService<SecurityRejectionEventFlushHostedService>();
 builder.Services.AddWeCmsAccessControl();
 builder.Services.AddWeCmsAudit();

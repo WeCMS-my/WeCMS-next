@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using WeCms.Api.Middleware;
 using WeCms.Api.Security;
 using WeCms.Modules.Identity.Services;
+using WeCms.Modules.Security;
 using WeCms.Shared.Security;
 
 namespace WeCms.Tests.Unit.Api;
@@ -244,6 +245,24 @@ public sealed class IpAccessControlMiddlewareTests
             Count++;
             LastRecord = record;
             return TryEnqueueResult;
+        }
+
+        public SecurityRejectionSnapshotDto GetSnapshot()
+        {
+            return new SecurityRejectionSnapshotDto(
+                0,
+                0,
+                null,
+                new Dictionary<string, long>());
+        }
+
+        public SecurityRejectionMetricsDto GetMetrics()
+        {
+            return new SecurityRejectionMetricsDto(
+                0,
+                0,
+                new Dictionary<string, long>(),
+                null);
         }
     }
 

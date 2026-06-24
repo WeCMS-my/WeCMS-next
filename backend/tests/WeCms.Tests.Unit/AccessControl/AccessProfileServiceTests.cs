@@ -90,12 +90,14 @@ public sealed class AccessProfileServiceTests
     public async Task AccessProfileService_UsesVersionedCacheAbstraction()
     {
         var source = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "AccessProfiles", "AccessProfileService.cs"), TestContext.Current.CancellationToken);
-        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Modules.AccessControl", "AccessProfiles", "AccessProfileCache.cs"), TestContext.Current.CancellationToken);
+        var cacheSource = await File.ReadAllTextAsync(RepoPath("backend", "src", "WeCms.Api", "AccessControl", "CachingAccessProfileCache.cs"), TestContext.Current.CancellationToken);
 
         Assert.Contains("IAccessProfileCache", source, StringComparison.Ordinal);
         Assert.Contains("_cache.GetAsync(userId, permissionVersion", source, StringComparison.Ordinal);
         Assert.Contains("_cache.SetAsync(userId, profile", source, StringComparison.Ordinal);
-        Assert.Contains("IMemoryCache", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("ICache", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("ICacheTenantAccessor", cacheSource, StringComparison.Ordinal);
+        Assert.Contains("_tenantAccessor", cacheSource, StringComparison.Ordinal);
         Assert.Contains("permissionVersion", cacheSource, StringComparison.Ordinal);
     }
 

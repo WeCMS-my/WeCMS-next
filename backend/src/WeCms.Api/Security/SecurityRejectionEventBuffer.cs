@@ -9,6 +9,8 @@ namespace WeCms.Api.Security;
 public interface ISecurityRejectionEventBuffer
 {
     bool TryEnqueue(SecurityRejectionEvent record);
+    SecurityRejectionSnapshotDto GetSnapshot();
+    SecurityRejectionMetricsDto GetMetrics();
 }
 
 public sealed record IpAccessDeniedSecurityEvent(
@@ -41,7 +43,7 @@ public enum SecurityRejectionEventKind
     IpAccessDenied = 2
 }
 
-public sealed class SecurityRejectionEventBuffer : ISecurityRejectionEventBuffer
+public sealed class SecurityRejectionEventBuffer : ISecurityRejectionEventBuffer, ISecurityRejectionDiagnostics
 {
     private const int Capacity = 4096;
     private const int FlushBatchSize = 100;
@@ -79,6 +81,47 @@ public sealed class SecurityRejectionEventBuffer : ISecurityRejectionEventBuffer
             {
                 return new Dictionary<SecurityRejectionEventKind, long>(_droppedByKind);
             }
+        }
+    }
+
+    public SecurityRejectionSnapshotDto GetSnapshot()
+    {
+        lock (_gate)
+        {
+            var aggregateCount = 0L;
+            foreach (var aggregate in _aggregates.Values)
+            {
+                aggregateCount += aggregate.HitCount;
+            }
+
+            var droppedByKind = _droppedByKind
+                .ToDictionary(pair => pair.Key.ToString(), pair => pair.Value);
+
+            return new SecurityRejectionSnapshotDto(
+                aggregateCount,
+                SecurityRejectionEventBufferDroppedCounter,
+                LastDropAt,
+                droppedByKind);
+        }
+    }
+
+    public SecurityRejectionMetricsDto GetMetrics()
+    {
+        lock (_gate)
+        {
+            var aggregateCount = 0L;
+            foreach (var aggregate in _aggregates.Values)
+            {
+                aggregateCount += aggregate.HitCount;
+            }
+
+            var droppedByKind = _droppedByKind.ToDictionary(pair => pair.Key.ToString(), pair => pair.Value);
+
+            return new SecurityRejectionMetricsDto(
+                aggregateCount,
+                SecurityRejectionEventBufferDroppedCounter,
+                droppedByKind,
+                LastDropAt);
         }
     }
 

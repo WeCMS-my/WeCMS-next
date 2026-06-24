@@ -19,6 +19,8 @@ public static class SecurityEndpoints
             .RequireAuthorization();
 
         group.MapGet("/status", StatusAsync).RequireEndpointPermission(SecurityPermissions.Status);
+        group.MapGet("/rejections", RejectionsAsync).RequireEndpointPermission(SecurityPermissions.Status);
+        group.MapGet("/rejections/metrics", RejectionsMetricsAsync).RequireEndpointPermission(SecurityPermissions.Status);
         group.MapGet("/bans", ListBansAsync).RequireEndpointPermission(SecurityPermissions.BanList);
         group.MapGet("/bans/{id:long}", GetBanAsync).RequireEndpointPermission(SecurityPermissions.BanDetail);
         group.MapPost("/bans/{id:long}/unban", UnbanAsync).RequireEndpointPermission(SecurityPermissions.BanUnban).RequireRateLimiting(RateLimitPolicyNames.SecurityUnban);
@@ -33,6 +35,18 @@ public static class SecurityEndpoints
         CancellationToken cancellationToken)
     {
         return ApiResult<SecurityStatusDto>.Ok(await service.GetStatusAsync(clock.UtcNow, cancellationToken));
+    }
+
+    private static Task<ApiResult<SecurityRejectionSnapshotDto>> RejectionsAsync(
+        ISecurityRejectionDiagnostics securityRejectionDiagnostics)
+    {
+        return Task.FromResult(ApiResult<SecurityRejectionSnapshotDto>.Ok(securityRejectionDiagnostics.GetSnapshot()));
+    }
+
+    private static Task<ApiResult<SecurityRejectionMetricsDto>> RejectionsMetricsAsync(
+        ISecurityRejectionDiagnostics securityRejectionDiagnostics)
+    {
+        return Task.FromResult(ApiResult<SecurityRejectionMetricsDto>.Ok(securityRejectionDiagnostics.GetMetrics()));
     }
 
     private static async Task<ApiResult<PagedResult<SecurityBanSummaryDto>>> ListBansAsync(
