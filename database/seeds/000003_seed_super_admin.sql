@@ -47,3 +47,15 @@ WHERE r.code = 'super_admin'
     WHERE rp.role_id = r.id
       AND rp.permission_id = p.id
   );
+
+INSERT INTO sys_role_menu (role_id, menu_id, created_at)
+SELECT r.id, m.id, UTC_TIMESTAMP(6)
+FROM sys_role r
+CROSS JOIN sys_menu m
+WHERE r.code = 'super_admin'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys_role_menu rm
+    WHERE rm.role_id = r.id
+      AND rm.menu_id = m.id
+  );

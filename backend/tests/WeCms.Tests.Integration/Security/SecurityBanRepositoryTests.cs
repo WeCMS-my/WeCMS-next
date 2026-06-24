@@ -14,7 +14,7 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await PrepareDatabaseAsync(db);
+        await PrepareDatabaseWithSeedsAsync(db);
         var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
@@ -35,7 +35,7 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await PrepareDatabaseAsync(db);
+        await PrepareDatabaseWithSeedsAsync(db);
         var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
@@ -74,7 +74,7 @@ public sealed class SecurityBanRepositoryTests : PerTestDatabaseResetBase
     {
         var connectionString = IntegrationTestDatabase.GetConnectionString();
         using var db = new SqlSugarClientFactory(connectionString).Create();
-        await PrepareDatabaseAsync(db);
+        await PrepareDatabaseWithSeedsAsync(db);
         var repository = new SecurityBanRepository(db, new SecurityEventClassifier());
         var now = new DateTimeOffset(2026, 6, 18, 0, 0, 0, TimeSpan.Zero);
 
